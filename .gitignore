@@ -1,0 +1,64 @@
+# Build output
+target/
+build/
+out/
+*.class
+*.jar
+*.war
+*.ear
+
+# Local runtime data: keep placeholders, ignore real contents
+data/*
+!data/.gitkeep
+exports/*
+!exports/.gitkeep
+logs/*
+!logs/.gitkeep
+
+# Sensitive financial inputs and generated artifacts
+*.pdf
+*.PDF
+*.csv
+*.xlsx
+*.xls
+*.ofx
+*.qif
+*.db
+*.mv.db
+*.trace.db
+*.lock.db
+*.h2.db
+*.sqlite
+*.sqlite3
+
+# Logs and temporary files
+*.log
+*.tmp
+*.temp
+*.bak
+*.swp
+.DS_Store
+Thumbs.db
+
+# Local configuration and secrets
+.env
+.env.*
+!.env.example
+application-local.properties
+application-local.yml
+application-private.properties
+application-private.yml
+
+# Local AI/tooling metadata with machine-specific paths
+.atl/
+
+# IDE and editor files
+.idea/
+*.iml
+.vscode/
+.settings/
+.project
+.classpath
+
+# Maven wrapper cache if added later
+.mvn/wrapper/maven-wrapper.jar

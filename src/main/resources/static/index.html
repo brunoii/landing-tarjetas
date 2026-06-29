@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Landing Tarjetas</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<main class="app-shell" aria-labelledby="page-title">
+    <section class="hero-card">
+        <p class="eyebrow">Local-only dashboard foundation</p>
+        <h1 id="page-title">Credit-card statement dashboard</h1>
+        <p class="hero-copy">
+            Etapa 1 provides the private local shell. Statement upload, PDF parsing,
+            calculations, categories, and persistence tables are intentionally out of scope.
+        </p>
+        <div class="status-row" aria-label="Project status">
+            <span class="status-pill">No statements loaded</span>
+            <span class="status-pill muted">Fictitious demo labels only</span>
+        </div>
+    </section>
+
+    <section class="dashboard-grid" aria-label="Dashboard preview">
+        <article class="panel">
+            <h2>Next foundation step</h2>
+            <p>Define the domain model and ingestion boundaries before adding real data handling.</p>
+        </article>
+        <article class="panel">
+            <h2>Privacy guardrails</h2>
+            <ul>
+                <li>Keep PDFs and exports outside Git.</li>
+                <li>Use anonymized examples only.</li>
+                <li>Run on your local machine.</li>
+            </ul>
+        </article>
+        <article class="panel sample-card" aria-label="Fictitious sample card">
+            <h2>Demo account</h2>
+            <p class="sample-name">Personal card A</p>
+            <p class="sample-note">Placeholder alias. Not a real card, number, issuer, balance, or statement.</p>
+        </article>
+    </section>
+</main>
+</body>
+</html>
