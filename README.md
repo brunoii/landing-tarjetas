@@ -1,6 +1,6 @@
 # Landing Tarjetas
 
-Local-only foundation for a personal credit-card statement dashboard. Etapa 1 only sets up the Spring Boot project, static dark-mode shell, local H2 configuration, and privacy-safe folders; it does not parse PDFs, store statement data, or expose statement APIs.
+Local-only foundation for a personal credit-card statement dashboard. Etapa 2 adds the backend model, local H2 persistence, validation rules, repositories, and non-upload REST endpoints. PDF upload/parsing, dashboard UI behavior, projection generation UI, and real statement samples are intentionally out of scope.
 
 ## Quick path
 
@@ -20,9 +20,30 @@ Local-only foundation for a personal credit-card statement dashboard. Etapa 1 on
 |------|----------|
 | Backend | Spring Boot with Maven and Java 17+. |
 | Frontend | Static files served from `src/main/resources/static`. |
-| Database | Local H2 file database under `./data/landing-tarjetas`. |
+| Database | Local H2 file database under `./data/landing-tarjetas`; Hibernate uses `ddl-auto=update` for local development. |
 | Runtime folders | `data/`, `exports/`, and `logs/` are placeholders only; their real contents are ignored by Git. |
-| Current scope | Etapa 1 foundation only. No domain model, repositories, PDF upload, PDF parsing, dashboard calculations, categories CRUD, or persistence schema. |
+| Current scope | Etapa 2 backend foundation only. No PDF upload/parsing endpoint and no real sample statement data. |
+
+## API foundation
+
+Available non-upload endpoints:
+
+- `GET /api/statements`
+- `GET /api/statements/{id}`
+- `PUT /api/statements/{id}`
+- `POST /api/statements/{id}/confirm`
+- `DELETE /api/statements/{id}`
+- `GET /api/transactions?month=&card=&category=&type=`
+- `PUT /api/transactions/{id}`
+- `DELETE /api/transactions/{id}`
+- `GET /api/categories`
+- `POST /api/categories`
+- `PUT /api/categories/{id}`
+- `DELETE /api/categories/{id}`
+- `GET /api/dashboard/summary?month=`
+- `GET /api/dashboard/categories?month=`
+
+Use `month` as `YYYY-MM`. Currency fields stay separate: pesos and USD are stored and summed independently, with no conversion.
 
 ## Privacy rules
 
