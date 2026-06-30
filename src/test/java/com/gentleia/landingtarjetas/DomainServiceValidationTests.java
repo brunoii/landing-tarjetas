@@ -14,6 +14,7 @@ import com.gentleia.landingtarjetas.category.CategoryService;
 import com.gentleia.landingtarjetas.dashboard.CategoryBreakdownResponse;
 import com.gentleia.landingtarjetas.dashboard.DashboardService;
 import com.gentleia.landingtarjetas.shared.CardBrand;
+import com.gentleia.landingtarjetas.shared.ParsingStatus;
 import com.gentleia.landingtarjetas.shared.Provider;
 import com.gentleia.landingtarjetas.shared.StatementStatus;
 import com.gentleia.landingtarjetas.shared.TransactionType;
@@ -21,6 +22,8 @@ import com.gentleia.landingtarjetas.statement.CardStatement;
 import com.gentleia.landingtarjetas.statement.CardStatementRepository;
 import com.gentleia.landingtarjetas.statement.StatementService;
 import com.gentleia.landingtarjetas.statement.StatementUpdateRequest;
+import com.gentleia.landingtarjetas.statement.StatementUploadService;
+import com.gentleia.landingtarjetas.statement.UploadedFileRepository;
 import com.gentleia.landingtarjetas.transaction.StatementTransaction;
 import com.gentleia.landingtarjetas.transaction.StatementTransactionRepository;
 import com.gentleia.landingtarjetas.transaction.TransactionUpdateRequest;
@@ -30,12 +33,15 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.mock.web.MockMultipartFile;
 
 @SpringBootTest
 class DomainServiceValidationTests {
 
     @Autowired
     private StatementService statementService;
+    @Autowired
+    private StatementUploadService statementUploadService;
     @Autowired
     private TransactionService transactionService;
     @Autowired
@@ -45,6 +51,8 @@ class DomainServiceValidationTests {
     @Autowired
     private CardStatementRepository statementRepository;
     @Autowired
+    private UploadedFileRepository uploadedFileRepository;
+    @Autowired
     private StatementTransactionRepository transactionRepository;
     @Autowired
     private CategoryRepository categoryRepository;
@@ -53,6 +61,7 @@ class DomainServiceValidationTests {
     void cleanDatabase() {
         transactionRepository.deleteAll();
         statementRepository.deleteAll();
+        uploadedFileRepository.deleteAll();
         categoryRepository.deleteAll();
     }
 
@@ -145,6 +154,42 @@ class DomainServiceValidationTests {
     }
 
     @Test
+    void dashboardSummaryExcludesDraftStatementsAndTransactions() {
+        CardStatement confirmed = saveStatement(CardBrand.VISA, LocalDate.of(2026, 6, 1));
+        CardStatement draft = new CardStatement(Provider.SANTANDER, CardBrand.VISA);
+        draft.setStatus(StatementStatus.DRAFT);
+        draft.setPaymentMonth(LocalDate.of(2026, 6, 1));
+        draft.setTotalPesos(new BigDecimal("999.00"));
+        draft = statementRepository.save(draft);
+        saveTransaction(confirmed, "Fixture confirmed purchase", TransactionType.PURCHASE,
+                new BigDecimal("100.00"), null, null, LocalDate.of(2026, 6, 10));
+        saveTransaction(draft, "Fixture draft purchase", TransactionType.PURCHASE,
+                new BigDecimal("999.00"), null, null, LocalDate.of(2026, 6, 11));
+
+        var summary = dashboardService.summary("2026-06");
+
+        assertThat(summary.totalPesos()).isEqualByComparingTo("100.00");
+        assertThat(summary.statementCount()).isEqualTo(1);
+        assertThat(summary.transactionCount()).isEqualTo(1);
+    }
+
+    @Test
+    void uploadPersistsFailedMetadataForNonPdfWithoutDraftStatement() {
+        MockMultipartFile file = new MockMultipartFile("files", "synthetic.txt", "text/plain", "not a pdf".getBytes());
+
+        var response = statementUploadService.upload(new MockMultipartFile[]{file});
+
+        assertThat(response.files()).hasSize(1);
+        assertThat(response.files().get(0).parsingStatus()).isEqualTo(ParsingStatus.FAILED);
+        assertThat(response.files().get(0).draftStatement()).isNull();
+        assertThat(uploadedFileRepository.findAll()).singleElement().satisfies(uploadedFile -> {
+            assertThat(uploadedFile.getOriginalFilename()).isEqualTo("synthetic.txt");
+            assertThat(uploadedFile.getParsingStatus()).isEqualTo(ParsingStatus.FAILED);
+            assertThat(uploadedFile.getChecksumSha256()).isNull();
+        });
+    }
+
+    @Test
     void dashboardCategoryBreakdownAggregatesByMonthAndCategory() {
         Category category = categoryRepository.save(new Category("Fixture services", "#123456"));
         CardStatement juneStatement = saveStatement(CardBrand.VISA, LocalDate.of(2026, 6, 1));
@@ -207,6 +252,25 @@ class DomainServiceValidationTests {
         );
 
         assertThat(filtered).extracting(StatementTransaction::getId).containsExactly(target.getId());
+    }
+
+    @Test
+    void transactionServiceListsOnlyConfirmedTransactions() {
+        CardStatement confirmed = saveStatement(CardBrand.VISA, LocalDate.of(2026, 6, 1));
+        CardStatement draft = new CardStatement(Provider.SANTANDER, CardBrand.VISA);
+        draft.setStatus(StatementStatus.DRAFT);
+        draft.setPaymentMonth(LocalDate.of(2026, 6, 1));
+        draft.setTotalPesos(new BigDecimal("999.00"));
+        draft = statementRepository.save(draft);
+        StatementTransaction confirmedTransaction = saveTransaction(confirmed, "Fixture confirmed purchase", TransactionType.PURCHASE,
+                new BigDecimal("100.00"), null, null, LocalDate.of(2026, 6, 10));
+        saveTransaction(draft, "Fixture draft purchase", TransactionType.PURCHASE,
+                new BigDecimal("999.00"), null, null, LocalDate.of(2026, 6, 11));
+
+        var transactions = transactionService.list("2026-06", CardBrand.VISA, null, TransactionType.PURCHASE);
+
+        assertThat(transactions).extracting("id").containsExactly(confirmedTransaction.getId());
+        assertThat(transactions).extracting("description").doesNotContain("Fixture draft purchase");
     }
 
     @Test
@@ -330,6 +394,7 @@ class DomainServiceValidationTests {
         CardStatement statement = new CardStatement(Provider.MANUAL, cardBrand);
         statement.setPaymentMonth(paymentMonth);
         statement.setTotalPesos(new BigDecimal("100.00"));
+        statement.setStatus(StatementStatus.CONFIRMED);
         return statementRepository.save(statement);
     }
 

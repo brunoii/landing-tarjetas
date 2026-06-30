@@ -17,14 +17,18 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequestMapping("/api/statements")
 public class StatementController {
 
     private final StatementService statementService;
-    public StatementController(StatementService statementService) {
+    private final StatementUploadService statementUploadService;
+
+    public StatementController(StatementService statementService, StatementUploadService statementUploadService) {
         this.statementService = statementService;
+        this.statementUploadService = statementUploadService;
     }
 
     @GetMapping
@@ -36,6 +40,11 @@ public class StatementController {
     @GetMapping("/{id}")
     public StatementDetailResponse get(@PathVariable Long id) {
         return statementService.get(id);
+    }
+
+    @PostMapping("/upload")
+    public StatementUploadResponse upload(@RequestParam(name = "files", required = false) MultipartFile[] files) {
+        return statementUploadService.upload(files);
     }
 
     @PutMapping("/{id}")

@@ -21,6 +21,7 @@ public record StatementDetailResponse(
         LocalDate paymentMonth,
         BigDecimal totalPesos,
         BigDecimal totalUsd,
+        BigDecimal minimumPaymentPesos,
         StatementStatus status,
         UploadedFileResponse uploadedFile,
         List<TransactionResponse> transactions
@@ -38,6 +39,7 @@ public record StatementDetailResponse(
                 statement.getPaymentMonth(),
                 statement.getTotalPesos(),
                 statement.getTotalUsd(),
+                statement.getMinimumPaymentPesos(),
                 statement.getStatus(),
                 UploadedFileResponse.from(statement.getUploadedFile()),
                 statement.getTransactions().stream().map(TransactionResponse::from).toList()

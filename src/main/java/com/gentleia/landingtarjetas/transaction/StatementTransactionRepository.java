@@ -36,4 +36,20 @@ public interface StatementTransactionRepository extends JpaRepository<StatementT
                                                @Param("cardBrand") CardBrand cardBrand,
                                                @Param("categoryId") Long categoryId,
                                                @Param("type") TransactionType type);
+
+    @Query("""
+            select t from StatementTransaction t
+            join t.statement s
+            left join fetch t.category
+            where s.status = com.gentleia.landingtarjetas.shared.StatementStatus.CONFIRMED
+              and (:paymentMonth is null or s.paymentMonth = :paymentMonth)
+              and (:cardBrand is null or s.cardBrand = :cardBrand)
+              and (:categoryId is null or t.category.id = :categoryId)
+              and (:type is null or t.type = :type)
+            order by t.transactionDate asc nulls last, t.id asc
+            """)
+    List<StatementTransaction> findConfirmedWithFilters(@Param("paymentMonth") LocalDate paymentMonth,
+                                                       @Param("cardBrand") CardBrand cardBrand,
+                                                       @Param("categoryId") Long categoryId,
+                                                       @Param("type") TransactionType type);
 }

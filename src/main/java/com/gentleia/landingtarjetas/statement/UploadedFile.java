@@ -2,7 +2,9 @@ package com.gentleia.landingtarjetas.statement;
 
 import java.time.Instant;
 
+import com.gentleia.landingtarjetas.shared.CardBrand;
 import com.gentleia.landingtarjetas.shared.ParsingStatus;
+import com.gentleia.landingtarjetas.shared.Provider;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -37,6 +39,14 @@ public class UploadedFile {
 
     @Column(length = 64)
     private String checksumSha256;
+
+    @Enumerated(EnumType.STRING)
+    @Column(length = 32)
+    private Provider detectedProvider;
+
+    @Enumerated(EnumType.STRING)
+    @Column(length = 32)
+    private CardBrand detectedCardBrand;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 24)
@@ -101,6 +111,22 @@ public class UploadedFile {
         this.checksumSha256 = checksumSha256;
     }
 
+    public Provider getDetectedProvider() {
+        return detectedProvider;
+    }
+
+    public void setDetectedProvider(Provider detectedProvider) {
+        this.detectedProvider = detectedProvider;
+    }
+
+    public CardBrand getDetectedCardBrand() {
+        return detectedCardBrand;
+    }
+
+    public void setDetectedCardBrand(CardBrand detectedCardBrand) {
+        this.detectedCardBrand = detectedCardBrand;
+    }
+
     public ParsingStatus getParsingStatus() {
         return parsingStatus;
     }
@@ -115,5 +141,9 @@ public class UploadedFile {
 
     public void setParsingMessage(String parsingMessage) {
         this.parsingMessage = parsingMessage;
+    }
+
+    public Instant getCreatedAt() {
+        return createdAt;
     }
 }

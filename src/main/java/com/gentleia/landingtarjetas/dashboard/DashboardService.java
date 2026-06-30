@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Map;
 
 import com.gentleia.landingtarjetas.shared.DateParsers;
+import com.gentleia.landingtarjetas.shared.StatementStatus;
 import com.gentleia.landingtarjetas.statement.CardStatementRepository;
 import com.gentleia.landingtarjetas.transaction.StatementTransaction;
 import com.gentleia.landingtarjetas.transaction.StatementTransactionRepository;
@@ -30,10 +31,10 @@ public class DashboardService {
     @Transactional(readOnly = true)
     public DashboardSummaryResponse summary(String month) {
         var paymentMonth = DateParsers.parseYearMonth(month);
-        List<StatementTransaction> transactions = transactionRepository.findWithFilters(paymentMonth, null, null, null);
+        List<StatementTransaction> transactions = transactionRepository.findConfirmedWithFilters(paymentMonth, null, null, null);
         BigDecimal totalPesos = sumPesos(transactions);
         BigDecimal totalUsd = sumUsd(transactions);
-        long statementCount = statementRepository.findWithFilters(paymentMonth, null).size();
+        long statementCount = statementRepository.findWithFiltersAndStatus(paymentMonth, null, StatementStatus.CONFIRMED).size();
 
         return new DashboardSummaryResponse(paymentMonth, totalPesos, totalUsd, statementCount, transactions.size());
     }
@@ -42,7 +43,7 @@ public class DashboardService {
     public List<CategoryBreakdownResponse> categoryBreakdown(String month) {
         var paymentMonth = DateParsers.parseYearMonth(month);
         Map<String, MutableCategoryTotals> totals = new LinkedHashMap<>();
-        for (StatementTransaction transaction : transactionRepository.findWithFilters(paymentMonth, null, null, null)) {
+        for (StatementTransaction transaction : transactionRepository.findConfirmedWithFilters(paymentMonth, null, null, null)) {
             Long categoryId = transaction.getCategory() == null ? null : transaction.getCategory().getId();
             String categoryName = transaction.getCategory() == null ? UNCATEGORIZED : transaction.getCategory().getName();
             String key = categoryId == null ? UNCATEGORIZED : categoryId.toString();

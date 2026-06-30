@@ -15,6 +15,7 @@ public record StatementSummaryResponse(
         LocalDate paymentMonth,
         BigDecimal totalPesos,
         BigDecimal totalUsd,
+        BigDecimal minimumPaymentPesos,
         StatementStatus status,
         int transactionCount
 ) {
@@ -27,6 +28,7 @@ public record StatementSummaryResponse(
                 statement.getPaymentMonth(),
                 statement.getTotalPesos(),
                 statement.getTotalUsd(),
+                statement.getMinimumPaymentPesos(),
                 statement.getStatus(),
                 statement.getTransactions().size()
         );

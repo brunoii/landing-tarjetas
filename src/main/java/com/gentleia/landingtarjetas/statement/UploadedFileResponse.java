@@ -1,5 +1,7 @@
 package com.gentleia.landingtarjetas.statement;
 
+import java.time.Instant;
+
 import com.gentleia.landingtarjetas.shared.ParsingStatus;
 
 public record UploadedFileResponse(
@@ -7,6 +9,8 @@ public record UploadedFileResponse(
         String originalFilename,
         String contentType,
         long sizeBytes,
+        String checksumSha256,
+        Instant uploadedAt,
         ParsingStatus parsingStatus,
         String parsingMessage
 ) {
@@ -19,6 +23,8 @@ public record UploadedFileResponse(
                 file.getOriginalFilename(),
                 file.getContentType(),
                 file.getSizeBytes(),
+                file.getChecksumSha256(),
+                file.getCreatedAt(),
                 file.getParsingStatus(),
                 file.getParsingMessage()
         );

@@ -26,7 +26,7 @@ public class TransactionService {
 
     @Transactional(readOnly = true)
     public List<TransactionResponse> list(String month, CardBrand cardBrand, Long categoryId, TransactionType type) {
-        return transactionRepository.findWithFilters(DateParsers.parseYearMonth(month), cardBrand, categoryId, type).stream()
+        return transactionRepository.findConfirmedWithFilters(DateParsers.parseYearMonth(month), cardBrand, categoryId, type).stream()
                 .map(TransactionResponse::from)
                 .toList();
     }

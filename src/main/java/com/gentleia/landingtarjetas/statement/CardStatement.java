@@ -58,6 +58,9 @@ public class CardStatement {
     @Column(precision = 19, scale = 2)
     private BigDecimal totalUsd;
 
+    @Column(precision = 19, scale = 2)
+    private BigDecimal minimumPaymentPesos;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 24)
     private StatementStatus status = StatementStatus.DRAFT;
@@ -178,6 +181,14 @@ public class CardStatement {
         this.totalUsd = totalUsd;
     }
 
+    public BigDecimal getMinimumPaymentPesos() {
+        return minimumPaymentPesos;
+    }
+
+    public void setMinimumPaymentPesos(BigDecimal minimumPaymentPesos) {
+        this.minimumPaymentPesos = minimumPaymentPesos;
+    }
+
     public StatementStatus getStatus() {
         return status;
     }
@@ -196,6 +207,11 @@ public class CardStatement {
 
     public List<StatementTransaction> getTransactions() {
         return transactions;
+    }
+
+    public void addTransaction(StatementTransaction transaction) {
+        transaction.setStatement(this);
+        this.transactions.add(transaction);
     }
 
     public Instant getCreatedAt() {

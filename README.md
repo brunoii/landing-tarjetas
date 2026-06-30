@@ -1,6 +1,6 @@
 # Landing Tarjetas
 
-Local-only foundation for a personal credit-card statement dashboard. Etapa 3 adds a framework-free dark-mode HTML/CSS/JavaScript UI shell that consumes the local REST APIs from Etapa 2. PDF upload/parsing, projection generation logic, and real statement samples are intentionally out of scope.
+Local-only foundation for a personal credit-card statement dashboard. Etapa 4A adds backend-only PDF upload, text extraction, statement parser detection, and safe draft creation. The browser upload/review screen, projection generation logic, and real statement samples are intentionally out of scope.
 
 ## Quick path
 
@@ -22,7 +22,7 @@ Local-only foundation for a personal credit-card statement dashboard. Etapa 3 ad
 | Frontend | Static files served from `src/main/resources/static`. |
 | Database | Local H2 file database under `./data/landing-tarjetas`; Hibernate uses `ddl-auto=update` for local development. |
 | Runtime folders | `data/`, `exports/`, and `logs/` are placeholders only; their real contents are ignored by Git. |
-| Current scope | Etapa 3 local UI shell over existing REST APIs. No PDF upload/parsing endpoint, projection generation, or real sample statement data. |
+| Current scope | Etapa 4A backend upload and parser-detection infrastructure. No browser upload/review screen, projection generation, or real sample statement data. |
 
 ## UI scope
 
@@ -36,9 +36,10 @@ Open <http://127.0.0.1:8080> after `mvn spring-boot:run`. Empty states are expec
 
 ## API foundation
 
-Available non-upload endpoints:
+Available endpoints:
 
 - `GET /api/statements`
+- `POST /api/statements/upload`
 - `GET /api/statements/{id}`
 - `PUT /api/statements/{id}`
 - `POST /api/statements/{id}/confirm`
@@ -55,10 +56,23 @@ Available non-upload endpoints:
 
 Use `month` as `YYYY-MM`. Currency fields stay separate: pesos and USD are stored and summed independently, with no conversion.
 
+## Backend upload scope
+
+`POST /api/statements/upload` accepts one or more multipart PDF files using the `files` field. The backend processes each file in memory with Apache PDFBox, computes a SHA-256 hash for source tracking, detects the first matching parser, and creates a `DRAFT` statement when a parser is detected.
+
+Current parser detection covers minimal synthetic-safe patterns for:
+
+- Santander Visa
+- Santander American Express
+- Naranja X
+
+Parsing is intentionally conservative. Missing or low-confidence fields remain `null` with warnings instead of invented values. Draft statements do not affect public transaction listing or dashboard totals; only `CONFIRMED` statements are included there.
+
 ## Privacy rules
 
 - Do not commit real PDFs, statements, exports, database files, logs, or local secrets.
 - Do not use real personal data, real card numbers, or real financial values in examples.
+- Uploaded PDFs are processed in memory. The app stores metadata, hashes, parser status, and extracted draft data only; raw PDF bytes are not persisted.
 - Keep this app local. Do not deploy or publish personal financial data.
 - Treat everything under `data/`, `exports/`, and `logs/` as private local runtime material.
 
