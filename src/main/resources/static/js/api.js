@@ -50,8 +50,34 @@ export const api = {
     statements(filters = {}) {
         return request(withQuery("/api/statements", filters));
     },
+    statement(id) {
+        return request(`/api/statements/${id}`);
+    },
+    uploadStatements(files) {
+        const formData = new FormData();
+        [...files].forEach((file) => formData.append("files", file));
+        return uploadRequest("/api/statements/upload", formData);
+    },
+    updateStatement(id, payload) {
+        return request(`/api/statements/${id}`, {
+            method: "PUT",
+            body: JSON.stringify(payload)
+        });
+    },
+    confirmStatement(id) {
+        return request(`/api/statements/${id}/confirm`, { method: "POST" });
+    },
     transactions(filters = {}) {
         return request(withQuery("/api/transactions", filters));
+    },
+    updateTransaction(id, payload) {
+        return request(`/api/transactions/${id}`, {
+            method: "PUT",
+            body: JSON.stringify(payload)
+        });
+    },
+    deleteTransaction(id) {
+        return request(`/api/transactions/${id}`, { method: "DELETE" });
     },
     categories() {
         return request("/api/categories");
@@ -72,3 +98,17 @@ export const api = {
         return request(`/api/categories/${id}`, { method: "DELETE" });
     }
 };
+
+async function uploadRequest(path, body) {
+    const response = await fetch(path, {
+        method: "POST",
+        headers: { "Accept": "application/json" },
+        body
+    });
+
+    if (!response.ok) {
+        throw new Error(await errorMessage(response));
+    }
+
+    return response.json();
+}

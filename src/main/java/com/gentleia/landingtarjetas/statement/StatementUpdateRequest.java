@@ -21,6 +21,7 @@ public record StatementUpdateRequest(
         LocalDate dueDate,
         LocalDate paymentMonth,
         @PositiveOrZero @Digits(integer = 17, fraction = 2) BigDecimal totalPesos,
-        @PositiveOrZero @Digits(integer = 17, fraction = 2) BigDecimal totalUsd
+        @PositiveOrZero @Digits(integer = 17, fraction = 2) BigDecimal totalUsd,
+        @PositiveOrZero @Digits(integer = 17, fraction = 2) BigDecimal minimumPaymentPesos
 ) {
 }

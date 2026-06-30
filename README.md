@@ -1,6 +1,6 @@
 # Landing Tarjetas
 
-Local-only foundation for a personal credit-card statement dashboard. Etapa 4A adds backend-only PDF upload, text extraction, statement parser detection, and safe draft creation. The browser upload/review screen, projection generation logic, and real statement samples are intentionally out of scope.
+Local-only foundation for a personal credit-card statement dashboard. Etapa 4B adds a framework-free browser workflow to upload PDFs, review generated draft statements, edit detected data, and confirm only approved statements into the public dashboard. Projection generation logic and real statement samples are intentionally out of scope.
 
 ## Quick path
 
@@ -22,17 +22,17 @@ Local-only foundation for a personal credit-card statement dashboard. Etapa 4A a
 | Frontend | Static files served from `src/main/resources/static`. |
 | Database | Local H2 file database under `./data/landing-tarjetas`; Hibernate uses `ddl-auto=update` for local development. |
 | Runtime folders | `data/`, `exports/`, and `logs/` are placeholders only; their real contents are ignored by Git. |
-| Current scope | Etapa 4A backend upload and parser-detection infrastructure. No browser upload/review screen, projection generation, or real sample statement data. |
+| Current scope | Etapa 4B browser upload and draft review UI over the existing local APIs. No projection generation or real sample statement data. |
 
 ## UI scope
 
 The static frontend lives under `src/main/resources/static` and is intentionally framework-free:
 
-- `index.html` renders the dashboard shell, filters, transaction table, and category admin.
+- `index.html` renders the dashboard shell, upload/review workflow, filters, transaction table, and category admin.
 - `css/styles.css` contains the dark-mode layout.
 - `js/*.js` modules call the existing local APIs and keep pesos and USD separate.
 
-Open <http://127.0.0.1:8080> after `mvn spring-boot:run`. Empty states are expected until local statements or transactions exist.
+Open <http://127.0.0.1:8080> after `mvn spring-boot:run`. Empty states are expected until local statements or transactions exist. Draft statements appear only in the review panel; dashboard totals and the public transaction table stay confirmed-only.
 
 ## API foundation
 
@@ -59,6 +59,14 @@ Use `month` as `YYYY-MM`. Currency fields stay separate: pesos and USD are store
 ## Backend upload scope
 
 `POST /api/statements/upload` accepts one or more multipart PDF files using the `files` field. The backend processes each file in memory with Apache PDFBox, computes a SHA-256 hash for source tracking, detects the first matching parser, and creates a `DRAFT` statement when a parser is detected.
+
+The browser upload/review UI uses the same endpoint and existing statement/transaction APIs:
+
+- Select one or more local PDF files using multipart field `files`.
+- Review per-file parser status, hash, detected provider/card, warnings, and draft links without exposing extracted text.
+- Edit draft statement fields, including payment month, dates, totals, minimum payment in pesos, provider, card, and local alias.
+- Edit/delete detected draft transactions and assign existing categories.
+- Confirm the draft only after payment month and at least one total are present.
 
 Current parser detection covers minimal synthetic-safe patterns for:
 

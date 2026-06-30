@@ -48,6 +48,7 @@ public class StatementService {
         }
         statement.setTotalPesos(request.totalPesos());
         statement.setTotalUsd(request.totalUsd());
+        statement.setMinimumPaymentPesos(request.minimumPaymentPesos());
         if (statement.getStatus() == StatementStatus.CONFIRMED) {
             if (statement.getPaymentMonth() == null) {
                 throw new IllegalArgumentException("Confirmed statements require a payment month");

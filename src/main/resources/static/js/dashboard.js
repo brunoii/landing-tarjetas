@@ -5,19 +5,19 @@ const targetCards = [
         title: "Santander VISA",
         cardBrand: "VISA",
         alias: "santander",
-        providers: ["VISA_HOME", "BANK_PORTAL", "MANUAL"]
+        providers: ["VISA_HOME", "BANK_PORTAL", "SANTANDER", "MANUAL"]
     },
     {
         title: "Santander AMEX",
         cardBrand: "AMERICAN_EXPRESS",
         alias: "santander",
-        providers: ["BANK_PORTAL", "MANUAL"]
+        providers: ["BANK_PORTAL", "SANTANDER", "MANUAL"]
     },
     {
         title: "Naranja X",
         cardBrand: "OTHER",
         alias: "naranja",
-        providers: ["BANK_PORTAL", "MANUAL"]
+        providers: ["BANK_PORTAL", "NARANJA_X", "MANUAL"]
     }
 ];
 

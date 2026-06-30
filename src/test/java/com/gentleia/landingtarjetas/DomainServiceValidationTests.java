@@ -33,7 +33,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.http.HttpStatus;
 import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.web.server.ResponseStatusException;
 
 @SpringBootTest
 class DomainServiceValidationTests {
@@ -122,6 +124,7 @@ class DomainServiceValidationTests {
                 LocalDate.of(2026, 6, 5),
                 null,
                 new BigDecimal("110.00"),
+                null,
                 null
         );
 
@@ -130,6 +133,34 @@ class DomainServiceValidationTests {
         assertThat(response.paymentMonth()).isEqualTo(LocalDate.of(2026, 6, 1));
         assertThat(statementRepository.findById(statement.getId()).orElseThrow().getPaymentMonth())
                 .isEqualTo(LocalDate.of(2026, 6, 1));
+    }
+
+    @Test
+    void updateStoresMinimumPaymentForDraftReview() {
+        CardStatement statement = new CardStatement(Provider.SANTANDER, CardBrand.VISA);
+        statement.setPaymentMonth(LocalDate.of(2026, 6, 1));
+        statement.setTotalPesos(new BigDecimal("100.00"));
+        statement = statementRepository.save(statement);
+
+        var request = new StatementUpdateRequest(
+                Provider.SANTANDER,
+                CardBrand.VISA,
+                "Fixture card",
+                LocalDate.of(2026, 5, 1),
+                LocalDate.of(2026, 5, 31),
+                LocalDate.of(2026, 5, 24),
+                LocalDate.of(2026, 6, 5),
+                LocalDate.of(2026, 6, 1),
+                new BigDecimal("100.00"),
+                null,
+                new BigDecimal("25.00")
+        );
+
+        var response = statementService.update(statement.getId(), request);
+
+        assertThat(response.minimumPaymentPesos()).isEqualByComparingTo("25.00");
+        assertThat(statementRepository.findById(statement.getId()).orElseThrow().getMinimumPaymentPesos())
+                .isEqualByComparingTo("25.00");
     }
 
     @Test
@@ -274,6 +305,94 @@ class DomainServiceValidationTests {
     }
 
     @Test
+    void updateRejectsConfirmedStatementTransaction() {
+        StatementTransaction transaction = saveTransaction(saveStatement(CardBrand.VISA, LocalDate.of(2026, 6, 1)),
+                "Fixture confirmed purchase", TransactionType.PURCHASE,
+                new BigDecimal("50.00"), null, null, LocalDate.of(2026, 6, 10));
+
+        var request = new TransactionUpdateRequest(
+                LocalDate.of(2026, 6, 11),
+                "Fixture changed purchase",
+                TransactionType.PURCHASE,
+                null,
+                new BigDecimal("75.00"),
+                null,
+                null,
+                null,
+                "Changed note"
+        );
+
+        assertThatThrownBy(() -> transactionService.update(transaction.getId(), request))
+                .isInstanceOfSatisfying(ResponseStatusException.class, exception -> {
+                    assertThat(exception.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
+                    assertThat(exception.getReason()).isEqualTo("Only draft statement transactions can be modified");
+                });
+        assertThat(transactionRepository.findById(transaction.getId()))
+                .get()
+                .satisfies(saved -> {
+                    assertThat(saved.getDescription()).isEqualTo("Fixture confirmed purchase");
+                    assertThat(saved.getAmountPesos()).isEqualByComparingTo("50.00");
+                    assertThat(saved.getNotes()).isNull();
+                });
+    }
+
+    @Test
+    void deleteRejectsConfirmedStatementTransaction() {
+        StatementTransaction transaction = saveTransaction(saveStatement(CardBrand.VISA, LocalDate.of(2026, 6, 1)),
+                "Fixture confirmed purchase", TransactionType.PURCHASE,
+                new BigDecimal("50.00"), null, null, LocalDate.of(2026, 6, 10));
+
+        assertThatThrownBy(() -> transactionService.delete(transaction.getId()))
+                .isInstanceOfSatisfying(ResponseStatusException.class, exception -> {
+                    assertThat(exception.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
+                    assertThat(exception.getReason()).isEqualTo("Only draft statement transactions can be modified");
+                });
+        assertThat(transactionRepository.existsById(transaction.getId())).isTrue();
+    }
+
+    @Test
+    void updateAllowsDraftStatementTransaction() {
+        StatementTransaction transaction = saveTransaction(saveDraftStatement(CardBrand.VISA, LocalDate.of(2026, 6, 1)),
+                "Fixture draft purchase", TransactionType.PURCHASE,
+                new BigDecimal("50.00"), null, null, LocalDate.of(2026, 6, 10));
+
+        var request = new TransactionUpdateRequest(
+                LocalDate.of(2026, 6, 11),
+                "Fixture reviewed purchase",
+                TransactionType.PURCHASE,
+                null,
+                new BigDecimal("75.00"),
+                null,
+                null,
+                null,
+                "Reviewed note"
+        );
+
+        var response = transactionService.update(transaction.getId(), request);
+
+        assertThat(response.description()).isEqualTo("Fixture reviewed purchase");
+        assertThat(response.amountPesos()).isEqualByComparingTo("75.00");
+        assertThat(transactionRepository.findById(transaction.getId()))
+                .get()
+                .satisfies(saved -> {
+                    assertThat(saved.getDescription()).isEqualTo("Fixture reviewed purchase");
+                    assertThat(saved.getAmountPesos()).isEqualByComparingTo("75.00");
+                    assertThat(saved.getNotes()).isEqualTo("Reviewed note");
+                });
+    }
+
+    @Test
+    void deleteAllowsDraftStatementTransaction() {
+        StatementTransaction transaction = saveTransaction(saveDraftStatement(CardBrand.VISA, LocalDate.of(2026, 6, 1)),
+                "Fixture draft purchase", TransactionType.PURCHASE,
+                new BigDecimal("50.00"), null, null, LocalDate.of(2026, 6, 10));
+
+        transactionService.delete(transaction.getId());
+
+        assertThat(transactionRepository.existsById(transaction.getId())).isFalse();
+    }
+
+    @Test
     void updateRejectsInstallmentWithoutCurrentAndTotalInstallments() {
         StatementTransaction transaction = saveTransaction(TransactionType.PURCHASE);
 
@@ -384,7 +503,7 @@ class DomainServiceValidationTests {
     }
 
     private StatementTransaction saveTransaction(TransactionType type) {
-        CardStatement statement = saveStatement(CardBrand.VISA, LocalDate.of(2026, 6, 1));
+        CardStatement statement = saveDraftStatement(CardBrand.VISA, LocalDate.of(2026, 6, 1));
 
         return saveTransaction(statement, "Private fixture purchase", type,
                 new BigDecimal("50.00"), null, null, LocalDate.of(2026, 6, 10));
@@ -395,6 +514,14 @@ class DomainServiceValidationTests {
         statement.setPaymentMonth(paymentMonth);
         statement.setTotalPesos(new BigDecimal("100.00"));
         statement.setStatus(StatementStatus.CONFIRMED);
+        return statementRepository.save(statement);
+    }
+
+    private CardStatement saveDraftStatement(CardBrand cardBrand, LocalDate paymentMonth) {
+        CardStatement statement = new CardStatement(Provider.SANTANDER, cardBrand);
+        statement.setPaymentMonth(paymentMonth);
+        statement.setTotalPesos(new BigDecimal("100.00"));
+        statement.setStatus(StatementStatus.DRAFT);
         return statementRepository.save(statement);
     }
 

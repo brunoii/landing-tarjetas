@@ -11,7 +11,7 @@
     <div>
         <p class="eyebrow">Local-only statement dashboard</p>
         <h1>Credit-card statements</h1>
-        <p class="lede">A private dark-mode shell for reviewing loaded statement data. PDF upload, parsing, projections, and sample financial data are intentionally out of scope.</p>
+        <p class="lede">A private dark-mode shell for uploading local PDFs, reviewing draft statement data, and confirming only the statements that should appear in the public dashboard.</p>
     </div>
     <label class="month-picker" for="month-input">
         <span>Payment month</span>
@@ -23,6 +23,126 @@
     <section class="notice" role="status" aria-live="polite" id="app-status">Loading local dashboard data...</section>
 
     <nav class="month-tabs" aria-label="Available months" id="month-tabs"></nav>
+
+    <section class="panel" aria-labelledby="upload-title">
+        <div class="section-heading">
+            <div>
+                <p class="eyebrow">Upload</p>
+                <h2 id="upload-title">Upload statement PDFs</h2>
+            </div>
+            <p class="section-note">Local-only workflow: do not commit real PDFs, raw PDFs are processed in memory, and raw PDF bytes are not persisted.</p>
+        </div>
+
+        <form class="upload-form" id="statement-upload-form">
+            <label class="wide-field">
+                PDF files
+                <input id="statement-files" name="files" type="file" accept="application/pdf,.pdf" multiple required>
+            </label>
+            <button type="submit">Upload drafts</button>
+        </form>
+        <p class="form-feedback" id="statement-file-hint">PDF only. Maximum 1 MB per file and 5 MB per request.</p>
+        <p class="form-feedback" id="statement-upload-feedback" role="status" aria-live="polite"></p>
+        <div class="upload-results" id="upload-results"></div>
+
+        <div class="draft-list-shell">
+            <h3>Drafts waiting for review</h3>
+            <p class="section-note">Drafts are visible only here. They stay out of the public dashboard and transaction table until confirmed.</p>
+            <div class="draft-list" id="draft-statement-list"></div>
+        </div>
+    </section>
+
+    <section class="panel" aria-labelledby="draft-review-title">
+        <div class="section-heading">
+            <div>
+                <p class="eyebrow">Review</p>
+                <h2 id="draft-review-title">Review a draft statement</h2>
+            </div>
+            <p class="section-note" id="draft-review-meta">Upload a PDF or choose a draft to review detected fields before confirmation.</p>
+        </div>
+
+        <p class="empty-state" id="draft-empty-state">No draft selected. Upload a PDF or open an existing draft from the review list.</p>
+
+        <div id="draft-review-panel" hidden>
+            <form class="statement-form" id="statement-form">
+                <label>
+                    Provider
+                    <select id="statement-provider" required></select>
+                </label>
+                <label>
+                    Card
+                    <select id="statement-card-brand" required></select>
+                </label>
+                <label>
+                    Card alias
+                    <input id="statement-card-alias" type="text" maxlength="80" placeholder="Local card label">
+                </label>
+                <label>
+                    Payment month
+                    <input id="statement-payment-month" type="month">
+                </label>
+                <label>
+                    Period start
+                    <input id="statement-period-start" type="date">
+                </label>
+                <label>
+                    Period end
+                    <input id="statement-period-end" type="date">
+                </label>
+                <label>
+                    Closing date
+                    <input id="statement-closing-date" type="date">
+                </label>
+                <label>
+                    Due date
+                    <input id="statement-due-date" type="date">
+                </label>
+                <label>
+                    Total pesos
+                    <input id="statement-total-pesos" type="number" min="0" step="0.01" inputmode="decimal">
+                </label>
+                <label>
+                    Total USD
+                    <input id="statement-total-usd" type="number" min="0" step="0.01" inputmode="decimal">
+                </label>
+                <label>
+                    Minimum payment pesos
+                    <input id="statement-minimum-payment-pesos" type="number" min="0" step="0.01" inputmode="decimal">
+                </label>
+                <label>
+                    Notes
+                    <input id="statement-notes-placeholder" type="text" readonly>
+                </label>
+                <div class="form-actions">
+                    <button type="submit" class="secondary-button">Save draft</button>
+                    <button type="button" id="confirm-statement-button">Confirm statement</button>
+                </div>
+            </form>
+            <p class="form-feedback" id="draft-review-feedback" role="status" aria-live="polite"></p>
+
+            <h3>Detected transactions</h3>
+            <p class="section-note">You can edit, delete, and assign categories to detected rows. Creating missing transactions is a follow-up because the current API only supports editing or deleting existing rows.</p>
+            <div class="table-wrap draft-table-wrap">
+                <table>
+                    <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Description</th>
+                        <th>Type</th>
+                        <th>Category</th>
+                        <th>Installment</th>
+                        <th>Total installments</th>
+                        <th>Pesos</th>
+                        <th>USD</th>
+                        <th>Notes</th>
+                        <th>Actions</th>
+                    </tr>
+                    </thead>
+                    <tbody id="draft-transactions-table"></tbody>
+                </table>
+            </div>
+            <p class="empty-state" id="draft-transactions-empty" hidden>No detected transactions were created for this draft. Missing transaction creation is not supported by the current API yet.</p>
+        </div>
+    </section>
 
     <section class="summary-grid" aria-label="Monthly summary">
         <article class="metric-card featured">

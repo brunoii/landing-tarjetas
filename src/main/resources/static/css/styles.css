@@ -62,6 +62,11 @@ select {
     color: var(--text);
 }
 
+input[readonly] {
+    color: var(--muted);
+    cursor: not-allowed;
+}
+
 label {
     display: grid;
     gap: 0.4rem;
@@ -296,7 +301,9 @@ h3 {
 }
 
 .filters,
-.category-form {
+.category-form,
+.upload-form,
+.statement-form {
     display: grid;
     grid-template-columns: repeat(5, minmax(0, 1fr));
     gap: 0.85rem;
@@ -306,6 +313,29 @@ h3 {
 
 .category-form {
     grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr) auto;
+}
+
+.upload-form {
+    grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.statement-form {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    padding: 1rem;
+    border: 1px solid var(--border);
+    border-radius: 22px;
+    background: var(--surface-muted);
+}
+
+.form-actions {
+    display: flex;
+    gap: 0.75rem;
+    align-items: end;
+    grid-column: span 2;
+}
+
+.error-text {
+    color: #fecaca;
 }
 
 .wide-field {
@@ -362,6 +392,92 @@ td {
     gap: 0.75rem;
 }
 
+.upload-results,
+.draft-list {
+    display: grid;
+    gap: 0.85rem;
+}
+
+.draft-list-shell {
+    display: grid;
+    gap: 0.75rem;
+    margin-top: 1.2rem;
+}
+
+.upload-result,
+.draft-card {
+    display: grid;
+    gap: 0.85rem;
+    border: 1px solid var(--border);
+    border-radius: 22px;
+    padding: 1rem;
+    background: var(--surface-muted);
+}
+
+.upload-result header,
+.draft-card {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: start;
+}
+
+.upload-result header,
+.upload-result dl,
+.draft-card,
+.draft-card dl {
+    display: grid;
+    gap: 0.75rem;
+}
+
+.upload-result dl,
+.draft-card dl {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    margin: 0;
+}
+
+.upload-result dl div,
+.draft-card dl div {
+    display: grid;
+    gap: 0.25rem;
+}
+
+.upload-result dt,
+.draft-card dt {
+    color: var(--muted);
+    font-size: 0.78rem;
+    font-weight: 800;
+    text-transform: uppercase;
+}
+
+.upload-result dd,
+.draft-card dd {
+    min-width: 0;
+    margin: 0;
+    overflow-wrap: anywhere;
+}
+
+.warning-list {
+    margin: 0;
+    color: var(--warning);
+}
+
+.draft-table-wrap table {
+    min-width: 1320px;
+}
+
+#draft-transactions-table input,
+#draft-transactions-table select {
+    min-width: 120px;
+}
+
+#draft-transactions-table [name="description"] {
+    min-width: 240px;
+}
+
+.row-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
 .category-row {
     display: grid;
     grid-template-columns: 44px minmax(0, 1fr) 180px auto auto;
@@ -406,7 +522,16 @@ td {
     .card-detail-grid,
     .filters,
     .category-form,
+    .upload-form,
+    .statement-form,
     .category-row {
+        grid-template-columns: 1fr;
+    }
+
+    .form-actions,
+    .upload-result dl,
+    .draft-card dl {
+        grid-column: span 1;
         grid-template-columns: 1fr;
     }
 }

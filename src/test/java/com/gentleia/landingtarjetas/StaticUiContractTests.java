@@ -23,16 +23,18 @@ class StaticUiContractTests {
         assertThat(index).contains("<link rel=\"stylesheet\" href=\"/css/styles.css\">");
         assertThat(index).contains("<script type=\"module\" src=\"/js/app.js\"></script>");
         assertThat(readStatic("js/app.js"))
-                .contains("./api.js", "./categories.js", "./dashboard.js", "./transactions.js", "./utils.js");
+                .contains("./api.js", "./categories.js", "./dashboard.js", "./statements.js", "./transactions.js", "./utils.js");
     }
 
     @Test
-    void apiModuleReferencesOnlyEtapaThreeReadAndCategoryEndpoints() throws IOException {
+    void apiModuleReferencesEtapaFourUploadReviewEndpoints() throws IOException {
         String api = readStatic("js/api.js");
 
         assertThat(api).contains(
                 "/api/dashboard/summary",
                 "/api/statements",
+                "/api/statements/upload",
+                "/api/statements/${id}/confirm",
                 "/api/transactions",
                 "/api/categories"
         );
@@ -40,10 +42,50 @@ class StaticUiContractTests {
     }
 
     @Test
-    void staticUiDoesNotReferenceUploadParsingOrProjectionApiEndpoints() throws IOException {
+    void staticUiDoesNotReferenceUnsupportedParsingOrProjectionApiEndpoints() throws IOException {
         String staticFiles = readAllStaticText();
 
-        assertThat(staticFiles).doesNotContainPattern("/api/[^\\\"']*(upload|uploads|parse|parsing|projection|projections)");
+        assertThat(staticFiles).doesNotContainPattern("/api/[^\\\"']*(parse|parsing|projection|projections)");
+        assertThat(staticFiles).doesNotContain("/api/uploads", "/api/upload");
+    }
+
+    @Test
+    void uploadUiUsesExpectedMultipartFieldAndPrivacyCopy() throws IOException {
+        String index = readStatic("index.html");
+        String api = readStatic("js/api.js");
+        String statements = readStatic("js/statements.js");
+
+        assertThat(index).contains(
+                "id=\"statement-files\" name=\"files\" type=\"file\"",
+                "raw PDFs are processed in memory",
+                "raw PDF bytes are not persisted",
+                "PDF only. Maximum 1 MB per file and 5 MB per request."
+        );
+        assertThat(api).contains("formData.append(\"files\", file)");
+        assertThat(statements).contains("MAX_PDF_SIZE_BYTES = 1_048_576");
+        assertThat(statements).doesNotContain("extractedText", "rawText", "pdfText");
+    }
+
+    @Test
+    void draftReviewUiKeepsDraftsSeparateUntilConfirmation() throws IOException {
+        String index = readStatic("index.html");
+        String app = readStatic("js/app.js");
+        String statements = readStatic("js/statements.js");
+
+        assertThat(index).contains(
+                "Drafts are visible only here",
+                "Creating missing transactions is a follow-up",
+                "Payment month"
+        );
+        assertThat(app).contains(
+                "statement.status === \"CONFIRMED\"",
+                "renderDraftStatementList(allStatements)"
+        );
+        assertThat(statements).contains(
+                "Payment month and at least one statement total are required before confirmation.",
+                "api.updateTransaction",
+                "api.deleteTransaction"
+        );
     }
 
     @Test

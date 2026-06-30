@@ -1,6 +1,7 @@
 import { api } from "./api.js";
 import { categoryFormPayload, renderCategories, resetCategoryForm, showCategoryFeedback } from "./categories.js";
 import { renderDashboard } from "./dashboard.js";
+import { renderDraftStatementList, setStatementCategories, setupStatementUpload } from "./statements.js";
 import { renderTransactions, rerenderTransactionsAfterSearch, setTransactionCategories, transactionFilters } from "./transactions.js";
 import { currentYearMonth } from "./utils.js";
 
@@ -28,6 +29,16 @@ document.addEventListener("DOMContentLoaded", () => {
         await createCategory();
     });
 
+    setupStatementUpload({
+        onDraftChanged: loadDashboard,
+        onDraftConfirmed: async (statement) => {
+            state.month = String(statement.paymentMonth || state.month).slice(0, 7);
+            monthInput.value = state.month;
+            await loadDashboard();
+        },
+        setStatus
+    });
+
     loadAll();
 });
 
@@ -45,9 +56,16 @@ async function loadDashboard() {
             api.transactions({ month: state.month }),
             api.statements()
         ]);
-        renderDashboard({ month: state.month, summary, statements, transactions, allStatements });
+        const confirmedStatements = statements.filter((statement) => statement.status === "CONFIRMED");
+        const confirmedAllStatements = allStatements.filter((statement) => statement.status === "CONFIRMED");
+        renderDashboard({ month: state.month, summary, statements: confirmedStatements, transactions, allStatements: confirmedAllStatements });
+        renderDraftStatementList(allStatements);
         renderTransactions(transactions);
-        setStatus(statements.length || transactions.length ? "Loaded local dashboard data." : "No statements or transactions are loaded for this month yet.");
+        setStatus(confirmedStatements.length || transactions.length
+            ? "Loaded confirmed dashboard data."
+            : statements.length
+                ? "Draft statements are waiting for review; public dashboard data is still empty for this month."
+                : "No statements or transactions are loaded for this month yet.");
     } catch (error) {
         setStatus(error.message, true);
     }
@@ -68,6 +86,7 @@ async function loadCategories() {
     try {
         state.categories = await api.categories();
         setTransactionCategories(state.categories);
+        setStatementCategories(state.categories);
         renderCategories(state.categories, {
             onUpdate: updateCategory,
             onDelete: deleteCategory

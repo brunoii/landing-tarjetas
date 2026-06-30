@@ -6,6 +6,7 @@ import com.gentleia.landingtarjetas.category.Category;
 import com.gentleia.landingtarjetas.category.CategoryService;
 import com.gentleia.landingtarjetas.shared.CardBrand;
 import com.gentleia.landingtarjetas.shared.DateParsers;
+import com.gentleia.landingtarjetas.shared.StatementStatus;
 import com.gentleia.landingtarjetas.shared.TransactionType;
 
 import org.springframework.http.HttpStatus;
@@ -34,6 +35,7 @@ public class TransactionService {
     @Transactional
     public TransactionResponse update(Long id, TransactionUpdateRequest request) {
         StatementTransaction transaction = getTransaction(id);
+        requireDraftStatement(transaction);
         transaction.setTransactionDate(request.transactionDate());
         transaction.setDescription(request.description().trim());
         transaction.setType(request.type());
@@ -53,7 +55,9 @@ public class TransactionService {
 
     @Transactional
     public void delete(Long id) {
-        transactionRepository.delete(getTransaction(id));
+        StatementTransaction transaction = getTransaction(id);
+        requireDraftStatement(transaction);
+        transactionRepository.delete(transaction);
     }
 
     public StatementTransaction getTransaction(Long id) {
@@ -80,5 +84,12 @@ public class TransactionService {
             return null;
         }
         return value.trim();
+    }
+
+    private void requireDraftStatement(StatementTransaction transaction) {
+        if (transaction.getStatement().getStatus() != StatementStatus.DRAFT) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Only draft statement transactions can be modified");
+        }
     }
 }
