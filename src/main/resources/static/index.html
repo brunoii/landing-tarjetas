@@ -4,42 +4,163 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Landing Tarjetas</title>
-    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="/css/styles.css">
 </head>
 <body>
-<main class="app-shell" aria-labelledby="page-title">
-    <section class="hero-card">
-        <p class="eyebrow">Local-only dashboard foundation</p>
-        <h1 id="page-title">Credit-card statement dashboard</h1>
-        <p class="hero-copy">
-            Etapa 1 provides the private local shell. Statement upload, PDF parsing,
-            calculations, categories, and persistence tables are intentionally out of scope.
-        </p>
-        <div class="status-row" aria-label="Project status">
-            <span class="status-pill">No statements loaded</span>
-            <span class="status-pill muted">Fictitious demo labels only</span>
-        </div>
+<header class="topbar">
+    <div>
+        <p class="eyebrow">Local-only statement dashboard</p>
+        <h1>Credit-card statements</h1>
+        <p class="lede">A private dark-mode shell for reviewing loaded statement data. PDF upload, parsing, projections, and sample financial data are intentionally out of scope.</p>
+    </div>
+    <label class="month-picker" for="month-input">
+        <span>Payment month</span>
+        <input id="month-input" type="month" autocomplete="off">
+    </label>
+</header>
+
+<main class="app-shell">
+    <section class="notice" role="status" aria-live="polite" id="app-status">Loading local dashboard data...</section>
+
+    <nav class="month-tabs" aria-label="Available months" id="month-tabs"></nav>
+
+    <section class="summary-grid" aria-label="Monthly summary">
+        <article class="metric-card featured">
+            <span class="metric-label">Total pesos</span>
+            <strong id="total-pesos">ARS 0.00</strong>
+            <small id="total-pesos-hint">No loaded transactions for this month.</small>
+        </article>
+        <article class="metric-card featured">
+            <span class="metric-label">Total USD</span>
+            <strong id="total-usd">USD 0.00</strong>
+            <small>USD is shown separately. No conversion is applied.</small>
+        </article>
+        <article class="metric-card">
+            <span class="metric-label">One-payment total</span>
+            <strong id="one-payment-total">ARS 0.00 / USD 0.00</strong>
+            <small>Derived from PURCHASE transactions.</small>
+        </article>
+        <article class="metric-card">
+            <span class="metric-label">Installments</span>
+            <strong id="installment-total">ARS 0.00 / USD 0.00</strong>
+            <small>Derived from INSTALLMENT transactions.</small>
+        </article>
+        <article class="metric-card">
+            <span class="metric-label">Charges and taxes</span>
+            <strong id="charges-total">ARS 0.00 / USD 0.00</strong>
+            <small>Derived from FEE and TAX transactions.</small>
+        </article>
+        <article class="metric-card">
+            <span class="metric-label">Statements / transactions</span>
+            <strong id="record-counts">0 / 0</strong>
+            <small>Loaded from the local REST API.</small>
+        </article>
     </section>
 
-    <section class="dashboard-grid" aria-label="Dashboard preview">
-        <article class="panel">
-            <h2>Next foundation step</h2>
-            <p>Define the domain model and ingestion boundaries before adding real data handling.</p>
-        </article>
-        <article class="panel">
-            <h2>Privacy guardrails</h2>
-            <ul>
-                <li>Keep PDFs and exports outside Git.</li>
-                <li>Use anonymized examples only.</li>
-                <li>Run on your local machine.</li>
-            </ul>
-        </article>
-        <article class="panel sample-card" aria-label="Fictitious sample card">
-            <h2>Demo account</h2>
-            <p class="sample-name">Personal card A</p>
-            <p class="sample-note">Placeholder alias. Not a real card, number, issuer, balance, or statement.</p>
-        </article>
+    <section class="panel" aria-labelledby="card-status-title">
+        <div class="section-heading">
+            <div>
+                <p class="eyebrow">Card status</p>
+                <h2 id="card-status-title">Monthly card details</h2>
+            </div>
+            <p class="section-note">Loaded means a matching statement exists for the selected month.</p>
+        </div>
+        <div class="card-detail-grid" id="card-detail-grid"></div>
+    </section>
+
+    <section class="panel" aria-labelledby="transactions-title">
+        <div class="section-heading">
+            <div>
+                <p class="eyebrow">Transactions</p>
+                <h2 id="transactions-title">Statement rows</h2>
+            </div>
+            <p class="section-note">Text search is applied in the browser after API filters load.</p>
+        </div>
+
+        <form class="filters" id="transaction-filters">
+            <label>
+                Card
+                <select id="filter-card">
+                    <option value="">All cards</option>
+                    <option value="VISA">Visa</option>
+                    <option value="AMERICAN_EXPRESS">American Express</option>
+                    <option value="MASTERCARD">Mastercard</option>
+                    <option value="OTHER">Other</option>
+                </select>
+            </label>
+            <label>
+                Category
+                <select id="filter-category">
+                    <option value="">All categories</option>
+                </select>
+            </label>
+            <label>
+                Type
+                <select id="filter-type">
+                    <option value="">All types</option>
+                    <option value="PURCHASE">Purchase</option>
+                    <option value="INSTALLMENT">Installment</option>
+                    <option value="FEE">Fee</option>
+                    <option value="TAX">Tax</option>
+                    <option value="PAYMENT">Payment</option>
+                    <option value="REFUND">Refund</option>
+                    <option value="ADJUSTMENT">Adjustment</option>
+                </select>
+            </label>
+            <label class="wide-field">
+                Search
+                <input id="filter-search" type="search" placeholder="Description, notes, category, or card">
+            </label>
+            <button class="secondary-button" type="submit">Apply filters</button>
+        </form>
+
+        <div class="table-wrap">
+            <table>
+                <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Card</th>
+                    <th>Description</th>
+                    <th>Type</th>
+                    <th>Category</th>
+                    <th>Installment</th>
+                    <th>Pesos</th>
+                    <th>USD</th>
+                    <th>Notes</th>
+                    <th>Actions</th>
+                </tr>
+                </thead>
+                <tbody id="transactions-table"></tbody>
+            </table>
+        </div>
+        <p class="empty-state" id="transactions-empty" hidden>No transactions match the current filters.</p>
+    </section>
+
+    <section class="panel" aria-labelledby="categories-title">
+        <div class="section-heading">
+            <div>
+                <p class="eyebrow">Administration</p>
+                <h2 id="categories-title">Categories</h2>
+            </div>
+            <p class="section-note">Categories are stored locally and listed only when active.</p>
+        </div>
+
+        <form class="category-form" id="category-form">
+            <label>
+                Name
+                <input id="category-name" type="text" maxlength="80" required placeholder="Category name">
+            </label>
+            <label>
+                Color
+                <input id="category-color" type="text" maxlength="7" pattern="#[0-9A-Fa-f]{6}" placeholder="#38bdf8">
+            </label>
+            <button type="submit">Create category</button>
+        </form>
+        <p class="form-feedback" id="category-feedback" role="status" aria-live="polite"></p>
+        <div class="category-list" id="category-list"></div>
     </section>
 </main>
+
+<script type="module" src="/js/app.js"></script>
 </body>
 </html>

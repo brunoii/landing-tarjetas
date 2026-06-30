@@ -9,6 +9,7 @@ import java.util.List;
 
 import com.gentleia.landingtarjetas.category.Category;
 import com.gentleia.landingtarjetas.category.CategoryRepository;
+import com.gentleia.landingtarjetas.category.CategoryRequest;
 import com.gentleia.landingtarjetas.category.CategoryService;
 import com.gentleia.landingtarjetas.dashboard.CategoryBreakdownResponse;
 import com.gentleia.landingtarjetas.dashboard.DashboardService;
@@ -274,6 +275,24 @@ class DomainServiceValidationTests {
         var categories = categoryService.listCategories();
 
         assertThat(categories).extracting("id").containsExactly(active.getId());
+    }
+
+    @Test
+    void createRejectsUnsafeCategoryColorCssValues() {
+        var request = new CategoryRequest("Fixture category", "url(https://example.test/pixel)", true);
+
+        assertThatThrownBy(() -> categoryService.create(request))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("hex color");
+    }
+
+    @Test
+    void createAcceptsHexCategoryColorAndEmptyColorOnly() {
+        var hexResponse = categoryService.create(new CategoryRequest("Fixture hex category", "#38bdf8", true));
+        var emptyResponse = categoryService.create(new CategoryRequest("Fixture empty color category", "", true));
+
+        assertThat(hexResponse.color()).isEqualTo("#38bdf8");
+        assertThat(emptyResponse.color()).isNull();
     }
 
     @Test

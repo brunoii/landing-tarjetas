@@ -1,6 +1,6 @@
 # Landing Tarjetas
 
-Local-only foundation for a personal credit-card statement dashboard. Etapa 2 adds the backend model, local H2 persistence, validation rules, repositories, and non-upload REST endpoints. PDF upload/parsing, dashboard UI behavior, projection generation UI, and real statement samples are intentionally out of scope.
+Local-only foundation for a personal credit-card statement dashboard. Etapa 3 adds a framework-free dark-mode HTML/CSS/JavaScript UI shell that consumes the local REST APIs from Etapa 2. PDF upload/parsing, projection generation logic, and real statement samples are intentionally out of scope.
 
 ## Quick path
 
@@ -22,7 +22,17 @@ Local-only foundation for a personal credit-card statement dashboard. Etapa 2 ad
 | Frontend | Static files served from `src/main/resources/static`. |
 | Database | Local H2 file database under `./data/landing-tarjetas`; Hibernate uses `ddl-auto=update` for local development. |
 | Runtime folders | `data/`, `exports/`, and `logs/` are placeholders only; their real contents are ignored by Git. |
-| Current scope | Etapa 2 backend foundation only. No PDF upload/parsing endpoint and no real sample statement data. |
+| Current scope | Etapa 3 local UI shell over existing REST APIs. No PDF upload/parsing endpoint, projection generation, or real sample statement data. |
+
+## UI scope
+
+The static frontend lives under `src/main/resources/static` and is intentionally framework-free:
+
+- `index.html` renders the dashboard shell, filters, transaction table, and category admin.
+- `css/styles.css` contains the dark-mode layout.
+- `js/*.js` modules call the existing local APIs and keep pesos and USD separate.
+
+Open <http://127.0.0.1:8080> after `mvn spring-boot:run`. Empty states are expected until local statements or transactions exist.
 
 ## API foundation
 

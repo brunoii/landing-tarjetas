@@ -12,6 +12,8 @@ import org.springframework.web.server.ResponseStatusException;
 @Service
 public class CategoryService {
 
+    private static final String HEX_COLOR_PATTERN = "#[0-9A-Fa-f]{6}";
+
     private final CategoryRepository categoryRepository;
     private final StatementTransactionRepository transactionRepository;
 
@@ -30,7 +32,7 @@ public class CategoryService {
     @Transactional
     public CategoryResponse create(CategoryRequest request) {
         ensureUniqueName(request.name(), null);
-        Category category = new Category(request.name().trim(), trimToNull(request.color()));
+        Category category = new Category(request.name().trim(), safeColorOrNull(request.color()));
         if (request.active() != null) {
             category.setActive(request.active());
         }
@@ -42,7 +44,7 @@ public class CategoryService {
         Category category = getCategory(id);
         ensureUniqueName(request.name(), id);
         category.setName(request.name().trim());
-        category.setColor(trimToNull(request.color()));
+        category.setColor(safeColorOrNull(request.color()));
         if (request.active() != null) {
             category.setActive(request.active());
         }
@@ -77,5 +79,16 @@ public class CategoryService {
             return null;
         }
         return value.trim();
+    }
+
+    private String safeColorOrNull(String value) {
+        String color = trimToNull(value);
+        if (color == null) {
+            return null;
+        }
+        if (!color.matches(HEX_COLOR_PATTERN)) {
+            throw new IllegalArgumentException("Category color must be empty or a hex color like #38bdf8");
+        }
+        return color;
     }
 }
