@@ -33,12 +33,12 @@
             <p class="section-note">Local-only workflow: do not commit real PDFs, raw PDFs are processed in memory, and raw PDF bytes are not persisted.</p>
         </div>
 
-        <form class="upload-form" id="statement-upload-form">
+        <form class="upload-form" id="statement-upload-form" aria-describedby="statement-file-hint statement-upload-feedback">
             <label class="wide-field">
                 PDF files
                 <input id="statement-files" name="files" type="file" accept="application/pdf,.pdf" multiple required>
             </label>
-            <button type="submit">Upload drafts</button>
+            <button type="submit" id="statement-upload-button">Upload drafts</button>
         </form>
         <p class="form-feedback" id="statement-file-hint">PDF only. Maximum 1 MB per file and 5 MB per request.</p>
         <p class="form-feedback" id="statement-upload-feedback" role="status" aria-live="polite"></p>
@@ -188,6 +188,36 @@
         <div class="card-detail-grid" id="card-detail-grid"></div>
     </section>
 
+    <section class="panel" aria-labelledby="month-detail-title">
+        <div class="section-heading">
+            <div>
+                <p class="eyebrow">Future months</p>
+                <h2 id="month-detail-title">Installment projection detail</h2>
+            </div>
+            <p class="section-note">Projected months estimate remaining installments from confirmed statements. Pesos and USD stay separate with no conversion.</p>
+        </div>
+        <p><span class="status-chip" id="month-detail-label">Current / projection detail</span></p>
+        <div class="table-wrap">
+            <table>
+                <thead>
+                <tr>
+                    <th>Kind</th>
+                    <th>Description</th>
+                    <th>Card</th>
+                    <th>Installment</th>
+                    <th>Pesos</th>
+                    <th>USD</th>
+                    <th>Category</th>
+                    <th>Estimated finish</th>
+                    <th>Source statement</th>
+                </tr>
+                </thead>
+                <tbody id="month-detail-table"></tbody>
+            </table>
+        </div>
+        <p class="empty-state" id="month-detail-empty" hidden>No actual or projected installment rows are available for this month.</p>
+    </section>
+
     <section class="panel" aria-labelledby="transactions-title">
         <div class="section-heading">
             <div>
@@ -197,7 +227,7 @@
             <p class="section-note">Text search is applied in the browser after API filters load.</p>
         </div>
 
-        <form class="filters" id="transaction-filters">
+        <form class="filters" id="transaction-filters" aria-describedby="filters-summary transactions-empty">
             <label>
                 Card
                 <select id="filter-card">
@@ -232,7 +262,9 @@
                 <input id="filter-search" type="search" placeholder="Description, notes, category, or card">
             </label>
             <button class="secondary-button" type="submit">Apply filters</button>
+            <button class="secondary-button" type="button" id="clear-transaction-filters">Clear filters</button>
         </form>
+        <p class="filter-summary" id="filters-summary" aria-live="polite">Showing the selected payment month with no extra filters.</p>
 
         <div class="table-wrap">
             <table>
@@ -253,7 +285,7 @@
                 <tbody id="transactions-table"></tbody>
             </table>
         </div>
-        <p class="empty-state" id="transactions-empty" hidden>No transactions match the current filters.</p>
+        <p class="empty-state" id="transactions-empty" hidden>No confirmed transactions match the current month, card, category, type, and search filters.</p>
     </section>
 
     <section class="panel" aria-labelledby="categories-title">
@@ -265,7 +297,7 @@
             <p class="section-note">Categories are stored locally and listed only when active.</p>
         </div>
 
-        <form class="category-form" id="category-form">
+        <form class="category-form" id="category-form" aria-describedby="category-feedback">
             <label>
                 Name
                 <input id="category-name" type="text" maxlength="80" required placeholder="Category name">

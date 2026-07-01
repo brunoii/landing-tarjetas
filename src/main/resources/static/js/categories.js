@@ -1,4 +1,4 @@
-import { escapeHtml, safeHexColor } from "./utils.js";
+import { escapeHtml, safeHexColor, setButtonBusy } from "./utils.js";
 
 export function renderCategories(categories, handlers) {
     const list = document.querySelector("#category-list");
@@ -32,13 +32,18 @@ export function renderCategories(categories, handlers) {
         row.addEventListener("submit", (event) => {
             event.preventDefault();
             const formData = new FormData(row);
+            const submitButton = row.querySelector('button[type="submit"]');
+            setButtonBusy(submitButton, true, "Saving...");
             handlers.onUpdate(category.id, {
                 name: String(formData.get("name") || "").trim(),
                 color: String(formData.get("color") || "").trim() || null,
                 active: true
-            });
+            }).finally(() => setButtonBusy(submitButton, false));
         });
-        row.querySelector(".danger-button").addEventListener("click", () => handlers.onDelete(category.id));
+        row.querySelector(".danger-button").addEventListener("click", (event) => {
+            setButtonBusy(event.currentTarget, true, "Deleting...");
+            handlers.onDelete(category.id).finally(() => setButtonBusy(event.currentTarget, false));
+        });
         list.append(row);
     });
 }

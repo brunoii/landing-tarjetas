@@ -76,6 +76,45 @@ class StatementParserTests {
     }
 
     @Test
+    void detectsPlanZAsThreeInstallmentsWhenCurrentInstallmentIsPresent() {
+        String text = """
+                Synthetic Santander Visa statement
+                Closing date: 2026-06-25
+                Due date: 2026-07-10
+                Total pesos: ARS 1234.56
+                TX: 2026-06-01 | Fictional appliance Plan Z cuota 2 | ARS 120.50
+                """;
+
+        var parsed = santanderVisaParser.parse(text);
+
+        assertThat(parsed.transactions()).singleElement().satisfies(transaction -> {
+            assertThat(transaction.type()).isEqualTo(TransactionType.INSTALLMENT);
+            assertThat(transaction.currentInstallment()).isEqualTo(2);
+            assertThat(transaction.totalInstallments()).isEqualTo(3);
+        });
+    }
+
+    @Test
+    void leavesPlanZCurrentInstallmentPendingWhenMissing() {
+        String text = """
+                Synthetic Santander Visa statement
+                Closing date: 2026-06-25
+                Due date: 2026-07-10
+                Total pesos: ARS 1234.56
+                TX: 2026-06-01 | Fictional appliance Plan Z | ARS 120.50
+                """;
+
+        var parsed = santanderVisaParser.parse(text);
+
+        assertThat(parsed.transactions()).singleElement().satisfies(transaction -> {
+            assertThat(transaction.type()).isEqualTo(TransactionType.INSTALLMENT);
+            assertThat(transaction.currentInstallment()).isNull();
+            assertThat(transaction.totalInstallments()).isNull();
+            assertThat(transaction.notes()).contains("Plan Z detected; review current installment before confirmation");
+        });
+    }
+
+    @Test
     void leavesMissingFieldsPendingInsteadOfInventingValues() {
         String text = "Synthetic Santander Visa statement without totals or dates";
 

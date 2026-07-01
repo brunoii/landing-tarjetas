@@ -13,6 +13,8 @@ import com.gentleia.landingtarjetas.category.CategoryRequest;
 import com.gentleia.landingtarjetas.category.CategoryService;
 import com.gentleia.landingtarjetas.dashboard.CategoryBreakdownResponse;
 import com.gentleia.landingtarjetas.dashboard.DashboardService;
+import com.gentleia.landingtarjetas.projection.InstallmentProjection;
+import com.gentleia.landingtarjetas.projection.InstallmentProjectionRepository;
 import com.gentleia.landingtarjetas.shared.CardBrand;
 import com.gentleia.landingtarjetas.shared.ParsingStatus;
 import com.gentleia.landingtarjetas.shared.Provider;
@@ -57,10 +59,13 @@ class DomainServiceValidationTests {
     @Autowired
     private StatementTransactionRepository transactionRepository;
     @Autowired
+    private InstallmentProjectionRepository projectionRepository;
+    @Autowired
     private CategoryRepository categoryRepository;
 
     @BeforeEach
     void cleanDatabase() {
+        projectionRepository.deleteAll();
         transactionRepository.deleteAll();
         statementRepository.deleteAll();
         uploadedFileRepository.deleteAll();
@@ -107,7 +112,76 @@ class DomainServiceValidationTests {
     }
 
     @Test
-    void updatePreservesConfirmedStatementPaymentMonthWhenRequestOmitsIt() {
+    void confirmGeneratesFutureProjectionsForRemainingInstallments() {
+        CardStatement statement = saveDraftStatement(CardBrand.VISA, LocalDate.of(2026, 7, 15));
+        StatementTransaction transaction = saveTransaction(statement, "Fixture installment purchase", TransactionType.INSTALLMENT,
+                new BigDecimal("120.00"), null, null, LocalDate.of(2026, 6, 20));
+        transaction.setCurrentInstallment(3);
+        transaction.setTotalInstallments(6);
+        transactionRepository.save(transaction);
+
+        statementService.confirm(statement.getId());
+
+        assertThat(projectionRepository.findBySourceTransactionIdOrderByProjectedMonthAsc(transaction.getId()))
+                .extracting(InstallmentProjection::getInstallmentNumber, InstallmentProjection::getProjectedMonth)
+                .containsExactly(
+                        org.assertj.core.groups.Tuple.tuple(4, LocalDate.of(2026, 8, 1)),
+                        org.assertj.core.groups.Tuple.tuple(5, LocalDate.of(2026, 9, 1)),
+                        org.assertj.core.groups.Tuple.tuple(6, LocalDate.of(2026, 10, 1))
+                );
+    }
+
+    @Test
+    void confirmingAgainReplacesProjectionRowsWithoutDuplicates() {
+        CardStatement statement = saveDraftStatement(CardBrand.VISA, LocalDate.of(2026, 7, 1));
+        StatementTransaction transaction = saveTransaction(statement, "Fixture idempotent installment", TransactionType.INSTALLMENT,
+                new BigDecimal("80.00"), null, null, LocalDate.of(2026, 6, 20));
+        transaction.setCurrentInstallment(1);
+        transaction.setTotalInstallments(3);
+        transactionRepository.save(transaction);
+
+        statementService.confirm(statement.getId());
+        statementService.confirm(statement.getId());
+
+        assertThat(projectionRepository.findBySourceTransactionIdOrderByProjectedMonthAsc(transaction.getId()))
+                .hasSize(2)
+                .extracting(InstallmentProjection::getInstallmentNumber)
+                .containsExactly(2, 3);
+    }
+
+    @Test
+    void projectionGenerationKeepsPesosAndUsdSeparate() {
+        CardStatement statement = saveDraftStatement(CardBrand.AMERICAN_EXPRESS, LocalDate.of(2026, 7, 1));
+        StatementTransaction pesos = saveTransaction(statement, "Fixture pesos installment", TransactionType.INSTALLMENT,
+                new BigDecimal("70.00"), null, null, LocalDate.of(2026, 6, 20));
+        pesos.setCurrentInstallment(1);
+        pesos.setTotalInstallments(2);
+        StatementTransaction usd = saveTransaction(statement, "Fixture USD installment", TransactionType.INSTALLMENT,
+                null, new BigDecimal("12.50"), null, LocalDate.of(2026, 6, 21));
+        usd.setCurrentInstallment(1);
+        usd.setTotalInstallments(2);
+        transactionRepository.saveAll(List.of(pesos, usd));
+
+        statementService.confirm(statement.getId());
+
+        assertThat(projectionRepository.findActiveDetailByProjectedMonth(LocalDate.of(2026, 8, 1)))
+                .hasSize(2)
+                .satisfies(projections -> {
+                    assertThat(projections).filteredOn(projection -> projection.getAmountPesos() != null)
+                            .singleElement().satisfies(projection -> {
+                                assertThat(projection.getAmountPesos()).isEqualByComparingTo("70.00");
+                                assertThat(projection.getAmountUsd()).isNull();
+                            });
+                    assertThat(projections).filteredOn(projection -> projection.getAmountUsd() != null)
+                            .singleElement().satisfies(projection -> {
+                                assertThat(projection.getAmountPesos()).isNull();
+                                assertThat(projection.getAmountUsd()).isEqualByComparingTo("12.50");
+                            });
+                });
+    }
+
+    @Test
+    void updateRejectsConfirmedStatement() {
         CardStatement statement = new CardStatement(Provider.MANUAL, CardBrand.VISA);
         statement.setPaymentMonth(LocalDate.of(2026, 6, 1));
         statement.setTotalPesos(new BigDecimal("100.00"));
@@ -128,11 +202,18 @@ class DomainServiceValidationTests {
                 null
         );
 
-        var response = statementService.update(statement.getId(), request);
-
-        assertThat(response.paymentMonth()).isEqualTo(LocalDate.of(2026, 6, 1));
-        assertThat(statementRepository.findById(statement.getId()).orElseThrow().getPaymentMonth())
-                .isEqualTo(LocalDate.of(2026, 6, 1));
+        Long statementId = statement.getId();
+        assertThatThrownBy(() -> statementService.update(statementId, request))
+                .isInstanceOfSatisfying(ResponseStatusException.class, exception -> {
+                    assertThat(exception.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
+                    assertThat(exception.getReason()).isEqualTo("Only draft statements can be modified");
+                });
+        assertThat(statementRepository.findById(statementId))
+                .get()
+                .satisfies(saved -> {
+                    assertThat(saved.getPaymentMonth()).isEqualTo(LocalDate.of(2026, 6, 1));
+                    assertThat(saved.getTotalPesos()).isEqualByComparingTo("100.00");
+                });
     }
 
     @Test
@@ -161,6 +242,28 @@ class DomainServiceValidationTests {
         assertThat(response.minimumPaymentPesos()).isEqualByComparingTo("25.00");
         assertThat(statementRepository.findById(statement.getId()).orElseThrow().getMinimumPaymentPesos())
                 .isEqualByComparingTo("25.00");
+    }
+
+    @Test
+    void deleteRejectsConfirmedStatement() {
+        CardStatement statement = saveStatement(CardBrand.VISA, LocalDate.of(2026, 6, 1));
+
+        Long statementId = statement.getId();
+        assertThatThrownBy(() -> statementService.delete(statementId))
+                .isInstanceOfSatisfying(ResponseStatusException.class, exception -> {
+                    assertThat(exception.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
+                    assertThat(exception.getReason()).isEqualTo("Only draft statements can be modified");
+                });
+        assertThat(statementRepository.existsById(statementId)).isTrue();
+    }
+
+    @Test
+    void deleteAllowsDraftStatement() {
+        CardStatement statement = saveDraftStatement(CardBrand.VISA, LocalDate.of(2026, 6, 1));
+
+        statementService.delete(statement.getId());
+
+        assertThat(statementRepository.existsById(statement.getId())).isFalse();
     }
 
     @Test
@@ -202,6 +305,90 @@ class DomainServiceValidationTests {
         assertThat(summary.totalPesos()).isEqualByComparingTo("100.00");
         assertThat(summary.statementCount()).isEqualTo(1);
         assertThat(summary.transactionCount()).isEqualTo(1);
+    }
+
+    @Test
+    void dashboardMonthsAndDetailIncludeRealAndProjectedMonths() {
+        CardStatement statement = saveDraftStatement(CardBrand.VISA, LocalDate.of(2026, 7, 1));
+        statement.setCardAlias("Fixture Visa");
+        statement = statementRepository.save(statement);
+        Category category = categoryRepository.save(new Category("Fixture planning", "#123456"));
+        StatementTransaction transaction = saveTransaction(statement, "Fixture projected purchase", TransactionType.INSTALLMENT,
+                new BigDecimal("45.00"), null, category, LocalDate.of(2026, 6, 20));
+        transaction.setCurrentInstallment(1);
+        transaction.setTotalInstallments(3);
+        transactionRepository.save(transaction);
+        statementService.confirm(statement.getId());
+
+        var months = dashboardService.months();
+        var realMonth = dashboardService.monthDetail("2026-07");
+        var projectedMonth = dashboardService.monthDetail("2026-08");
+
+        assertThat(months).anySatisfy(month -> {
+            assertThat(month.yearMonth()).isEqualTo("2026-07");
+            assertThat(month.currentReal()).isTrue();
+            assertThat(month.projectionOnly()).isFalse();
+        });
+        assertThat(months).anySatisfy(month -> {
+            assertThat(month.yearMonth()).isEqualTo("2026-08");
+            assertThat(month.currentReal()).isFalse();
+            assertThat(month.projectionOnly()).isTrue();
+        });
+        assertThat(realMonth.currentReal()).isTrue();
+        assertThat(realMonth.rows()).filteredOn(row -> row.kind().equals("ACTUAL")).singleElement()
+                .satisfies(row -> assertThat(row.installmentNumber()).isEqualTo(1));
+        assertThat(projectedMonth.projectionOnly()).isTrue();
+        assertThat(projectedMonth.totalPesos()).isEqualByComparingTo("45.00");
+        assertThat(projectedMonth.rows()).singleElement().satisfies(row -> {
+            assertThat(row.kind()).isEqualTo("PROJECTION");
+            assertThat(row.installmentNumber()).isEqualTo(2);
+            assertThat(row.totalInstallments()).isEqualTo(3);
+            assertThat(row.categoryName()).isEqualTo("Fixture planning");
+            assertThat(row.estimatedFinishMonth()).isEqualTo(LocalDate.of(2026, 9, 1));
+        });
+        assertThat(projectedMonth.totalsByCard()).singleElement().satisfies(total -> {
+            assertThat(total.cardBrand()).isEqualTo(CardBrand.VISA);
+            assertThat(total.cardAlias()).isEqualTo("Fixture Visa");
+            assertThat(total.totalPesos()).isEqualByComparingTo("45.00");
+            assertThat(total.totalUsd()).isEqualByComparingTo("0");
+        });
+    }
+
+    @Test
+    void dashboardMonthDetailSuppressesOlderProjectionsWhenRealStatementExists() {
+        CardStatement julyStatement = saveDraftStatement(CardBrand.VISA, LocalDate.of(2026, 7, 1));
+        StatementTransaction julyPesos = saveTransaction(julyStatement, "Fixture projected pesos installment",
+                TransactionType.INSTALLMENT, new BigDecimal("45.00"), null, null, LocalDate.of(2026, 6, 20));
+        julyPesos.setCurrentInstallment(1);
+        julyPesos.setTotalInstallments(2);
+        StatementTransaction julyUsd = saveTransaction(julyStatement, "Fixture projected USD installment",
+                TransactionType.INSTALLMENT, null, new BigDecimal("10.00"), null, LocalDate.of(2026, 6, 21));
+        julyUsd.setCurrentInstallment(1);
+        julyUsd.setTotalInstallments(2);
+        transactionRepository.saveAll(List.of(julyPesos, julyUsd));
+        statementService.confirm(julyStatement.getId());
+
+        CardStatement augustStatement = saveDraftStatement(CardBrand.VISA, LocalDate.of(2026, 8, 1));
+        StatementTransaction augustPesos = saveTransaction(augustStatement, "Fixture actual pesos installment",
+                TransactionType.INSTALLMENT, new BigDecimal("45.00"), null, null, LocalDate.of(2026, 7, 20));
+        augustPesos.setCurrentInstallment(2);
+        augustPesos.setTotalInstallments(2);
+        StatementTransaction augustUsd = saveTransaction(augustStatement, "Fixture actual USD installment",
+                TransactionType.INSTALLMENT, null, new BigDecimal("10.00"), null, LocalDate.of(2026, 7, 21));
+        augustUsd.setCurrentInstallment(2);
+        augustUsd.setTotalInstallments(2);
+        transactionRepository.saveAll(List.of(augustPesos, augustUsd));
+        statementService.confirm(augustStatement.getId());
+
+        var augustDetail = dashboardService.monthDetail("2026-08");
+
+        assertThat(projectionRepository.findActiveDetailByProjectedMonth(LocalDate.of(2026, 8, 1))).hasSize(2);
+        assertThat(augustDetail.currentReal()).isTrue();
+        assertThat(augustDetail.projectionOnly()).isFalse();
+        assertThat(augustDetail.totalPesos()).isEqualByComparingTo("45.00");
+        assertThat(augustDetail.totalUsd()).isEqualByComparingTo("10.00");
+        assertThat(augustDetail.rows()).hasSize(2);
+        assertThat(augustDetail.rows()).allSatisfy(row -> assertThat(row.kind()).isEqualTo("ACTUAL"));
     }
 
     @Test

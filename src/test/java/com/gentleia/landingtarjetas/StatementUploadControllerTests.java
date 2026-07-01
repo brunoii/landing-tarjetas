@@ -10,6 +10,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 
+import com.gentleia.landingtarjetas.projection.InstallmentProjectionRepository;
 import com.gentleia.landingtarjetas.shared.ParsingStatus;
 import com.gentleia.landingtarjetas.shared.StatementStatus;
 import com.gentleia.landingtarjetas.statement.CardStatementRepository;
@@ -41,9 +42,12 @@ class StatementUploadControllerTests {
     private CardStatementRepository statementRepository;
     @Autowired
     private StatementTransactionRepository transactionRepository;
+    @Autowired
+    private InstallmentProjectionRepository projectionRepository;
 
     @BeforeEach
     void cleanDatabase() {
+        projectionRepository.deleteAll();
         transactionRepository.deleteAll();
         statementRepository.deleteAll();
         uploadedFileRepository.deleteAll();
@@ -91,7 +95,7 @@ class StatementUploadControllerTests {
                 .andExpect(jsonPath("$.files[0].uploadedFile.originalFilename").value("corrupted.pdf"))
                 .andExpect(jsonPath("$.files[0].uploadedFile.parsingStatus").value("FAILED"))
                 .andExpect(jsonPath("$.files[0].parsingStatus").value("FAILED"))
-                .andExpect(jsonPath("$.files[0].error").isNotEmpty())
+                .andExpect(jsonPath("$.files[0].error").value("PDF upload could not be processed. No statement text or raw PDF content was stored."))
                 .andExpect(jsonPath("$.files[0].draftStatement").value(nullValue()));
 
         assertThat(statementRepository.findAll()).isEmpty();

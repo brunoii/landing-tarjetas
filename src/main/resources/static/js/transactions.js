@@ -1,7 +1,8 @@
-import { cardLabel, escapeHtml, formatDate, formatPesos, formatUsd, typeLabel } from "./utils.js";
+import { cardLabel, escapeHtml, formatDate, formatMonth, formatPesos, formatUsd, typeLabel } from "./utils.js";
 
 let categories = [];
 let lastTransactions = [];
+let lastMonth = "";
 
 export function setTransactionCategories(nextCategories) {
     categories = nextCategories;
@@ -14,7 +15,8 @@ export function setTransactionCategories(nextCategories) {
         option.textContent = category.name;
         categorySelect.append(option);
     });
-    categorySelect.value = currentValue;
+    categorySelect.value = categories.some((category) => String(category.id) === currentValue) ? currentValue : "";
+    renderFilterSummary(lastTransactions, lastMonth);
 }
 
 export function transactionFilters(month) {
@@ -26,8 +28,9 @@ export function transactionFilters(month) {
     };
 }
 
-export function renderTransactions(transactions) {
+export function renderTransactions(transactions, month = lastMonth) {
     lastTransactions = transactions;
+    lastMonth = month;
     const search = document.querySelector("#filter-search").value.trim().toLowerCase();
     const visibleTransactions = search ? transactions.filter((transaction) => matchesSearch(transaction, search)) : transactions;
     const table = document.querySelector("#transactions-table");
@@ -52,10 +55,53 @@ export function renderTransactions(transactions) {
     });
 
     empty.hidden = visibleTransactions.length > 0;
+    empty.textContent = emptyMessage(transactions.length, search);
+    renderFilterSummary(visibleTransactions, month);
 }
 
 export function rerenderTransactionsAfterSearch() {
-    renderTransactions(lastTransactions);
+    renderTransactions(lastTransactions, lastMonth);
+}
+
+export function resetTransactionFilters() {
+    document.querySelector("#filter-card").value = "";
+    document.querySelector("#filter-category").value = "";
+    document.querySelector("#filter-type").value = "";
+    document.querySelector("#filter-search").value = "";
+}
+
+function renderFilterSummary(visibleTransactions, month) {
+    const summary = document.querySelector("#filters-summary");
+    const parts = [`Month: ${formatMonth(month)}`];
+    const card = document.querySelector("#filter-card").value;
+    const category = document.querySelector("#filter-category");
+    const type = document.querySelector("#filter-type").value;
+    const search = document.querySelector("#filter-search").value.trim();
+
+    if (card) {
+        parts.push(`Card: ${cardLabel(card)}`);
+    }
+    if (category.value) {
+        parts.push(`Category: ${category.selectedOptions[0]?.textContent || "Selected category"}`);
+    }
+    if (type) {
+        parts.push(`Type: ${typeLabel(type)}`);
+    }
+    if (search) {
+        parts.push(`Search: "${search}"`);
+    }
+
+    summary.textContent = `${visibleTransactions.length} confirmed row${visibleTransactions.length === 1 ? "" : "s"}. ${parts.join(" · ")}.`;
+}
+
+function emptyMessage(apiRowCount, search) {
+    if (apiRowCount > 0 && search) {
+        return "Confirmed rows loaded, but none match the current text search.";
+    }
+    if (apiRowCount > 0) {
+        return "Confirmed rows loaded, but none match the current browser filters.";
+    }
+    return "No confirmed transactions match the selected month, card, category, and type filters.";
 }
 
 function matchesSearch(transaction, search) {

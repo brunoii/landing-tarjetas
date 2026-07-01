@@ -30,6 +30,8 @@ final class StatementParseSupport {
             "(?ium)^\\s*(?:minimum payment|pago minimo|pago mínimo)\\s*[:\\-]?\\s*(?:ARS|\\$)?\\s*([0-9][0-9.,]*)\\s*$");
     private static final Pattern INSTALLMENT = Pattern.compile(
             "(?iu)(?:installment|cuota)\\s*(\\d{1,2})\\s*/\\s*(\\d{1,2})|\\b(\\d{1,2})\\s*/\\s*(\\d{1,2})\\b");
+    private static final Pattern PLAN_Z = Pattern.compile("(?iu)\\b(?:plan\\s*z|plan\\s*zeta|zeta)\\b");
+    private static final Pattern PLAN_Z_CURRENT = Pattern.compile("(?iu)(?:installment|cuota)\\s*(\\d{1,2})(?!\\s*/)");
 
     private StatementParseSupport() {
     }
@@ -139,8 +141,18 @@ final class StatementParseSupport {
             return Optional.empty();
         }
         String notes = parts.length >= 4 ? parts[3].trim() : null;
-        InstallmentMarker installment = findInstallment(notes == null ? description : description + " " + notes);
-        TransactionType type = installment.current() == null ? TransactionType.PURCHASE : TransactionType.INSTALLMENT;
+        String installmentSource = notes == null ? description : description + " " + notes;
+        InstallmentMarker installment = findInstallment(installmentSource);
+        String normalizedNotes = notes == null || notes.isBlank() ? null : notes;
+        boolean planZDetected = isPlanZ(installmentSource);
+        if (installment.current() == null && planZDetected) {
+            Integer current = findPlanZCurrent(installmentSource).orElse(null);
+            installment = new InstallmentMarker(current, current == null ? null : 3);
+            if (current == null) {
+                normalizedNotes = appendNote(normalizedNotes, "Plan Z detected; review current installment before confirmation");
+            }
+        }
+        TransactionType type = installment.current() == null && !planZDetected ? TransactionType.PURCHASE : TransactionType.INSTALLMENT;
 
         return Optional.of(new ParsedTransaction(
                 transactionDate.get(),
@@ -150,7 +162,7 @@ final class StatementParseSupport {
                 money.get().usd(),
                 installment.current(),
                 installment.total(),
-                notes == null || notes.isBlank() ? null : notes
+                normalizedNotes
         ));
     }
 
@@ -178,6 +190,25 @@ final class StatementParseSupport {
         String current = matcher.group(1) == null ? matcher.group(3) : matcher.group(1);
         String total = matcher.group(2) == null ? matcher.group(4) : matcher.group(2);
         return new InstallmentMarker(Integer.valueOf(current), Integer.valueOf(total));
+    }
+
+    private static boolean isPlanZ(String value) {
+        return PLAN_Z.matcher(value == null ? "" : value).find();
+    }
+
+    private static Optional<Integer> findPlanZCurrent(String value) {
+        Matcher matcher = PLAN_Z_CURRENT.matcher(value == null ? "" : value);
+        if (!matcher.find()) {
+            return Optional.empty();
+        }
+        return Optional.of(Integer.valueOf(matcher.group(1)));
+    }
+
+    private static String appendNote(String notes, String note) {
+        if (notes == null || notes.isBlank()) {
+            return note;
+        }
+        return notes + "; " + note;
     }
 
     private static List<String> warnings(LocalDate dueDate, LocalDate closingDate, BigDecimal totalPesos,

@@ -144,6 +144,9 @@ public class StatementUploadService {
     }
 
     private String safeMessage(Exception exception) {
+        if (exception instanceof IOException) {
+            return "PDF upload could not be processed. No statement text or raw PDF content was stored.";
+        }
         String message = exception.getMessage();
         if (message == null || message.isBlank()) {
             return "PDF upload could not be processed";

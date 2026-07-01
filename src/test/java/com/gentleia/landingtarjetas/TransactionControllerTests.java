@@ -9,6 +9,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import java.math.BigDecimal;
 import java.time.LocalDate;
 
+import com.gentleia.landingtarjetas.projection.InstallmentProjectionRepository;
 import com.gentleia.landingtarjetas.shared.CardBrand;
 import com.gentleia.landingtarjetas.shared.Provider;
 import com.gentleia.landingtarjetas.shared.StatementStatus;
@@ -36,9 +37,12 @@ class TransactionControllerTests {
     private CardStatementRepository statementRepository;
     @Autowired
     private StatementTransactionRepository transactionRepository;
+    @Autowired
+    private InstallmentProjectionRepository projectionRepository;
 
     @BeforeEach
     void cleanDatabase() {
+        projectionRepository.deleteAll();
         transactionRepository.deleteAll();
         statementRepository.deleteAll();
     }

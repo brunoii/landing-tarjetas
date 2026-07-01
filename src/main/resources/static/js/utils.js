@@ -82,6 +82,23 @@ export function safeHexColor(value, fallback = "#38bdf8") {
     return isSafeHexColor(color) ? color : fallback;
 }
 
+export function setButtonBusy(button, isBusy, busyLabel = "Working...") {
+    if (!button) {
+        return;
+    }
+    if (isBusy) {
+        button.dataset.idleLabel = button.textContent;
+        button.textContent = busyLabel;
+        button.disabled = true;
+        button.setAttribute("aria-busy", "true");
+        return;
+    }
+    button.textContent = button.dataset.idleLabel || button.textContent;
+    button.disabled = false;
+    button.removeAttribute("aria-busy");
+    delete button.dataset.idleLabel;
+}
+
 function formatCurrency(value, currency) {
     const amount = Number(value || 0);
     return new Intl.NumberFormat("en", {

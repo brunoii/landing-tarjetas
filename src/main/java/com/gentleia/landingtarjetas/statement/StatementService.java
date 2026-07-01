@@ -3,9 +3,11 @@ package com.gentleia.landingtarjetas.statement;
 import java.math.BigDecimal;
 import java.util.List;
 
+import com.gentleia.landingtarjetas.projection.InstallmentProjectionService;
 import com.gentleia.landingtarjetas.shared.CardBrand;
 import com.gentleia.landingtarjetas.shared.DateParsers;
 import com.gentleia.landingtarjetas.shared.StatementStatus;
+import com.gentleia.landingtarjetas.transaction.TransactionService;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -16,9 +18,15 @@ import org.springframework.web.server.ResponseStatusException;
 public class StatementService {
 
     private final CardStatementRepository statementRepository;
+    private final InstallmentProjectionService projectionService;
+    private final TransactionService transactionService;
 
-    public StatementService(CardStatementRepository statementRepository) {
+    public StatementService(CardStatementRepository statementRepository,
+                            InstallmentProjectionService projectionService,
+                            TransactionService transactionService) {
         this.statementRepository = statementRepository;
+        this.projectionService = projectionService;
+        this.transactionService = transactionService;
     }
 
     @Transactional(readOnly = true)
@@ -36,6 +44,7 @@ public class StatementService {
     @Transactional
     public StatementDetailResponse update(Long id, StatementUpdateRequest request) {
         CardStatement statement = getStatement(id);
+        ensureDraft(statement);
         statement.setProvider(request.provider());
         statement.setCardBrand(request.cardBrand());
         statement.setCardAlias(trimToNull(request.cardAlias()));
@@ -49,12 +58,6 @@ public class StatementService {
         statement.setTotalPesos(request.totalPesos());
         statement.setTotalUsd(request.totalUsd());
         statement.setMinimumPaymentPesos(request.minimumPaymentPesos());
-        if (statement.getStatus() == StatementStatus.CONFIRMED) {
-            if (statement.getPaymentMonth() == null) {
-                throw new IllegalArgumentException("Confirmed statements require a payment month");
-            }
-            validateTotals(statement.getTotalPesos(), statement.getTotalUsd());
-        }
         return StatementDetailResponse.from(statement);
     }
 
@@ -65,13 +68,17 @@ public class StatementService {
             throw new IllegalArgumentException("Cannot confirm a statement without a payment month");
         }
         validateTotals(statement.getTotalPesos(), statement.getTotalUsd());
+        statement.getTransactions().forEach(transactionService::validate);
         statement.setStatus(StatementStatus.CONFIRMED);
+        projectionService.replaceForStatement(statement);
         return StatementDetailResponse.from(statement);
     }
 
     @Transactional
     public void delete(Long id) {
-        statementRepository.delete(getStatement(id));
+        CardStatement statement = getStatement(id);
+        ensureDraft(statement);
+        statementRepository.delete(statement);
     }
 
     public CardStatement getStatement(Long id) {
@@ -82,6 +89,12 @@ public class StatementService {
     private void validateTotals(BigDecimal totalPesos, BigDecimal totalUsd) {
         if (totalPesos == null && totalUsd == null) {
             throw new IllegalArgumentException("Statement requires at least one total amount in pesos or USD");
+        }
+    }
+
+    private void ensureDraft(CardStatement statement) {
+        if (statement.getStatus() != StatementStatus.DRAFT) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Only draft statements can be modified");
         }
     }
 

@@ -33,6 +33,14 @@ public interface CardStatementRepository extends JpaRepository<CardStatement, Lo
             order by s.paymentMonth desc nulls last, s.cardBrand asc
             """)
     List<CardStatement> findWithFiltersAndStatus(@Param("paymentMonth") LocalDate paymentMonth,
-                                                 @Param("cardBrand") CardBrand cardBrand,
-                                                 @Param("status") StatementStatus status);
+                                                  @Param("cardBrand") CardBrand cardBrand,
+                                                  @Param("status") StatementStatus status);
+
+    @Query("""
+            select distinct s.paymentMonth from CardStatement s
+            where s.status = com.gentleia.landingtarjetas.shared.StatementStatus.CONFIRMED
+              and s.paymentMonth is not null
+            order by s.paymentMonth asc
+            """)
+    List<LocalDate> findConfirmedPaymentMonths();
 }

@@ -2,8 +2,8 @@ import { api } from "./api.js";
 import { categoryFormPayload, renderCategories, resetCategoryForm, showCategoryFeedback } from "./categories.js";
 import { renderDashboard } from "./dashboard.js";
 import { renderDraftStatementList, setStatementCategories, setupStatementUpload } from "./statements.js";
-import { renderTransactions, rerenderTransactionsAfterSearch, setTransactionCategories, transactionFilters } from "./transactions.js";
-import { currentYearMonth } from "./utils.js";
+import { renderTransactions, rerenderTransactionsAfterSearch, resetTransactionFilters, setTransactionCategories, transactionFilters } from "./transactions.js";
+import { currentYearMonth, setButtonBusy } from "./utils.js";
 
 const state = {
     month: currentYearMonth(),
@@ -23,6 +23,10 @@ document.addEventListener("DOMContentLoaded", () => {
         loadTransactions();
     });
     document.querySelector("#filter-search").addEventListener("input", rerenderTransactionsAfterSearch);
+    document.querySelector("#clear-transaction-filters").addEventListener("click", () => {
+        resetTransactionFilters();
+        loadTransactions();
+    });
 
     document.querySelector("#category-form").addEventListener("submit", async (event) => {
         event.preventDefault();
@@ -49,36 +53,48 @@ async function loadAll() {
 
 async function loadDashboard() {
     try {
-        setStatus("Loading dashboard data...");
-        const [summary, statements, transactions, allStatements] = await Promise.all([
+        setStatus("Loading dashboard data...", false, true);
+        const [summary, statements, transactions, allStatements, months, monthDetail] = await Promise.all([
             api.summary(state.month),
             api.statements({ month: state.month }),
             api.transactions({ month: state.month }),
-            api.statements()
+            api.statements(),
+            api.dashboardMonths(),
+            api.dashboardMonthDetail(state.month)
         ]);
         const confirmedStatements = statements.filter((statement) => statement.status === "CONFIRMED");
         const confirmedAllStatements = allStatements.filter((statement) => statement.status === "CONFIRMED");
-        renderDashboard({ month: state.month, summary, statements: confirmedStatements, transactions, allStatements: confirmedAllStatements });
+        renderDashboard({
+            month: state.month,
+            summary,
+            statements: confirmedStatements,
+            transactions,
+            allStatements: confirmedAllStatements,
+            months,
+            monthDetail
+        });
         renderDraftStatementList(allStatements);
-        renderTransactions(transactions);
-        setStatus(confirmedStatements.length || transactions.length
-            ? "Loaded confirmed dashboard data."
-            : statements.length
+        renderTransactions(transactions, state.month);
+        setStatus(monthDetail.projectionOnly
+            ? "Loaded projected installment data for a future month."
+            : confirmedStatements.length || transactions.length
+                ? "Loaded confirmed dashboard data."
+                : statements.length
                 ? "Draft statements are waiting for review; public dashboard data is still empty for this month."
                 : "No statements or transactions are loaded for this month yet.");
     } catch (error) {
-        setStatus(error.message, true);
+        setStatus(`Dashboard data could not be loaded: ${error.message}`, true);
     }
 }
 
 async function loadTransactions() {
     try {
-        setStatus("Loading transactions...");
+        setStatus("Loading transactions...", false, true);
         const transactions = await api.transactions(transactionFilters(state.month));
-        renderTransactions(transactions);
-        setStatus(transactions.length ? "Transactions loaded." : "No transactions match the selected API filters.");
+        renderTransactions(transactions, state.month);
+        setStatus(transactions.length ? "Transactions loaded with the selected filters." : "No confirmed transactions match the selected filters.");
     } catch (error) {
-        setStatus(error.message, true);
+        setStatus(`Transactions could not be loaded: ${error.message}`, true);
     }
 }
 
@@ -92,18 +108,23 @@ async function loadCategories() {
             onDelete: deleteCategory
         });
     } catch (error) {
-        showCategoryFeedback(error.message, true);
+        showCategoryFeedback(`Categories could not be loaded: ${error.message}`, true);
     }
 }
 
 async function createCategory() {
+    const button = document.querySelector("#category-form button[type='submit']");
     try {
+        setButtonBusy(button, true, "Creating...");
         await api.createCategory(categoryFormPayload());
         resetCategoryForm();
         showCategoryFeedback("Category created.");
         await loadCategories();
+        await loadTransactions();
     } catch (error) {
-        showCategoryFeedback(error.message, true);
+        showCategoryFeedback(`Category could not be created: ${error.message}`, true);
+    } finally {
+        setButtonBusy(button, false);
     }
 }
 
@@ -112,8 +133,9 @@ async function updateCategory(id, payload) {
         await api.updateCategory(id, payload);
         showCategoryFeedback("Category updated.");
         await loadCategories();
+        await loadTransactions();
     } catch (error) {
-        showCategoryFeedback(error.message, true);
+        showCategoryFeedback(`Category could not be updated: ${error.message}`, true);
     }
 }
 
@@ -122,13 +144,15 @@ async function deleteCategory(id) {
         await api.deleteCategory(id);
         showCategoryFeedback("Category deleted or deactivated safely.");
         await loadCategories();
+        await loadTransactions();
     } catch (error) {
-        showCategoryFeedback(error.message, true);
+        showCategoryFeedback(`Category could not be deleted: ${error.message}`, true);
     }
 }
 
-function setStatus(message, isError = false) {
+function setStatus(message, isError = false, isLoading = false) {
     const status = document.querySelector("#app-status");
     status.textContent = message;
     status.classList.toggle("error", isError);
+    status.classList.toggle("loading", isLoading && !isError);
 }

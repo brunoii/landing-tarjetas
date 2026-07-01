@@ -24,12 +24,20 @@ async function errorMessage(response) {
     try {
         const body = await response.json();
         if (Array.isArray(body.details) && body.details.length > 0) {
-            return body.details.join(" ");
+            return safeApiMessage(body.details.join(" "), response.status);
         }
-        return body.error || `Request failed with status ${response.status}`;
+        return safeApiMessage(body.error, response.status);
     } catch {
-        return `Request failed with status ${response.status}`;
+        return safeApiMessage("", response.status);
     }
+}
+
+function safeApiMessage(message, status) {
+    const text = String(message || "").trim();
+    if (!text) {
+        return `Request failed with status ${status}. No statement text or PDF content was exposed.`;
+    }
+    return text.length > 260 ? `${text.slice(0, 260)}...` : text;
 }
 
 function withQuery(path, params) {
@@ -46,6 +54,12 @@ function withQuery(path, params) {
 export const api = {
     summary(month) {
         return request(withQuery("/api/dashboard/summary", { month }));
+    },
+    dashboardMonths() {
+        return request("/api/dashboard/months");
+    },
+    dashboardMonthDetail(yearMonth) {
+        return request(`/api/dashboard/months/${yearMonth}`);
     },
     statements(filters = {}) {
         return request(withQuery("/api/statements", filters));

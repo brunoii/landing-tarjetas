@@ -1,5 +1,5 @@
 import { api } from "./api.js";
-import { cardLabel, escapeHtml, formatPesos, formatUsd, toYearMonth, typeLabel } from "./utils.js";
+import { cardLabel, escapeHtml, formatPesos, formatUsd, setButtonBusy, toYearMonth, typeLabel } from "./utils.js";
 
 const MAX_PDF_SIZE_BYTES = 1_048_576;
 const MAX_REQUEST_SIZE_BYTES = 5_242_880;
@@ -72,7 +72,8 @@ async function uploadSelectedStatements(event) {
     }
 
     try {
-        showUploadFeedback("Uploading PDFs locally for metadata-only parsing...");
+        setButtonBusy(document.querySelector("#statement-upload-button"), true, "Uploading...");
+        showUploadFeedback("Uploading PDFs locally for metadata-only parsing. Raw PDF bytes are not persisted.");
         const response = await api.uploadStatements(files);
         renderUploadResults(response.files || []);
         input.value = "";
@@ -84,8 +85,10 @@ async function uploadSelectedStatements(event) {
         }
         showUploadFeedback("Upload finished. Review each draft before confirming it.");
     } catch (error) {
-        showUploadFeedback(error.message, true);
-        callbacks.setStatus(error.message, true);
+        showUploadFeedback(`Upload could not be completed: ${error.message}`, true);
+        callbacks.setStatus(`Upload could not be completed: ${error.message}`, true);
+    } finally {
+        setButtonBusy(document.querySelector("#statement-upload-button"), false);
     }
 }
 
@@ -148,7 +151,7 @@ function renderUploadResults(results) {
                 <div><dt>Hash</dt><dd>${escapeHtml(uploadedFile.checksumSha256 || "Unavailable")}</dd></div>
                 <div><dt>Detected provider</dt><dd>${escapeHtml(result.detectedProvider || "Unknown")}</dd></div>
                 <div><dt>Detected card</dt><dd>${escapeHtml(cardLabel(result.detectedCardBrand))}</dd></div>
-                <div><dt>Message</dt><dd>${escapeHtml(result.error || uploadedFile.parsingMessage || "No parser message")}</dd></div>
+                <div><dt>Message</dt><dd>${escapeHtml(uploadResultMessage(result, uploadedFile))}</dd></div>
             </dl>
             ${renderWarnings(result.warnings)}
             ${draft ? `<p class="muted">Draft #${draft.id}: ${escapeHtml(toYearMonth(draft.paymentMonth) || "no payment month")} · ${formatPesos(draft.totalPesos)} / ${formatUsd(draft.totalUsd)} · ${draft.transactions?.length || 0} rows</p><button type="button" class="secondary-button" data-open-upload-draft="${draft.id}">Review draft #${draft.id}</button>` : '<p class="muted">No draft was created for this file.</p>'}
@@ -173,7 +176,7 @@ async function openDraft(id) {
         renderDraftReview(activeDraft);
         showReviewFeedback("Draft loaded for review.");
     } catch (error) {
-        showReviewFeedback(error.message, true);
+        showReviewFeedback(`Draft could not be loaded: ${error.message}`, true);
     }
 }
 
@@ -184,13 +187,16 @@ async function saveActiveDraft(event) {
     }
 
     try {
+        setButtonBusy(document.querySelector("#statement-form button[type='submit']"), true, "Saving...");
         const response = await api.updateStatement(activeDraft.id, statementPayload());
         activeDraft = response;
         renderDraftReview(activeDraft);
         await callbacks.onDraftChanged();
         showReviewFeedback("Draft statement saved.");
     } catch (error) {
-        showReviewFeedback(error.message, true);
+        showReviewFeedback(`Draft could not be saved: ${error.message}`, true);
+    } finally {
+        setButtonBusy(document.querySelector("#statement-form button[type='submit']"), false);
     }
 }
 
@@ -205,13 +211,19 @@ async function confirmActiveDraft() {
     }
 
     try {
+        setButtonBusy(document.querySelector("#confirm-statement-button"), true, "Confirming...");
         await api.updateStatement(activeDraft.id, payload);
         activeDraft = await api.confirmStatement(activeDraft.id);
         renderDraftReview(activeDraft);
         await callbacks.onDraftConfirmed(activeDraft);
         showReviewFeedback("Statement confirmed. Public dashboard data was refreshed.");
     } catch (error) {
-        showReviewFeedback(error.message, true);
+        showReviewFeedback(`Statement could not be confirmed: ${error.message}`, true);
+    } finally {
+        setButtonBusy(document.querySelector("#confirm-statement-button"), false);
+        if (activeDraft) {
+            document.querySelector("#confirm-statement-button").disabled = activeDraft.status !== "DRAFT";
+        }
     }
 }
 
@@ -275,8 +287,8 @@ function renderDraftTransactions(transactions) {
             <td><input name="amountUsd" type="number" min="0" step="0.01" value="${decimalValue(transaction.amountUsd)}"></td>
             <td><input name="notes" type="text" maxlength="500" value="${escapeHtml(transaction.notes || "")}"></td>
             <td class="row-actions">
-                <button type="button" class="secondary-button" data-save-transaction>Save</button>
-                <button type="button" class="danger-button" data-delete-transaction>Delete</button>
+                <button type="button" class="secondary-button" data-save-transaction>Save row</button>
+                <button type="button" class="danger-button" data-delete-transaction>Delete row</button>
             </td>
         `;
         row.querySelector("[data-save-transaction]").addEventListener("click", () => saveDraftTransaction(row));
@@ -287,25 +299,34 @@ function renderDraftTransactions(transactions) {
 }
 
 async function saveDraftTransaction(row) {
+    const button = row.querySelector("[data-save-transaction]");
     try {
         const description = row.querySelector('[name="description"]').value.trim();
         if (!description) {
             showReviewFeedback("Transaction description is required.", true);
             return;
         }
+        setButtonBusy(button, true, "Saving...");
         await api.updateTransaction(row.dataset.transactionId, transactionPayload(row, description));
         await reloadActiveDraft("Transaction saved.");
     } catch (error) {
-        showReviewFeedback(error.message, true);
+        showReviewFeedback(`Transaction could not be saved: ${error.message}`, true);
+    } finally {
+        setButtonBusy(button, false);
     }
 }
 
 async function deleteDraftTransaction(id) {
+    const row = document.querySelector(`[data-transaction-id="${id}"]`);
+    const button = row?.querySelector("[data-delete-transaction]");
     try {
+        setButtonBusy(button, true, "Deleting...");
         await api.deleteTransaction(id);
         await reloadActiveDraft("Transaction deleted from the draft.");
     } catch (error) {
-        showReviewFeedback(error.message, true);
+        showReviewFeedback(`Transaction could not be deleted: ${error.message}`, true);
+    } finally {
+        setButtonBusy(button, false);
     }
 }
 
@@ -385,6 +406,13 @@ function showReviewFeedback(message, isError = false) {
     const feedback = document.querySelector("#draft-review-feedback");
     feedback.textContent = message;
     feedback.classList.toggle("error-text", isError);
+}
+
+function uploadResultMessage(result, uploadedFile) {
+    if (result.error) {
+        return `${result.error} No statement text or raw PDF content is shown.`;
+    }
+    return uploadedFile.parsingMessage || "No parser message";
 }
 
 function formatBytes(bytes) {

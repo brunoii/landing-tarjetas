@@ -3,6 +3,7 @@ package com.gentleia.landingtarjetas;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
@@ -32,6 +33,8 @@ class StaticUiContractTests {
 
         assertThat(api).contains(
                 "/api/dashboard/summary",
+                "/api/dashboard/months",
+                "/api/dashboard/months/${yearMonth}",
                 "/api/statements",
                 "/api/statements/upload",
                 "/api/statements/${id}/confirm",
@@ -42,11 +45,71 @@ class StaticUiContractTests {
     }
 
     @Test
-    void staticUiDoesNotReferenceUnsupportedParsingOrProjectionApiEndpoints() throws IOException {
+    void staticUiDoesNotReferenceUnsupportedParsingOrStandaloneProjectionApiEndpoints() throws IOException {
         String staticFiles = readAllStaticText();
 
         assertThat(staticFiles).doesNotContainPattern("/api/[^\\\"']*(parse|parsing|projection|projections)");
         assertThat(staticFiles).doesNotContain("/api/uploads", "/api/upload");
+    }
+
+    @Test
+    void projectionUiUsesDashboardMonthEndpointsAndProjectionCopy() throws IOException {
+        String index = readStatic("index.html");
+        String api = readStatic("js/api.js");
+        String app = readStatic("js/app.js");
+        String dashboard = readStatic("js/dashboard.js");
+
+        assertThat(api).contains("dashboardMonths()", "dashboardMonthDetail(yearMonth)");
+        assertThat(app).contains("api.dashboardMonths()", "api.dashboardMonthDetail(state.month)");
+        assertThat(index).contains(
+                "Installment projection detail",
+                "Projected months estimate remaining installments from confirmed statements",
+                "Pesos and USD stay separate with no conversion",
+                "id=\"filters-summary\"",
+                "id=\"month-detail-table\""
+        );
+        assertThat(dashboard).contains(
+                "Projection-only month",
+                "No confirmed statement data is available for",
+                "Actual month detail",
+                "Missing ${target.title}",
+                "Santander VISA",
+                "Santander AMEX",
+                "Naranja X"
+        );
+        assertThat(dashboard).contains("Actual confirmed statement data. Projections for this month are suppressed to avoid double-counting.");
+        assertThat(dashboard).doesNotContain("Mixed", "Includes confirmed transactions and installment projections");
+    }
+
+    @Test
+    void polishUiIncludesResponsiveEmptyFilterAndLoadingContracts() throws IOException {
+        String index = readStatic("index.html");
+        String styles = readStatic("css/styles.css");
+        String app = readStatic("js/app.js");
+        String statements = readStatic("js/statements.js");
+        String transactions = readStatic("js/transactions.js");
+        String utils = readStatic("js/utils.js");
+
+        assertThat(index).contains(
+                "id=\"clear-transaction-filters\"",
+                "No confirmed transactions match the current month, card, category, type, and search filters.",
+                "aria-live=\"polite\""
+        );
+        assertThat(styles).contains("@media (max-width: 680px)", "overflow-x: auto", ".projection-row", ".actual-row");
+        assertThat(app).contains("Dashboard data could not be loaded", "Transactions could not be loaded", "setButtonBusy");
+        assertThat(statements).contains("Upload could not be completed", "No statement text or raw PDF content is shown", "setButtonBusy");
+        assertThat(transactions).contains("resetTransactionFilters", "renderFilterSummary", "Confirmed rows loaded, but none match the current text search.");
+        assertThat(utils).contains("export function setButtonBusy", "aria-busy");
+    }
+
+    @Test
+    void staticUiBehaviorContractsPassWithoutBrowserAutomation() throws IOException, InterruptedException {
+        Process process = new ProcessBuilder("node", "src/test/resources/static-ui-contract-tests.mjs")
+                .redirectErrorStream(true)
+                .start();
+        String output = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+
+        assertThat(process.waitFor()).as(output).isZero();
     }
 
     @Test
@@ -62,6 +125,7 @@ class StaticUiContractTests {
                 "PDF only. Maximum 1 MB per file and 5 MB per request."
         );
         assertThat(api).contains("formData.append(\"files\", file)");
+        assertThat(api).contains("No statement text or PDF content was exposed");
         assertThat(statements).contains("MAX_PDF_SIZE_BYTES = 1_048_576");
         assertThat(statements).doesNotContain("extractedText", "rawText", "pdfText");
     }
