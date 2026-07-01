@@ -101,6 +101,17 @@ Parsing is intentionally conservative. Missing or low-confidence fields remain `
 - Keep this app local. Do not deploy or publish personal financial data.
 - Treat everything under `data/`, `exports/`, and `logs/` as private local runtime material.
 
+## Local database backup and recovery
+
+The local H2 database lives under `data/` and may contain private financial data after real use. Back it up before uploading real statements, before upgrading the app, and before deleting local runtime files.
+
+1. Stop the app.
+2. Copy every `data/landing-tarjetas*` file to a private folder outside the repository, for example `C:\Users\<you>\Documents\landing-tarjetas-backups\YYYY-MM-DD\`.
+3. Keep that backup folder out of Git and out of shared/cloud folders unless you explicitly accept the privacy risk.
+4. Restart the app and verify the dashboard still loads.
+
+To restore, stop the app, replace the local `data/landing-tarjetas*` files with a backup copy, then start the app again. If a new app version changes the schema unexpectedly, restore the backup first and report the issue before uploading more statements.
+
 ## Verification
 
 Run:
