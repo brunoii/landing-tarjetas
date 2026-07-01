@@ -580,6 +580,165 @@ class DomainServiceValidationTests {
     }
 
     @Test
+    void createAllowsDraftStatementTransaction() {
+        CardStatement statement = saveDraftStatement(CardBrand.AMERICAN_EXPRESS, LocalDate.of(2026, 7, 1));
+        Category category = categoryRepository.save(new Category("Fixture manual category", "#123456"));
+
+        var request = new TransactionUpdateRequest(
+                LocalDate.of(2026, 6, 15),
+                "Fixture missing transaction",
+                TransactionType.PURCHASE,
+                category.getId(),
+                new BigDecimal("88.50"),
+                null,
+                null,
+                null,
+                "Added during draft review"
+        );
+
+        var response = transactionService.createForDraftStatement(statement.getId(), request);
+
+        assertThat(response.id()).isNotNull();
+        assertThat(response.statementId()).isEqualTo(statement.getId());
+        assertThat(response.paymentMonth()).isEqualTo(LocalDate.of(2026, 7, 1));
+        assertThat(response.cardBrand()).isEqualTo(CardBrand.AMERICAN_EXPRESS);
+        assertThat(response.category().id()).isEqualTo(category.getId());
+        assertThat(response.description()).isEqualTo("Fixture missing transaction");
+        assertThat(response.amountPesos()).isEqualByComparingTo("88.50");
+        assertThat(transactionRepository.findById(response.id())).get().satisfies(saved -> {
+            assertThat(saved.getStatement().getId()).isEqualTo(statement.getId());
+            assertThat(saved.getNotes()).isEqualTo("Added during draft review");
+        });
+    }
+
+    @Test
+    void createRejectsConfirmedStatementTransaction() {
+        CardStatement statement = saveStatement(CardBrand.VISA, LocalDate.of(2026, 6, 1));
+
+        var request = new TransactionUpdateRequest(
+                LocalDate.of(2026, 6, 10),
+                "Fixture late transaction",
+                TransactionType.PURCHASE,
+                null,
+                new BigDecimal("50.00"),
+                null,
+                null,
+                null,
+                null
+        );
+
+        assertThatThrownBy(() -> transactionService.createForDraftStatement(statement.getId(), request))
+                .isInstanceOfSatisfying(ResponseStatusException.class, exception -> {
+                    assertThat(exception.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
+                    assertThat(exception.getReason()).isEqualTo("Only draft statement transactions can be created");
+                });
+    }
+
+    @Test
+    void createRejectsInstallmentWithoutCurrentAndTotalInstallments() {
+        CardStatement statement = saveDraftStatement(CardBrand.VISA, LocalDate.of(2026, 6, 1));
+
+        var request = new TransactionUpdateRequest(
+                LocalDate.of(2026, 6, 10),
+                "Fixture missing installment values",
+                TransactionType.INSTALLMENT,
+                null,
+                new BigDecimal("50.00"),
+                null,
+                null,
+                null,
+                null
+        );
+
+        assertThatThrownBy(() -> transactionService.createForDraftStatement(statement.getId(), request))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("current and total installments");
+    }
+
+    @Test
+    void createRejectsInstallmentWhenCurrentExceedsTotal() {
+        CardStatement statement = saveDraftStatement(CardBrand.VISA, LocalDate.of(2026, 6, 1));
+
+        var request = new TransactionUpdateRequest(
+                LocalDate.of(2026, 6, 10),
+                "Fixture invalid installment values",
+                TransactionType.INSTALLMENT,
+                null,
+                new BigDecimal("50.00"),
+                null,
+                4,
+                3,
+                null
+        );
+
+        assertThatThrownBy(() -> transactionService.createForDraftStatement(statement.getId(), request))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("cannot exceed");
+    }
+
+    @Test
+    void manuallyCreatedInstallmentParticipatesInConfirmProjectionGeneration() {
+        CardStatement statement = saveDraftStatement(CardBrand.VISA, LocalDate.of(2026, 7, 1));
+
+        var request = new TransactionUpdateRequest(
+                LocalDate.of(2026, 6, 15),
+                "Fixture manually added installment",
+                TransactionType.INSTALLMENT,
+                null,
+                new BigDecimal("88.50"),
+                null,
+                1,
+                3,
+                "Added during draft review"
+        );
+
+        var created = transactionService.createForDraftStatement(statement.getId(), request);
+
+        statementService.confirm(statement.getId());
+
+        assertThat(projectionRepository.findBySourceTransactionIdOrderByProjectedMonthAsc(created.id()))
+                .extracting(InstallmentProjection::getInstallmentNumber, InstallmentProjection::getProjectedMonth)
+                .containsExactly(
+                        org.assertj.core.groups.Tuple.tuple(2, LocalDate.of(2026, 8, 1)),
+                        org.assertj.core.groups.Tuple.tuple(3, LocalDate.of(2026, 9, 1))
+                );
+        assertThat(dashboardService.monthDetail("2026-08").rows())
+                .singleElement()
+                .satisfies(row -> {
+                    assertThat(row.kind()).isEqualTo("PROJECTION");
+                    assertThat(row.sourceTransactionId()).isEqualTo(created.id());
+                    assertThat(row.description()).isEqualTo("Fixture manually added installment");
+                    assertThat(row.installmentNumber()).isEqualTo(2);
+                    assertThat(row.totalInstallments()).isEqualTo(3);
+                    assertThat(row.amountPesos()).isEqualByComparingTo("88.50");
+                });
+    }
+
+    @Test
+    void createRejectsInactiveCategoryAssignment() {
+        Category inactive = new Category("Fixture inactive manual category", "#654321");
+        inactive.setActive(false);
+        inactive = categoryRepository.save(inactive);
+        CardStatement statement = saveDraftStatement(CardBrand.VISA, LocalDate.of(2026, 6, 1));
+
+        var request = new TransactionUpdateRequest(
+                LocalDate.of(2026, 6, 10),
+                "Fixture inactive category transaction",
+                TransactionType.PURCHASE,
+                inactive.getId(),
+                new BigDecimal("50.00"),
+                null,
+                null,
+                null,
+                null
+        );
+
+        assertThatThrownBy(() -> transactionService.createForDraftStatement(statement.getId(), request))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("inactive category");
+    }
+
+    @Test
     void updateRejectsInstallmentWithoutCurrentAndTotalInstallments() {
         StatementTransaction transaction = saveTransaction(TransactionType.PURCHASE);
 

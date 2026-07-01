@@ -22,7 +22,7 @@ Local-only V1 for a personal credit-card statement dashboard. It supports local 
 | Frontend | Static files served from `src/main/resources/static`. |
 | Database | Local H2 file database under `./data/landing-tarjetas`; Hibernate uses `ddl-auto=update` for local development. |
 | Runtime folders | `data/`, `exports/`, and `logs/` are placeholders only; their real contents are ignored by Git. |
-| Current scope | V1 local dashboard polish: upload/review, confirmed monthly dashboard data, filters, category admin, installment projections, empty states, and privacy-safe feedback. No real sample statement data. |
+| Current scope | V1 local dashboard polish: upload/review, manual missing draft transactions, confirmed monthly dashboard data, filters, category admin, installment projections, empty states, and privacy-safe feedback. No real sample statement data. |
 
 ## UI scope
 
@@ -42,6 +42,7 @@ Available endpoints:
 - `POST /api/statements/upload`
 - `GET /api/statements/{id}`
 - `PUT /api/statements/{id}`
+- `POST /api/statements/{id}/transactions`
 - `POST /api/statements/{id}/confirm`
 - `DELETE /api/statements/{id}`
 - `GET /api/transactions?month=&card=&category=&type=`
@@ -80,7 +81,7 @@ The browser upload/review UI uses the same endpoint and existing statement/trans
 - Select one or more local PDF files using multipart field `files`.
 - Review per-file parser status, hash, detected provider/card, warnings, and draft links without exposing extracted text.
 - Edit draft statement fields, including payment month, dates, totals, minimum payment in pesos, provider, card, and local alias.
-- Edit/delete detected draft transactions and assign existing categories.
+- Edit/delete detected draft transactions, assign existing categories, and add missing transactions manually before confirmation.
 - Confirm the draft only after payment month and at least one total are present.
 
 Current parser detection covers minimal synthetic-safe patterns for:

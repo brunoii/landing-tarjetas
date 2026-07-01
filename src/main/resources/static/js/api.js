@@ -81,6 +81,12 @@ export const api = {
     confirmStatement(id) {
         return request(`/api/statements/${id}/confirm`, { method: "POST" });
     },
+    createStatementTransaction(statementId, payload) {
+        return request(`/api/statements/${statementId}/transactions`, {
+            method: "POST",
+            body: JSON.stringify(payload)
+        });
+    },
     transactions(filters = {}) {
         return request(withQuery("/api/transactions", filters));
     },

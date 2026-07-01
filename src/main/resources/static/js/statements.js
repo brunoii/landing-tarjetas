@@ -21,6 +21,7 @@ export function setupStatementUpload(nextCallbacks) {
     document.querySelector("#statement-upload-form").addEventListener("submit", uploadSelectedStatements);
     document.querySelector("#statement-files").addEventListener("change", showSelectedFileHint);
     document.querySelector("#statement-form")?.addEventListener("submit", saveActiveDraft);
+    document.querySelector("#missing-transaction-form")?.addEventListener("submit", addMissingTransaction);
     document.querySelector("#confirm-statement-button")?.addEventListener("click", confirmActiveDraft);
 }
 
@@ -232,12 +233,18 @@ function renderDraftReview(statement) {
     const panel = document.querySelector("#draft-review-panel");
     panel.hidden = false;
     document.querySelector("#draft-review-title").textContent = `Draft statement #${statement.id}`;
-    document.querySelector("#draft-review-meta").textContent = `${statement.status} · ${statement.transactions?.length || 0} detected transaction rows`;
+    document.querySelector("#draft-review-meta").textContent = draftTransactionCountLabel(statement);
     renderStatementForm(statement);
+    renderMissingTransactionForm(statement);
     renderDraftTransactions(statement.transactions || []);
 }
 
+export function draftTransactionCountLabel(statement) {
+    return `${statement.status} · ${statement.transactions?.length || 0} draft transaction rows`;
+}
+
 function renderStatementForm(statement) {
+    const controls = missingTransactionControlsState(statement);
     document.querySelector("#statement-provider").innerHTML = options(providers, statement.provider, (value) => value.replaceAll("_", " "));
     document.querySelector("#statement-card-brand").innerHTML = options(cardBrands, statement.cardBrand, cardLabel);
     document.querySelector("#statement-card-alias").value = statement.cardAlias || "";
@@ -250,7 +257,27 @@ function renderStatementForm(statement) {
     document.querySelector("#statement-total-usd").value = decimalValue(statement.totalUsd);
     document.querySelector("#statement-minimum-payment-pesos").value = decimalValue(statement.minimumPaymentPesos);
     document.querySelector("#statement-notes-placeholder").value = "Statement notes are not supported by the current API.";
-    document.querySelector("#confirm-statement-button").disabled = statement.status !== "DRAFT";
+    document.querySelector("#confirm-statement-button").disabled = controls.confirmDisabled;
+}
+
+function renderMissingTransactionForm(statement) {
+    const form = document.querySelector("#missing-transaction-form");
+    form.hidden = missingTransactionControlsState(statement).formHidden;
+    if (form.hidden) {
+        return;
+    }
+
+    document.querySelector("#missing-transaction-type").innerHTML = options(transactionTypes, "PURCHASE", typeLabel);
+    document.querySelector("#missing-transaction-category").innerHTML = `<option value="">Uncategorized</option>${categoryOptions()}`;
+    resetMissingTransactionForm(false);
+}
+
+export function missingTransactionControlsState(statement) {
+    const isDraft = statement?.status === "DRAFT";
+    return {
+        confirmDisabled: !isDraft,
+        formHidden: !isDraft
+    };
 }
 
 function statementPayload() {
@@ -330,6 +357,78 @@ async function deleteDraftTransaction(id) {
     }
 }
 
+async function addMissingTransaction(event) {
+    event.preventDefault();
+    if (!activeDraft || activeDraft.status !== "DRAFT") {
+        return;
+    }
+
+    const button = document.querySelector("#add-missing-transaction-button");
+    let errorPrefix = "Missing transaction could not be added:";
+    try {
+        const description = textOrNull("#missing-transaction-description");
+        const intent = missingTransactionSubmitIntent(
+                activeDraft,
+                description,
+                decimalOrNull("#missing-transaction-amount-pesos"),
+                decimalOrNull("#missing-transaction-amount-usd")
+        );
+        if (!intent.shouldSubmit) {
+            if (intent.feedback) {
+                showReviewFeedback(intent.feedback, true);
+            }
+            return;
+        }
+
+        errorPrefix = intent.errorPrefix;
+        setButtonBusy(button, true, intent.loadingLabel);
+        await api.createStatementTransaction(intent.statementId, missingTransactionPayload(intent.description));
+        resetMissingTransactionForm();
+        await reloadActiveDraft(intent.successFeedback);
+    } catch (error) {
+        showReviewFeedback(`${errorPrefix} ${error.message}`, true);
+    } finally {
+        setButtonBusy(button, false);
+    }
+}
+
+export function missingTransactionSubmitIntent(activeStatement, description, amountPesos, amountUsd) {
+    const normalizedDescription = String(description || "").trim();
+    const hasAmount = (amountPesos !== null && amountPesos !== undefined && amountPesos !== "")
+            || (amountUsd !== null && amountUsd !== undefined && amountUsd !== "");
+
+    if (!activeStatement || activeStatement.status !== "DRAFT") {
+        return { reason: "not-draft", shouldSubmit: false };
+    }
+    if (!normalizedDescription) {
+        return {
+            feedback: "Missing transaction description is required.",
+            reason: "missing-description",
+            shouldSubmit: false
+        };
+    }
+    if (!hasAmount) {
+        return {
+            feedback: "Missing transaction requires an amount in pesos or USD.",
+            reason: "missing-amount",
+            shouldSubmit: false
+        };
+    }
+
+    return {
+        clearBusyInFinally: true,
+        description: normalizedDescription,
+        errorPrefix: "Missing transaction could not be added:",
+        loadingLabel: "Adding...",
+        notifyDraftChanged: true,
+        reloadDraft: true,
+        resetForm: true,
+        shouldSubmit: true,
+        statementId: activeStatement.id,
+        successFeedback: "Missing transaction added to the draft."
+    };
+}
+
 async function reloadActiveDraft(message) {
     activeDraft = await api.statement(activeDraft.id);
     renderDraftReview(activeDraft);
@@ -351,6 +450,29 @@ function transactionPayload(row, description) {
     };
 }
 
+function missingTransactionPayload(description) {
+    return {
+        transactionDate: textOrNull("#missing-transaction-date"),
+        description,
+        type: textOrNull("#missing-transaction-type"),
+        categoryId: numberOrNull("#missing-transaction-category"),
+        amountPesos: decimalOrNull("#missing-transaction-amount-pesos"),
+        amountUsd: decimalOrNull("#missing-transaction-amount-usd"),
+        currentInstallment: numberOrNull("#missing-transaction-current-installment"),
+        totalInstallments: numberOrNull("#missing-transaction-total-installments"),
+        notes: textOrNull("#missing-transaction-notes")
+    };
+}
+
+function resetMissingTransactionForm(clearFeedback = true) {
+    const form = document.querySelector("#missing-transaction-form");
+    form.reset();
+    document.querySelector("#missing-transaction-type").value = "PURCHASE";
+    if (clearFeedback) {
+        showReviewFeedback("");
+    }
+}
+
 function options(values, selected, labeler) {
     return values.map((value) => `<option value="${value}" ${value === selected ? "selected" : ""}>${escapeHtml(labeler(value))}</option>`).join("");
 }
@@ -370,6 +492,11 @@ function textOrNull(selector) {
 function monthOrNull(selector) {
     const value = document.querySelector(selector).value;
     return value ? `${value}-01` : null;
+}
+
+function numberOrNull(selector) {
+    const value = document.querySelector(selector).value;
+    return value === "" ? null : Number(value);
 }
 
 function decimalOrNull(selector) {

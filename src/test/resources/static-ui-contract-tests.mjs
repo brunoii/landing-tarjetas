@@ -18,6 +18,11 @@ for (const fileName of ["api.js", "app.js", "categories.js", "dashboard.js", "st
 try {
     const { setButtonBusy } = await import(pathToFileURL(path.join(moduleRoot, "utils.js")));
     const { monthTabLabel, visibleMonthTabs } = await import(pathToFileURL(path.join(moduleRoot, "dashboard.js")));
+    const {
+        draftTransactionCountLabel,
+        missingTransactionControlsState,
+        missingTransactionSubmitIntent
+    } = await import(pathToFileURL(path.join(moduleRoot, "statements.js")));
 
     const successButton = fakeButton("Save");
     setButtonBusy(successButton, true, "Saving...");
@@ -49,6 +54,43 @@ try {
     assert.equal(monthTabLabel({ currentReal: true, hasProjectedData: true, projectionOnly: false }), ' <span class="tab-label">Actual</span>');
     assert.equal(monthTabLabel({ currentReal: false, hasProjectedData: true, projectionOnly: true }), ' <span class="tab-label">Projection</span>');
     assert.equal(monthTabLabel({ currentReal: false, hasProjectedData: true, projectionOnly: false }), "");
+
+    assert.deepEqual(missingTransactionControlsState({ status: "DRAFT" }), {
+        confirmDisabled: false,
+        formHidden: false
+    });
+    assert.deepEqual(missingTransactionControlsState({ status: "CONFIRMED" }), {
+        confirmDisabled: true,
+        formHidden: true
+    });
+    assert.equal(draftTransactionCountLabel({ status: "DRAFT", transactions: [{}, {}] }), "DRAFT · 2 draft transaction rows");
+
+    assert.deepEqual(missingTransactionSubmitIntent({ id: 42, status: "CONFIRMED" }, "Manual fare", "10.00", ""), {
+        reason: "not-draft",
+        shouldSubmit: false
+    });
+    assert.deepEqual(missingTransactionSubmitIntent({ id: 42, status: "DRAFT" }, " ", "10.00", ""), {
+        feedback: "Missing transaction description is required.",
+        reason: "missing-description",
+        shouldSubmit: false
+    });
+    assert.deepEqual(missingTransactionSubmitIntent({ id: 42, status: "DRAFT" }, "Manual fare", "", ""), {
+        feedback: "Missing transaction requires an amount in pesos or USD.",
+        reason: "missing-amount",
+        shouldSubmit: false
+    });
+    assert.deepEqual(missingTransactionSubmitIntent({ id: 42, status: "DRAFT" }, " Manual fare ", "0", ""), {
+        clearBusyInFinally: true,
+        description: "Manual fare",
+        errorPrefix: "Missing transaction could not be added:",
+        loadingLabel: "Adding...",
+        notifyDraftChanged: true,
+        reloadDraft: true,
+        resetForm: true,
+        shouldSubmit: true,
+        statementId: 42,
+        successFeedback: "Missing transaction added to the draft."
+    });
 } finally {
     await rm(moduleRoot, { force: true, recursive: true });
 }

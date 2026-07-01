@@ -38,6 +38,7 @@ class StaticUiContractTests {
                 "/api/statements",
                 "/api/statements/upload",
                 "/api/statements/${id}/confirm",
+                "/api/statements/${statementId}/transactions",
                 "/api/transactions",
                 "/api/categories"
         );
@@ -133,22 +134,43 @@ class StaticUiContractTests {
     @Test
     void draftReviewUiKeepsDraftsSeparateUntilConfirmation() throws IOException {
         String index = readStatic("index.html");
+        String api = readStatic("js/api.js");
         String app = readStatic("js/app.js");
         String statements = readStatic("js/statements.js");
 
         assertThat(index).contains(
                 "Drafts are visible only here",
-                "Creating missing transactions is a follow-up",
+                "Add missing transaction",
+                "Add a row only when a draft statement is missing a consumption",
+                "Draft transactions",
                 "Payment month"
         );
+        assertThat(api).contains("createStatementTransaction(statementId, payload)");
         assertThat(app).contains(
                 "statement.status === \"CONFIRMED\"",
                 "renderDraftStatementList(allStatements)"
         );
         assertThat(statements).contains(
                 "Payment month and at least one statement total are required before confirmation.",
+                "draft transaction rows",
+                "activeDraft.status !== \"DRAFT\"",
+                "api.createStatementTransaction(intent.statementId",
                 "api.updateTransaction",
                 "api.deleteTransaction"
+        );
+    }
+
+    @Test
+    void staticUiUsesOnlyStatementScopedTransactionCreateEndpoint() throws IOException {
+        String staticFiles = readAllStaticText();
+        String api = readStatic("js/api.js");
+
+        assertThat(staticFiles).contains("/api/statements/${statementId}/transactions");
+        assertThat(api).doesNotContain("request(\"/api/transactions\", {\n            method: \"POST\"");
+        assertThat(staticFiles).doesNotContain(
+                "/api/statement-transactions",
+                "/api/draft-transactions",
+                "/api/transactions/create"
         );
     }
 

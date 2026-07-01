@@ -8,6 +8,8 @@ import com.gentleia.landingtarjetas.shared.CardBrand;
 import com.gentleia.landingtarjetas.shared.DateParsers;
 import com.gentleia.landingtarjetas.shared.StatementStatus;
 import com.gentleia.landingtarjetas.shared.TransactionType;
+import com.gentleia.landingtarjetas.statement.CardStatement;
+import com.gentleia.landingtarjetas.statement.CardStatementRepository;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -18,10 +20,14 @@ import org.springframework.web.server.ResponseStatusException;
 public class TransactionService {
 
     private final StatementTransactionRepository transactionRepository;
+    private final CardStatementRepository statementRepository;
     private final CategoryService categoryService;
 
-    public TransactionService(StatementTransactionRepository transactionRepository, CategoryService categoryService) {
+    public TransactionService(StatementTransactionRepository transactionRepository,
+                              CardStatementRepository statementRepository,
+                              CategoryService categoryService) {
         this.transactionRepository = transactionRepository;
+        this.statementRepository = statementRepository;
         this.categoryService = categoryService;
     }
 
@@ -33,22 +39,22 @@ public class TransactionService {
     }
 
     @Transactional
+    public TransactionResponse createForDraftStatement(Long statementId, TransactionUpdateRequest request) {
+        CardStatement statement = statementRepository.findById(statementId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Statement not found"));
+        requireDraftStatement(statement, "Only draft statement transactions can be created");
+
+        StatementTransaction transaction = new StatementTransaction(statement, request.description().trim(), request.type());
+        applyRequest(transaction, request);
+        validate(transaction);
+        return TransactionResponse.from(transactionRepository.save(transaction));
+    }
+
+    @Transactional
     public TransactionResponse update(Long id, TransactionUpdateRequest request) {
         StatementTransaction transaction = getTransaction(id);
-        requireDraftStatement(transaction);
-        transaction.setTransactionDate(request.transactionDate());
-        transaction.setDescription(request.description().trim());
-        transaction.setType(request.type());
-        transaction.setAmountPesos(request.amountPesos());
-        transaction.setAmountUsd(request.amountUsd());
-        transaction.setCurrentInstallment(request.currentInstallment());
-        transaction.setTotalInstallments(request.totalInstallments());
-        transaction.setNotes(trimToNull(request.notes()));
-        Category category = request.categoryId() == null ? null : categoryService.getCategory(request.categoryId());
-        if (category != null && !category.isActive()) {
-            throw new IllegalArgumentException("Cannot assign inactive category to transaction");
-        }
-        transaction.setCategory(category);
+        requireDraftStatement(transaction, "Only draft statement transactions can be modified");
+        applyRequest(transaction, request);
         validate(transaction);
         return TransactionResponse.from(transaction);
     }
@@ -56,7 +62,7 @@ public class TransactionService {
     @Transactional
     public void delete(Long id) {
         StatementTransaction transaction = getTransaction(id);
-        requireDraftStatement(transaction);
+        requireDraftStatement(transaction, "Only draft statement transactions can be modified");
         transactionRepository.delete(transaction);
     }
 
@@ -86,10 +92,30 @@ public class TransactionService {
         return value.trim();
     }
 
-    private void requireDraftStatement(StatementTransaction transaction) {
-        if (transaction.getStatement().getStatus() != StatementStatus.DRAFT) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT,
-                    "Only draft statement transactions can be modified");
+    private void applyRequest(StatementTransaction transaction, TransactionUpdateRequest request) {
+        transaction.setTransactionDate(request.transactionDate());
+        transaction.setDescription(request.description().trim());
+        transaction.setType(request.type());
+        transaction.setAmountPesos(request.amountPesos());
+        transaction.setAmountUsd(request.amountUsd());
+        transaction.setCurrentInstallment(request.currentInstallment());
+        transaction.setTotalInstallments(request.totalInstallments());
+        transaction.setNotes(trimToNull(request.notes()));
+
+        Category category = request.categoryId() == null ? null : categoryService.getCategory(request.categoryId());
+        if (category != null && !category.isActive()) {
+            throw new IllegalArgumentException("Cannot assign inactive category to transaction");
+        }
+        transaction.setCategory(category);
+    }
+
+    private void requireDraftStatement(StatementTransaction transaction, String message) {
+        requireDraftStatement(transaction.getStatement(), message);
+    }
+
+    private void requireDraftStatement(CardStatement statement, String message) {
+        if (statement.getStatus() != StatementStatus.DRAFT) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, message);
         }
     }
 }

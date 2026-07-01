@@ -3,6 +3,9 @@ package com.gentleia.landingtarjetas.statement;
 import java.util.List;
 
 import com.gentleia.landingtarjetas.shared.CardBrand;
+import com.gentleia.landingtarjetas.transaction.TransactionResponse;
+import com.gentleia.landingtarjetas.transaction.TransactionService;
+import com.gentleia.landingtarjetas.transaction.TransactionUpdateRequest;
 
 import jakarta.validation.Valid;
 
@@ -25,10 +28,14 @@ public class StatementController {
 
     private final StatementService statementService;
     private final StatementUploadService statementUploadService;
+    private final TransactionService transactionService;
 
-    public StatementController(StatementService statementService, StatementUploadService statementUploadService) {
+    public StatementController(StatementService statementService,
+                               StatementUploadService statementUploadService,
+                               TransactionService transactionService) {
         this.statementService = statementService;
         this.statementUploadService = statementUploadService;
+        this.transactionService = transactionService;
     }
 
     @GetMapping
@@ -50,6 +57,13 @@ public class StatementController {
     @PutMapping("/{id}")
     public StatementDetailResponse update(@PathVariable Long id, @Valid @RequestBody StatementUpdateRequest request) {
         return statementService.update(id, request);
+    }
+
+    @PostMapping("/{id}/transactions")
+    @ResponseStatus(HttpStatus.CREATED)
+    public TransactionResponse createTransaction(@PathVariable Long id,
+                                                 @Valid @RequestBody TransactionUpdateRequest request) {
+        return transactionService.createForDraftStatement(id, request);
     }
 
     @PostMapping("/{id}/confirm")

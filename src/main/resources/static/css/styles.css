@@ -343,7 +343,8 @@ h3 {
 .filters,
 .category-form,
 .upload-form,
-.statement-form {
+.statement-form,
+.missing-transaction-form {
     display: grid;
     grid-template-columns: repeat(5, minmax(0, 1fr));
     gap: 0.85rem;
@@ -369,6 +370,20 @@ h3 {
     border: 1px solid var(--border);
     border-radius: 22px;
     background: var(--surface-muted);
+}
+
+.missing-transaction-form {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    margin-top: 1rem;
+    padding: 1rem;
+    border: 1px solid var(--border);
+    border-radius: 22px;
+    background: rgba(125, 211, 252, 0.055);
+}
+
+.missing-transaction-form h3,
+.missing-transaction-form .section-note {
+    grid-column: 1 / -1;
 }
 
 .form-actions {
@@ -575,6 +590,7 @@ td {
     .category-form,
     .upload-form,
     .statement-form,
+    .missing-transaction-form,
     .category-row {
         grid-template-columns: 1fr;
     }
@@ -616,7 +632,8 @@ td {
     .filters,
     .category-form,
     .upload-form,
-    .statement-form {
+    .statement-form,
+    .missing-transaction-form {
         grid-template-columns: 1fr;
     }
 

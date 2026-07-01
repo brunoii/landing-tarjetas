@@ -2,6 +2,7 @@ package com.gentleia.landingtarjetas;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -9,6 +10,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import java.math.BigDecimal;
 import java.time.LocalDate;
 
+import com.gentleia.landingtarjetas.category.Category;
+import com.gentleia.landingtarjetas.category.CategoryRepository;
 import com.gentleia.landingtarjetas.projection.InstallmentProjectionRepository;
 import com.gentleia.landingtarjetas.shared.CardBrand;
 import com.gentleia.landingtarjetas.shared.Provider;
@@ -39,12 +42,52 @@ class TransactionControllerTests {
     private StatementTransactionRepository transactionRepository;
     @Autowired
     private InstallmentProjectionRepository projectionRepository;
+    @Autowired
+    private CategoryRepository categoryRepository;
 
     @BeforeEach
     void cleanDatabase() {
         projectionRepository.deleteAll();
         transactionRepository.deleteAll();
         statementRepository.deleteAll();
+        categoryRepository.deleteAll();
+    }
+
+    @Test
+    void postCreatesDraftStatementTransaction() throws Exception {
+        CardStatement statement = saveStatement(StatementStatus.DRAFT);
+        Category category = categoryRepository.save(new Category("Fixture manual category", "#123456"));
+
+        mockMvc.perform(post("/api/statements/{id}/transactions", statement.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(createPayload(category.getId())))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.statementId").value(statement.getId()))
+                .andExpect(jsonPath("$.paymentMonth").value("2026-06-01"))
+                .andExpect(jsonPath("$.cardBrand").value("VISA"))
+                .andExpect(jsonPath("$.description").value("Fixture added purchase"))
+                .andExpect(jsonPath("$.category.id").value(category.getId()))
+                .andExpect(jsonPath("$.amountPesos").value(66.25));
+
+        assertThat(transactionRepository.findAll()).singleElement().satisfies(saved -> {
+            assertThat(saved.getStatement().getId()).isEqualTo(statement.getId());
+            assertThat(saved.getDescription()).isEqualTo("Fixture added purchase");
+            assertThat(saved.getAmountPesos()).isEqualByComparingTo("66.25");
+            assertThat(saved.getCategory().getId()).isEqualTo(category.getId());
+        });
+    }
+
+    @Test
+    void postRejectsConfirmedStatementTransactionCreate() throws Exception {
+        CardStatement statement = saveStatement(StatementStatus.CONFIRMED);
+
+        mockMvc.perform(post("/api/statements/{id}/transactions", statement.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(createPayload(null)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error").value("Only draft statement transactions can be created"));
+
+        assertThat(transactionRepository.findAll()).isEmpty();
     }
 
     @Test
@@ -141,5 +184,22 @@ class TransactionControllerTests {
                   "notes": "Reviewed note"
                 }
                 """;
+    }
+
+    private String createPayload(Long categoryId) {
+        String categoryValue = categoryId == null ? "null" : categoryId.toString();
+        return """
+                {
+                  "transactionDate": "2026-06-12",
+                  "description": "Fixture added purchase",
+                  "type": "PURCHASE",
+                  "categoryId": %s,
+                  "amountPesos": 66.25,
+                  "amountUsd": null,
+                  "currentInstallment": null,
+                  "totalInstallments": null,
+                  "notes": "Added manually"
+                }
+                """.formatted(categoryValue);
     }
 }
