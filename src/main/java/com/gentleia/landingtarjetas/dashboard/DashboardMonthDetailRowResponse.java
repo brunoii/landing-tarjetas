@@ -4,6 +4,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 
 import com.gentleia.landingtarjetas.shared.CardBrand;
+import com.gentleia.landingtarjetas.shared.Provider;
 import com.gentleia.landingtarjetas.shared.TransactionType;
 
 public record DashboardMonthDetailRowResponse(
@@ -13,6 +14,7 @@ public record DashboardMonthDetailRowResponse(
         Long sourceTransactionId,
         LocalDate month,
         String description,
+        Provider provider,
         CardBrand cardBrand,
         String cardAlias,
         TransactionType type,

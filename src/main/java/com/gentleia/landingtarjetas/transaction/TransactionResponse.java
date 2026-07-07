@@ -20,6 +20,7 @@ public record TransactionResponse(
         BigDecimal amountUsd,
         Integer currentInstallment,
         Integer totalInstallments,
+        String operationNumber,
         String notes
 ) {
     public static TransactionResponse from(StatementTransaction transaction) {
@@ -36,6 +37,7 @@ public record TransactionResponse(
                 transaction.getAmountUsd(),
                 transaction.getCurrentInstallment(),
                 transaction.getTotalInstallments(),
+                transaction.getOperationNumber(),
                 transaction.getNotes()
         );
     }

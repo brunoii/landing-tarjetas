@@ -13,6 +13,7 @@ public record ParsedTransaction(
         BigDecimal amountUsd,
         Integer currentInstallment,
         Integer totalInstallments,
+        String operationNumber,
         String notes
 ) {
 }

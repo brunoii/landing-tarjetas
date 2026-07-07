@@ -73,14 +73,14 @@ public class TransactionService {
 
     public void validate(StatementTransaction transaction) {
         if (transaction.getAmountPesos() == null && transaction.getAmountUsd() == null) {
-            throw new IllegalArgumentException("Transaction requires an amount in pesos or USD");
+            throw new IllegalArgumentException("La transacción requiere un importe en pesos o USD");
         }
         if (transaction.getType() == TransactionType.INSTALLMENT) {
             if (transaction.getCurrentInstallment() == null || transaction.getTotalInstallments() == null) {
-                throw new IllegalArgumentException("Installment transactions require current and total installments");
+                throw new IllegalArgumentException("Las transacciones a plazos requieren el pago actual y el total de las cuotas");
             }
             if (transaction.getCurrentInstallment() > transaction.getTotalInstallments()) {
-                throw new IllegalArgumentException("Current installment cannot exceed total installments");
+                throw new IllegalArgumentException("La cuota actual no puede superar el total de cuotas");
             }
         }
     }

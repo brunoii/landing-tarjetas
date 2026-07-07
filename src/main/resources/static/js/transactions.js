@@ -8,7 +8,7 @@ export function setTransactionCategories(nextCategories) {
     categories = nextCategories;
     const categorySelect = document.querySelector("#filter-category");
     const currentValue = categorySelect.value;
-    categorySelect.innerHTML = '<option value="">All categories</option>';
+    categorySelect.innerHTML = '<option value="">Todas las categorías</option>';
     categories.forEach((category) => {
         const option = document.createElement("option");
         option.value = category.id;
@@ -41,15 +41,15 @@ export function renderTransactions(transactions, month = lastMonth) {
         const row = document.createElement("tr");
         row.innerHTML = `
             <td>${formatDate(transaction.transactionDate)}</td>
-            <td>${escapeHtml(cardLabel(transaction.cardBrand))}</td>
+            <td>${escapeHtml(transactionCardLabel(transaction.cardBrand))}</td>
             <td>${escapeHtml(transaction.description || "—")}</td>
-            <td>${escapeHtml(typeLabel(transaction.type))}</td>
-            <td>${escapeHtml(transaction.category?.name || "Uncategorized")}</td>
+            <td>${escapeHtml(transactionTypeLabel(transaction.type))}</td>
+            <td>${escapeHtml(transaction.category?.name || "Sin categoría")}</td>
             <td>${installmentText(transaction)}</td>
             <td class="amount">${formatPesos(transaction.amountPesos)}</td>
             <td class="amount">${formatUsd(transaction.amountUsd)}</td>
             <td>${escapeHtml(transaction.notes || "—")}</td>
-            <td><button type="button" class="secondary-button" disabled title="Editing is reserved for a later safe workflow.">Edit</button></td>
+            <td><button type="button" class="secondary-button" disabled title="La edición queda reservada para un flujo seguro posterior.">Editar</button></td>
         `;
         table.append(row);
     });
@@ -72,36 +72,36 @@ export function resetTransactionFilters() {
 
 function renderFilterSummary(visibleTransactions, month) {
     const summary = document.querySelector("#filters-summary");
-    const parts = [`Month: ${formatMonth(month)}`];
+    const parts = [`Mes: ${formatMonth(month)}`];
     const card = document.querySelector("#filter-card").value;
     const category = document.querySelector("#filter-category");
     const type = document.querySelector("#filter-type").value;
     const search = document.querySelector("#filter-search").value.trim();
 
     if (card) {
-        parts.push(`Card: ${cardLabel(card)}`);
+        parts.push(`Tarjeta: ${transactionCardLabel(card)}`);
     }
     if (category.value) {
-        parts.push(`Category: ${category.selectedOptions[0]?.textContent || "Selected category"}`);
+        parts.push(`Categoría: ${category.selectedOptions[0]?.textContent || "Categoría seleccionada"}`);
     }
     if (type) {
-        parts.push(`Type: ${typeLabel(type)}`);
+        parts.push(`Tipo: ${transactionTypeLabel(type)}`);
     }
     if (search) {
-        parts.push(`Search: "${search}"`);
+        parts.push(`Búsqueda: "${search}"`);
     }
 
-    summary.textContent = `${visibleTransactions.length} confirmed row${visibleTransactions.length === 1 ? "" : "s"}. ${parts.join(" · ")}.`;
+    summary.textContent = `${visibleTransactions.length} ${visibleTransactions.length === 1 ? "fila confirmada" : "filas confirmadas"}. ${parts.join(" · ")}.`;
 }
 
 function emptyMessage(apiRowCount, search) {
     if (apiRowCount > 0 && search) {
-        return "Confirmed rows loaded, but none match the current text search.";
+        return "Hay filas confirmadas cargadas, pero ninguna coincide con la búsqueda actual.";
     }
     if (apiRowCount > 0) {
-        return "Confirmed rows loaded, but none match the current browser filters.";
+        return "Hay filas confirmadas cargadas, pero ninguna coincide con los filtros actuales del navegador.";
     }
-    return "No confirmed transactions match the selected month, card, category, and type filters.";
+    return "No hay transacciones confirmadas que coincidan con el mes, la tarjeta, la categoría y el tipo seleccionados.";
 }
 
 function matchesSearch(transaction, search) {
@@ -109,9 +109,29 @@ function matchesSearch(transaction, search) {
         transaction.description,
         transaction.notes,
         transaction.category?.name,
-        cardLabel(transaction.cardBrand),
-        typeLabel(transaction.type)
+        transactionCardLabel(transaction.cardBrand),
+        transactionTypeLabel(transaction.type)
     ].some((value) => String(value || "").toLowerCase().includes(search));
+}
+
+function transactionCardLabel(cardBrand) {
+    const labels = {
+        OTHER: "Otra"
+    };
+    return labels[cardBrand] || cardLabel(cardBrand).replace("Unknown card", "Tarjeta desconocida");
+}
+
+function transactionTypeLabel(type) {
+    const labels = {
+        PURCHASE: "Compra",
+        INSTALLMENT: "Cuota",
+        FEE: "Cargo",
+        TAX: "Impuesto",
+        PAYMENT: "Pago",
+        REFUND: "Reintegro",
+        ADJUSTMENT: "Ajuste"
+    };
+    return labels[type] || typeLabel(type);
 }
 
 function installmentText(transaction) {

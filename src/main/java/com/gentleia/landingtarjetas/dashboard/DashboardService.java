@@ -142,6 +142,7 @@ public class DashboardService {
                 transaction.getId(),
                 month,
                 transaction.getDescription(),
+                statement.getProvider(),
                 statement.getCardBrand(),
                 statement.getCardAlias(),
                 transaction.getType(),
@@ -165,6 +166,7 @@ public class DashboardService {
                 transaction.getId(),
                 projection.getProjectedMonth(),
                 transaction.getDescription(),
+                statement.getProvider(),
                 statement.getCardBrand(),
                 statement.getCardAlias(),
                 transaction.getType(),
@@ -188,7 +190,7 @@ public class DashboardService {
     private List<DashboardCardTotalResponse> cardTotals(List<DashboardMonthDetailRowResponse> rows) {
         Map<String, MutableCardTotals> totals = new LinkedHashMap<>();
         for (DashboardMonthDetailRowResponse row : rows) {
-            String key = row.cardBrand() + "|" + (row.cardAlias() == null ? "" : row.cardAlias());
+            String key = row.provider() + "|" + row.cardBrand() + "|" + (row.cardAlias() == null ? "" : row.cardAlias());
             totals.computeIfAbsent(key, ignored -> new MutableCardTotals(row)).add(row);
         }
         return totals.values().stream()
@@ -203,12 +205,14 @@ public class DashboardService {
 
     private static class MutableCardTotals {
         private final com.gentleia.landingtarjetas.shared.CardBrand cardBrand;
+        private final com.gentleia.landingtarjetas.shared.Provider provider;
         private final String cardAlias;
         private BigDecimal totalPesos = BigDecimal.ZERO;
         private BigDecimal totalUsd = BigDecimal.ZERO;
         private long rowCount;
 
         MutableCardTotals(DashboardMonthDetailRowResponse row) {
+            this.provider = row.provider();
             this.cardBrand = row.cardBrand();
             this.cardAlias = row.cardAlias();
         }
@@ -224,7 +228,7 @@ public class DashboardService {
         }
 
         DashboardCardTotalResponse toResponse() {
-            return new DashboardCardTotalResponse(cardBrand, cardAlias, totalPesos, totalUsd, rowCount);
+            return new DashboardCardTotalResponse(provider, cardBrand, cardAlias, totalPesos, totalUsd, rowCount);
         }
     }
 

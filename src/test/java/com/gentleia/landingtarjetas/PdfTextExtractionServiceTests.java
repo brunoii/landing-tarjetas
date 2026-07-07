@@ -20,7 +20,7 @@ class PdfTextExtractionServiceTests {
 
         assertThatThrownBy(() -> service.validate(file))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("empty");
+                .hasMessageContaining("está vacío");
     }
 
     @Test
@@ -31,7 +31,7 @@ class PdfTextExtractionServiceTests {
 
         assertThatThrownBy(() -> service.validate(file))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("Only PDF files");
+                .hasMessageContaining("Solo se aceptan archivos PDF");
     }
 
     @Test
@@ -42,7 +42,7 @@ class PdfTextExtractionServiceTests {
 
         assertThatThrownBy(() -> service.validate(file))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("size limit");
+                .hasMessageContaining("límite de tamaño");
     }
 
     @Test

@@ -74,4 +74,60 @@ class DashboardControllerTests {
                 .andExpect(jsonPath("$.rows[0].installmentNumber").value(2))
                 .andExpect(jsonPath("$.rows[0].totalInstallments").value(2));
     }
+
+    @Test
+    void dashboardMonthDetailUsesTransactionSumsForSantanderVisaCardTotals() throws Exception {
+        CardStatement statement = new CardStatement(Provider.SANTANDER, CardBrand.VISA);
+        statement.setStatus(StatementStatus.DRAFT);
+        statement.setCardAlias("Santander Visa");
+        statement.setPaymentMonth(LocalDate.of(2026, 7, 1));
+        statement.setTotalPesos(new BigDecimal("2012.38"));
+        statement.setTotalUsd(BigDecimal.ZERO);
+        statement.setMinimumPaymentPesos(new BigDecimal("2012.38"));
+        statement = statementRepository.save(statement);
+        StatementTransaction pesos = new StatementTransaction(statement, "Fixture local purchase", TransactionType.PURCHASE);
+        pesos.setTransactionDate(LocalDate.of(2026, 6, 10));
+        pesos.setAmountPesos(new BigDecimal("2012382.98"));
+        StatementTransaction usd = new StatementTransaction(statement, "Fixture USD purchase", TransactionType.PURCHASE);
+        usd.setTransactionDate(LocalDate.of(2026, 6, 11));
+        usd.setAmountUsd(new BigDecimal("25.50"));
+        transactionRepository.save(pesos);
+        transactionRepository.save(usd);
+        statementService.confirm(statement.getId());
+
+        mockMvc.perform(get("/api/dashboard/months/2026-07"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalPesos").value(2012382.98))
+                .andExpect(jsonPath("$.totalUsd").value(25.50))
+                .andExpect(jsonPath("$.totalsByCard[?(@.provider == 'SANTANDER' && @.cardBrand == 'VISA' && @.cardAlias == 'Santander Visa' && @.totalPesos == 2012382.98 && @.totalUsd == 25.50)]").exists());
+    }
+
+    @Test
+    void dashboardMonthStatusIncludesConfirmedNaranjaStatementForSelectedMonth() throws Exception {
+        CardStatement statement = new CardStatement(Provider.NARANJA_X, CardBrand.VISA);
+        statement.setStatus(StatementStatus.DRAFT);
+        statement.setCardAlias("Visa");
+        statement.setPaymentMonth(LocalDate.of(2026, 7, 1));
+        statement.setTotalPesos(new BigDecimal("300.00"));
+        statement = statementRepository.save(statement);
+        StatementTransaction transaction = new StatementTransaction(statement, "Fixture Naranja purchase", TransactionType.PURCHASE);
+        transaction.setTransactionDate(LocalDate.of(2026, 7, 7));
+        transaction.setAmountPesos(new BigDecimal("300.00"));
+        transactionRepository.save(transaction);
+        statementService.confirm(statement.getId());
+
+        mockMvc.perform(get("/api/statements").param("month", "2026-07"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].provider").value("NARANJA_X"))
+                .andExpect(jsonPath("$[0].cardBrand").value("VISA"))
+                .andExpect(jsonPath("$[0].cardAlias").value("Visa"))
+                .andExpect(jsonPath("$[0].status").value("CONFIRMED"));
+
+        mockMvc.perform(get("/api/dashboard/months/2026-07"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.currentReal").value(true))
+                .andExpect(jsonPath("$.rows[0].provider").value("NARANJA_X"))
+                .andExpect(jsonPath("$.rows[0].cardAlias").value("Visa"))
+                .andExpect(jsonPath("$.totalsByCard[?(@.provider == 'NARANJA_X' && @.cardBrand == 'VISA' && @.cardAlias == 'Visa' && @.totalPesos == 300.00)]").exists());
+    }
 }

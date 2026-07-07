@@ -13,11 +13,11 @@ export function toYearMonth(value) {
 export function formatMonth(value) {
     const yearMonth = toYearMonth(value);
     if (!yearMonth) {
-        return "No month";
+        return "Sin mes";
     }
     const [year, month] = yearMonth.split("-");
     const date = new Date(Number(year), Number(month) - 1, 1);
-    return new Intl.DateTimeFormat("en", { month: "short", year: "numeric" }).format(date);
+    return new Intl.DateTimeFormat("es-AR", { month: "short", year: "numeric" }).format(date);
 }
 
 export function formatDate(value) {
@@ -25,7 +25,7 @@ export function formatDate(value) {
         return "—";
     }
     const date = new Date(`${value}T00:00:00`);
-    return new Intl.DateTimeFormat("en", { day: "2-digit", month: "short", year: "numeric" }).format(date);
+    return new Intl.DateTimeFormat("es-AR", { day: "2-digit", month: "short", year: "numeric" }).format(date);
 }
 
 export function formatPesos(value) {

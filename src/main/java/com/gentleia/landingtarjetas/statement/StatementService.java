@@ -1,13 +1,17 @@
 package com.gentleia.landingtarjetas.statement;
 
 import java.math.BigDecimal;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 import com.gentleia.landingtarjetas.projection.InstallmentProjectionService;
 import com.gentleia.landingtarjetas.shared.CardBrand;
 import com.gentleia.landingtarjetas.shared.DateParsers;
 import com.gentleia.landingtarjetas.shared.StatementStatus;
 import com.gentleia.landingtarjetas.transaction.TransactionService;
+import com.gentleia.landingtarjetas.transaction.StatementTransaction;
+import com.gentleia.landingtarjetas.transaction.StatementTransactionRepository;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -18,13 +22,16 @@ import org.springframework.web.server.ResponseStatusException;
 public class StatementService {
 
     private final CardStatementRepository statementRepository;
+    private final StatementTransactionRepository transactionRepository;
     private final InstallmentProjectionService projectionService;
     private final TransactionService transactionService;
 
     public StatementService(CardStatementRepository statementRepository,
+                            StatementTransactionRepository transactionRepository,
                             InstallmentProjectionService projectionService,
                             TransactionService transactionService) {
         this.statementRepository = statementRepository;
+        this.transactionRepository = transactionRepository;
         this.projectionService = projectionService;
         this.transactionService = transactionService;
     }
@@ -65,9 +72,12 @@ public class StatementService {
     public StatementDetailResponse confirm(Long id) {
         CardStatement statement = getStatement(id);
         if (statement.getPaymentMonth() == null) {
-            throw new IllegalArgumentException("Cannot confirm a statement without a payment month");
+            throw new IllegalArgumentException("No se puede confirmar un resumen sin mes de pago");
         }
         validateTotals(statement.getTotalPesos(), statement.getTotalUsd());
+        if (statement.getStatus() == StatementStatus.DRAFT) {
+            removeDuplicateTransactions(statement);
+        }
         statement.getTransactions().forEach(transactionService::validate);
         statement.setStatus(StatementStatus.CONFIRMED);
         projectionService.replaceForStatement(statement);
@@ -83,19 +93,38 @@ public class StatementService {
 
     public CardStatement getStatement(Long id) {
         return statementRepository.findById(id)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Statement not found"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "No se encontró el resumen"));
     }
 
     private void validateTotals(BigDecimal totalPesos, BigDecimal totalUsd) {
         if (totalPesos == null && totalUsd == null) {
-            throw new IllegalArgumentException("Statement requires at least one total amount in pesos or USD");
+            throw new IllegalArgumentException("El resumen requiere al menos un total en pesos o en dólares");
         }
     }
 
     private void ensureDraft(CardStatement statement) {
         if (statement.getStatus() != StatementStatus.DRAFT) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Only draft statements can be modified");
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Solo se pueden modificar resúmenes en borrador");
         }
+    }
+
+    private void removeDuplicateTransactions(CardStatement statement) {
+        Set<String> existingKeys = new HashSet<>();
+        for (StatementTransaction transaction : transactionRepository.findConfirmedWithFilters(
+                statement.getPaymentMonth(), statement.getCardBrand(), null, null)) {
+            if (StatementTransactionIdentity.sameStatementScope(statement, transaction.getStatement())) {
+                existingKeys.add(StatementTransactionIdentity.key(transaction.getStatement(), transaction));
+            }
+        }
+        Set<String> currentKeys = new HashSet<>();
+        statement.getTransactions().removeIf(transaction -> {
+            String key = StatementTransactionIdentity.key(statement, transaction);
+            if (existingKeys.contains(key) || currentKeys.contains(key)) {
+                return true;
+            }
+            currentKeys.add(key);
+            return false;
+        });
     }
 
     private String trimToNull(String value) {

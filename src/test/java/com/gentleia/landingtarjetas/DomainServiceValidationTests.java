@@ -81,7 +81,7 @@ class DomainServiceValidationTests {
         Long statementId = statement.getId();
         assertThatThrownBy(() -> statementService.confirm(statementId))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("payment month");
+                .hasMessageContaining("mes de pago");
     }
 
     @Test
@@ -93,7 +93,7 @@ class DomainServiceValidationTests {
         Long statementId = statement.getId();
         assertThatThrownBy(() -> statementService.confirm(statementId))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("at least one total amount");
+                .hasMessageContaining("al menos un total");
     }
 
     @Test
@@ -206,7 +206,7 @@ class DomainServiceValidationTests {
         assertThatThrownBy(() -> statementService.update(statementId, request))
                 .isInstanceOfSatisfying(ResponseStatusException.class, exception -> {
                     assertThat(exception.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
-                    assertThat(exception.getReason()).isEqualTo("Only draft statements can be modified");
+                    assertThat(exception.getReason()).isEqualTo("Solo se pueden modificar resúmenes en borrador");
                 });
         assertThat(statementRepository.findById(statementId))
                 .get()
@@ -252,7 +252,7 @@ class DomainServiceValidationTests {
         assertThatThrownBy(() -> statementService.delete(statementId))
                 .isInstanceOfSatisfying(ResponseStatusException.class, exception -> {
                     assertThat(exception.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
-                    assertThat(exception.getReason()).isEqualTo("Only draft statements can be modified");
+                    assertThat(exception.getReason()).isEqualTo("Solo se pueden modificar resúmenes en borrador");
                 });
         assertThat(statementRepository.existsById(statementId)).isTrue();
     }
@@ -652,7 +652,7 @@ class DomainServiceValidationTests {
 
         assertThatThrownBy(() -> transactionService.createForDraftStatement(statement.getId(), request))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("current and total installments");
+                .hasMessageContaining("pago actual y el total de las cuotas");
     }
 
     @Test
@@ -673,7 +673,7 @@ class DomainServiceValidationTests {
 
         assertThatThrownBy(() -> transactionService.createForDraftStatement(statement.getId(), request))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("cannot exceed");
+                .hasMessageContaining("no puede superar");
     }
 
     @Test
@@ -756,7 +756,7 @@ class DomainServiceValidationTests {
 
         assertThatThrownBy(() -> transactionService.update(transaction.getId(), request))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("current and total installments");
+                .hasMessageContaining("pago actual y el total de las cuotas");
     }
 
     @Test
@@ -777,7 +777,7 @@ class DomainServiceValidationTests {
 
         assertThatThrownBy(() -> transactionService.update(transaction.getId(), request))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("cannot exceed");
+                .hasMessageContaining("no puede superar");
     }
 
     @Test

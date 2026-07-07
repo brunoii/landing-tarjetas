@@ -56,6 +56,9 @@ public class StatementTransaction {
     private Integer currentInstallment;
     private Integer totalInstallments;
 
+    @Column(length = 80)
+    private String operationNumber;
+
     @Column(length = 500)
     private String notes;
 
@@ -159,6 +162,14 @@ public class StatementTransaction {
 
     public void setTotalInstallments(Integer totalInstallments) {
         this.totalInstallments = totalInstallments;
+    }
+
+    public String getOperationNumber() {
+        return operationNumber;
+    }
+
+    public void setOperationNumber(String operationNumber) {
+        this.operationNumber = operationNumber;
     }
 
     public String getNotes() {

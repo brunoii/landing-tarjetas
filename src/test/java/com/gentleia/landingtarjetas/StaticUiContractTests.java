@@ -22,9 +22,9 @@ class StaticUiContractTests {
         String index = readStatic("index.html");
 
         assertThat(index).contains("<link rel=\"stylesheet\" href=\"/css/styles.css\">");
-        assertThat(index).contains("<script type=\"module\" src=\"/js/app.js\"></script>");
+        assertThat(index).contains("<script type=\"module\" src=\"/js/app.js?v=20260707-dashboard-spanish-copy\"></script>");
         assertThat(readStatic("js/app.js"))
-                .contains("./api.js", "./categories.js", "./dashboard.js", "./statements.js", "./transactions.js", "./utils.js");
+                .contains("./api.js", "./categories.js", "./dashboard.js?v=20260707-dashboard-spanish-copy", "./statements.js", "./transactions.js", "./utils.js");
     }
 
     @Test
@@ -63,22 +63,24 @@ class StaticUiContractTests {
         assertThat(api).contains("dashboardMonths()", "dashboardMonthDetail(yearMonth)");
         assertThat(app).contains("api.dashboardMonths()", "api.dashboardMonthDetail(state.month)");
         assertThat(index).contains(
-                "Installment projection detail",
-                "Projected months estimate remaining installments from confirmed statements",
-                "Pesos and USD stay separate with no conversion",
+                "Detalle de proyección de cuotas",
+                "Los meses proyectados estiman las cuotas pendientes de resúmenes confirmados",
+                "Pesos y USD se mantienen separados, sin conversión",
                 "id=\"filters-summary\"",
                 "id=\"month-detail-table\""
         );
         assertThat(dashboard).contains(
-                "Projection-only month",
-                "No confirmed statement data is available for",
-                "Actual month detail",
-                "Missing ${target.title}",
+                "Mes solo proyectado",
+                "No hay datos de resúmenes confirmados para",
+                "Detalle del mes confirmado",
+                "Falta ${target.title}",
+                "Cargado",
+                "Faltante",
                 "Santander VISA",
                 "Santander AMEX",
                 "Naranja X"
         );
-        assertThat(dashboard).contains("Actual confirmed statement data. Projections for this month are suppressed to avoid double-counting.");
+        assertThat(dashboard).contains("Datos reales de resúmenes confirmados. Las proyecciones de este mes se ocultan para evitar doble conteo.");
         assertThat(dashboard).doesNotContain("Mixed", "Includes confirmed transactions and installment projections");
     }
 
@@ -92,15 +94,25 @@ class StaticUiContractTests {
         String utils = readStatic("js/utils.js");
 
         assertThat(index).contains(
+                "<html lang=\"es-AR\">",
                 "id=\"clear-transaction-filters\"",
-                "No confirmed transactions match the current month, card, category, type, and search filters.",
+                "No hay transacciones confirmadas que coincidan con el mes actual, la tarjeta, la categoría, el tipo y la búsqueda.",
+                "Aplicar filtros",
+                "Limpiar filtros",
                 "aria-live=\"polite\""
         );
+        assertThat(index).doesNotContain("<html lang=\"en\">");
         assertThat(styles).contains("@media (max-width: 680px)", "overflow-x: auto", ".projection-row", ".actual-row");
-        assertThat(app).contains("Dashboard data could not be loaded", "Transactions could not be loaded", "setButtonBusy");
+        assertThat(app).contains("No se pudieron cargar los datos del panel", "No se pudieron cargar las transacciones", "setButtonBusy");
         assertThat(statements).contains("Upload could not be completed", "No statement text or raw PDF content is shown", "setButtonBusy");
-        assertThat(transactions).contains("resetTransactionFilters", "renderFilterSummary", "Confirmed rows loaded, but none match the current text search.");
-        assertThat(utils).contains("export function setButtonBusy", "aria-busy");
+        assertThat(transactions).contains(
+                "resetTransactionFilters",
+                "renderFilterSummary",
+                "Mes: ${formatMonth(month)}",
+                "Hay filas confirmadas cargadas, pero ninguna coincide con la búsqueda actual."
+        );
+        assertThat(utils).contains("export function setButtonBusy", "aria-busy", "Intl.DateTimeFormat(\"es-AR\"", "Intl.NumberFormat(\"en\"");
+        assertThat(utils).doesNotContain("Intl.DateTimeFormat(\"en\"");
     }
 
     @Test
@@ -198,7 +210,7 @@ class StaticUiContractTests {
     void currencyCopyKeepsPesosAndUsdSeparateWithoutConversion() throws IOException {
         String index = readStatic("index.html");
 
-        assertThat(index).contains("USD is shown separately. No conversion is applied.");
+        assertThat(index).contains("USD se muestra por separado. No se aplica conversión.");
         assertThat(index).contains("Total pesos", "Total USD");
     }
 

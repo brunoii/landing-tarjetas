@@ -23,6 +23,8 @@ public class NaranjaXParser implements StatementParser {
 
     @Override
     public ParsedStatement parse(String extractedText) {
-        return StatementParseSupport.parseCommon(extractedText, Provider.NARANJA_X, CardBrand.OTHER, "Naranja X");
+        CardBrand cardBrand = StatementParseSupport.detectNaranjaCardBrand(extractedText).orElse(CardBrand.OTHER);
+        String cardAlias = cardBrand == CardBrand.OTHER ? "Naranja X" : "Naranja X " + cardBrand.name().replace('_', ' ');
+        return StatementParseSupport.parseCommon(extractedText, Provider.NARANJA_X, cardBrand, cardAlias);
     }
 }

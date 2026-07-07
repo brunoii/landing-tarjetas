@@ -5,18 +5,20 @@ const targetCards = [
         title: "Santander VISA",
         cardBrand: "VISA",
         alias: "santander",
+        strongProviders: ["SANTANDER"],
         providers: ["VISA_HOME", "BANK_PORTAL", "SANTANDER", "MANUAL"]
     },
     {
         title: "Santander AMEX",
         cardBrand: "AMERICAN_EXPRESS",
         alias: "santander",
+        strongProviders: ["SANTANDER"],
         providers: ["BANK_PORTAL", "SANTANDER", "MANUAL"]
     },
     {
         title: "Naranja X",
-        cardBrand: "OTHER",
         alias: "naranja",
+        strongProviders: ["NARANJA_X"],
         providers: ["BANK_PORTAL", "NARANJA_X", "MANUAL"]
     }
 ];
@@ -26,7 +28,7 @@ const MAX_VISIBLE_MONTH_TABS = 8;
 export function renderDashboard({ month, summary, statements, transactions, allStatements, months = [], monthDetail = null }) {
     renderMonthTabs(month, months, allStatements);
     renderSummary(summary, transactions, monthDetail);
-    renderCardDetails(statements, month);
+    renderCardDetails(statements, month, monthDetail);
     renderMonthDetail(monthDetail, month);
 }
 
@@ -41,7 +43,7 @@ function renderMonthTabs(selectedMonth, months, allStatements) {
 
     tabs.innerHTML = "";
     if (visibleMonths.length === 0) {
-        tabs.innerHTML = '<span class="empty-state">No statement months are loaded yet. Upload and confirm a draft to create month tabs.</span>';
+        tabs.innerHTML = '<span class="empty-state">Todavía no hay meses con resúmenes cargados. Cargue y confirme un borrador para crear pestañas de meses.</span>';
         return;
     }
     visibleMonths.forEach((month) => {
@@ -77,10 +79,10 @@ export function visibleMonthTabs(selectedMonth, months, maxVisible = MAX_VISIBLE
 
 export function monthTabLabel(month) {
     if (month.projectionOnly) {
-        return ' <span class="tab-label">Projection</span>';
+        return ' <span class="tab-label">Proyección</span>';
     }
     if (month.currentReal) {
-        return ' <span class="tab-label">Actual</span>';
+        return ' <span class="tab-label">Confirmado</span>';
     }
     return "";
 }
@@ -98,31 +100,38 @@ function renderSummary(summary, transactions, monthDetail) {
     document.querySelector("#total-pesos").textContent = formatPesos(detailTotals.pesos);
     document.querySelector("#total-usd").textContent = formatUsd(detailTotals.usd);
     document.querySelector("#total-pesos-hint").textContent = monthDetail?.projectionOnly
-        ? "Projection-only month from remaining installments."
+        ? "Mes solo con proyección de cuotas pendientes."
         : monthDetail?.currentReal
-            ? "Actual confirmed statement data. Projections for this month are suppressed to avoid double-counting."
+            ? "Datos reales de resúmenes confirmados. Las proyecciones de este mes se ocultan para evitar doble conteo."
             : detailRows.some((row) => row.kind === "PROJECTION")
-                ? "Projection detail from remaining installments."
+                ? "Detalle de proyección de cuotas pendientes."
                 : transactions.length > 0
-                    ? "Loaded from current month transactions."
-                    : "No loaded transactions for this month.";
+                    ? "Cargado desde las transacciones del mes actual."
+                    : "No hay transacciones cargadas para este mes.";
     document.querySelector("#one-payment-total").textContent = formatMoneyPair(onePaymentTotals);
     document.querySelector("#installment-total").textContent = formatMoneyPair(installmentTotals);
     document.querySelector("#charges-total").textContent = formatMoneyPair(chargesTotals);
     document.querySelector("#record-counts").textContent = `${summary?.statementCount || 0} / ${detailRows.length || summary?.transactionCount || 0}`;
 }
 
-function renderCardDetails(statements, selectedMonth) {
+export function renderCardDetails(statements, selectedMonth, monthDetail) {
     const container = document.querySelector("#card-detail-grid");
     container.innerHTML = "";
 
     targetCards.forEach((target) => {
         const matches = statements.filter((statement) => matchesTargetCard(statement, target));
-        const isLoaded = matches.length > 0;
-        const totals = matches.reduce((current, statement) => addAmounts(current, statement), emptyTotals());
-        const primary = matches[0];
+        const detailTotals = (monthDetail?.totalsByCard || []).filter((total) => matchesTargetCard(total, target));
+        const loadedFromDetail = Boolean(monthDetail?.currentReal && detailTotals.length);
+        const isLoaded = matches.length > 0 || loadedFromDetail;
+        const primary = matches[0] || detailTotals[0];
+        const totals = (detailTotals.length ? detailTotals : matches)
+            .reduce((current, item) => addAmounts(current, item), emptyTotals());
+        const transactionCount = detailTotals.length
+            ? detailTotals.reduce((count, total) => count + Number(total.rowCount || 0), 0)
+            : primary?.transactionCount || 0;
 
-        const missingMessage = `Missing ${target.title} for ${formatMonth(selectedMonth)}.`;
+        const statusText = matches[0]?.status ? statementStatusText(matches[0].status) : loadedFromDetail ? "Confirmado" : "Sin resumen confirmado";
+        const missingMessage = `Falta ${target.title} para ${formatMonth(selectedMonth)}.`;
         const article = document.createElement("article");
         article.className = "card-detail";
         article.innerHTML = `
@@ -131,13 +140,13 @@ function renderCardDetails(statements, selectedMonth) {
                     <h3>${escapeHtml(target.title)}</h3>
                     <p class="muted">${escapeHtml(isLoaded ? (primary.cardAlias || cardLabel(primary.cardBrand)) : missingMessage)}</p>
                 </div>
-                <span class="status-chip ${isLoaded ? "loaded" : "empty"}">${isLoaded ? "Loaded" : "Missing"}</span>
+                <span class="status-chip ${isLoaded ? "loaded" : "empty"}">${isLoaded ? "Cargado" : "Faltante"}</span>
             </header>
             <dl>
                 <div><dt>Total</dt><dd>${formatMoneyPair(totals)}</dd></div>
-                <div><dt>Status</dt><dd>${escapeHtml(primary?.status || "No confirmed statement")}</dd></div>
-                <div><dt>Due date</dt><dd>${formatDate(primary?.dueDate)}</dd></div>
-                <div><dt>Transactions</dt><dd>${primary?.transactionCount || 0}</dd></div>
+                <div><dt>Estado</dt><dd>${escapeHtml(statusText)}</dd></div>
+                <div><dt>Vencimiento</dt><dd>${formatDate(matches[0]?.dueDate)}</dd></div>
+                <div><dt>Transacciones</dt><dd>${transactionCount}</dd></div>
             </dl>
         `;
         container.append(article);
@@ -156,20 +165,20 @@ function renderMonthDetail(monthDetail, selectedMonth) {
     const label = document.querySelector("#month-detail-label");
     const rows = monthDetail?.rows || [];
     table.innerHTML = "";
-    label.textContent = monthDetail?.projectionOnly ? "Projection-only month" : monthDetail?.currentReal ? "Actual month detail" : "No confirmed month data";
+    label.textContent = monthDetail?.projectionOnly ? "Mes solo proyectado" : monthDetail?.currentReal ? "Detalle del mes confirmado" : "Sin datos confirmados del mes";
     label.classList.toggle("projection", Boolean(monthDetail?.projectionOnly));
 
     rows.forEach((row) => {
         const tr = document.createElement("tr");
         tr.className = row.kind === "PROJECTION" ? "projection-row" : "actual-row";
         tr.innerHTML = `
-            <td><span class="status-chip ${row.kind === "PROJECTION" ? "projection" : "loaded"}">${escapeHtml(row.kind === "PROJECTION" ? "Projection" : "Actual")}</span></td>
+            <td><span class="status-chip ${row.kind === "PROJECTION" ? "projection" : "loaded"}">${escapeHtml(row.kind === "PROJECTION" ? "Proyección" : "Real")}</span></td>
             <td>${escapeHtml(row.description || "—")}</td>
             <td>${escapeHtml(row.cardAlias || cardLabel(row.cardBrand))}</td>
             <td>${installmentText(row)}</td>
             <td class="amount">${formatPesos(row.amountPesos)}</td>
             <td class="amount">${formatUsd(row.amountUsd)}</td>
-            <td>${escapeHtml(row.categoryName || "Uncategorized")}</td>
+            <td>${escapeHtml(row.categoryName || "Sin categoría")}</td>
             <td>${formatMonth(row.estimatedFinishMonth)}</td>
             <td>${sourceText(row)}</td>
         `;
@@ -178,10 +187,10 @@ function renderMonthDetail(monthDetail, selectedMonth) {
 
     empty.hidden = rows.length > 0;
     empty.textContent = monthDetail?.projectionOnly
-        ? "This future month is marked as projection-only, but no remaining installment rows are available."
+        ? "Este mes futuro está marcado como solo proyectado, pero no hay cuotas pendientes disponibles."
         : monthDetail?.currentReal
-            ? "This confirmed month has no installment detail rows to show."
-            : `No confirmed statement data is available for ${formatMonth(selectedMonth)}. Upload and confirm a draft, or choose a month with projections.`;
+            ? "Este mes confirmado no tiene filas de detalle de cuotas para mostrar."
+            : `No hay datos de resúmenes confirmados para ${formatMonth(selectedMonth)}. Cargue y confirme un borrador, o elija un mes con proyecciones.`;
 }
 
 function installmentText(row) {
@@ -195,15 +204,26 @@ function sourceText(row) {
     if (!row.sourceStatementId) {
         return "—";
     }
-    return `Statement #${row.sourceStatementId} · ${formatMonth(row.sourceStatementMonth)}`;
+    return `Resumen #${row.sourceStatementId} · ${formatMonth(row.sourceStatementMonth)}`;
 }
 
 function aliasIncludes(statement, text) {
     return String(statement.cardAlias || "").toLowerCase().includes(text);
 }
 
-function matchesTargetCard(statement, target) {
-    return statement.cardBrand === target.cardBrand
-        && target.providers.includes(statement.provider)
-        && aliasIncludes(statement, target.alias);
+export function matchesTargetCard(statement, target) {
+    const provider = statement.provider;
+    const providerMatches = !provider || target.providers.includes(provider);
+    const strongProviderMatches = provider && (target.strongProviders || []).includes(provider);
+    return (!target.cardBrand || statement.cardBrand === target.cardBrand)
+        && providerMatches
+        && (aliasIncludes(statement, target.alias) || strongProviderMatches);
+}
+
+function statementStatusText(status) {
+    const labels = {
+        CONFIRMED: "Confirmado",
+        DRAFT: "Borrador"
+    };
+    return labels[status] || status || "Sin resumen confirmado";
 }

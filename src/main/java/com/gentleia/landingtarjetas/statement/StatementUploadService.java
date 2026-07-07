@@ -2,8 +2,10 @@ package com.gentleia.landingtarjetas.statement;
 
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 import com.gentleia.landingtarjetas.shared.ParsingStatus;
 import com.gentleia.landingtarjetas.shared.StatementStatus;
@@ -12,6 +14,7 @@ import com.gentleia.landingtarjetas.statement.parser.ParsedTransaction;
 import com.gentleia.landingtarjetas.statement.parser.StatementParser;
 import com.gentleia.landingtarjetas.statement.parser.StatementParserRegistry;
 import com.gentleia.landingtarjetas.transaction.StatementTransaction;
+import com.gentleia.landingtarjetas.transaction.StatementTransactionRepository;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -25,15 +28,18 @@ public class StatementUploadService {
     private final PdfTextExtractionService pdfTextExtractionService;
     private final StatementParserRegistry parserRegistry;
     private final CardStatementRepository statementRepository;
+    private final StatementTransactionRepository transactionRepository;
     private final UploadedFileRepository uploadedFileRepository;
 
     public StatementUploadService(PdfTextExtractionService pdfTextExtractionService,
-                                  StatementParserRegistry parserRegistry,
-                                  CardStatementRepository statementRepository,
-                                  UploadedFileRepository uploadedFileRepository) {
+                                   StatementParserRegistry parserRegistry,
+                                   CardStatementRepository statementRepository,
+                                   StatementTransactionRepository transactionRepository,
+                                   UploadedFileRepository uploadedFileRepository) {
         this.pdfTextExtractionService = pdfTextExtractionService;
         this.parserRegistry = parserRegistry;
         this.statementRepository = statementRepository;
+        this.transactionRepository = transactionRepository;
         this.uploadedFileRepository = uploadedFileRepository;
     }
 
@@ -41,7 +47,7 @@ public class StatementUploadService {
     public StatementUploadResponse upload(MultipartFile[] files) {
         List<MultipartFile> allFiles = files == null ? List.of() : Arrays.asList(files);
         if (allFiles.isEmpty()) {
-            throw new IllegalArgumentException("At least one PDF file is required");
+            throw new IllegalArgumentException("Se requiere al menos un archivo PDF");
         }
 
         List<StatementUploadResultResponse> results = allFiles.stream()
@@ -67,9 +73,9 @@ public class StatementUploadService {
             Optional<StatementParser> parser = parserRegistry.detect(extractedText);
             if (parser.isEmpty()) {
                 uploadedFile.setParsingStatus(ParsingStatus.PENDING);
-                uploadedFile.setParsingMessage("No supported statement parser was detected");
+                uploadedFile.setParsingMessage("No se detectó un formato de resumen compatible");
                 uploadedFile = uploadedFileRepository.save(uploadedFile);
-                return result(uploadedFile, null, List.of("No supported parser detected"), null, null);
+                return result(uploadedFile, null, List.of("No se detectó un formato de resumen compatible"), null, null);
             }
 
             ParsedStatement parsedStatement = parser.get().parse(extractedText);
@@ -102,6 +108,8 @@ public class StatementUploadService {
         statement.setTotalUsd(parsedStatement.totalUsd());
         statement.setMinimumPaymentPesos(parsedStatement.minimumPaymentPesos());
         statement.setUploadedFile(uploadedFile);
+        Set<String> existingKeys = confirmedTransactionKeys(statement);
+        Set<String> currentKeys = new HashSet<>();
         for (ParsedTransaction parsedTransaction : parsedStatement.transactions()) {
             StatementTransaction transaction = new StatementTransaction(statement, parsedTransaction.description(), parsedTransaction.type());
             transaction.setTransactionDate(parsedTransaction.transactionDate());
@@ -109,10 +117,30 @@ public class StatementUploadService {
             transaction.setAmountUsd(parsedTransaction.amountUsd());
             transaction.setCurrentInstallment(parsedTransaction.currentInstallment());
             transaction.setTotalInstallments(parsedTransaction.totalInstallments());
+            transaction.setOperationNumber(parsedTransaction.operationNumber());
             transaction.setNotes(parsedTransaction.notes());
+            String key = StatementTransactionIdentity.key(statement, transaction);
+            if (existingKeys.contains(key) || currentKeys.contains(key)) {
+                continue;
+            }
+            currentKeys.add(key);
             statement.addTransaction(transaction);
         }
         return statement;
+    }
+
+    private Set<String> confirmedTransactionKeys(CardStatement statement) {
+        Set<String> keys = new HashSet<>();
+        if (statement.getPaymentMonth() == null) {
+            return keys;
+        }
+        for (StatementTransaction transaction : transactionRepository.findConfirmedWithFilters(
+                statement.getPaymentMonth(), statement.getCardBrand(), null, null)) {
+            if (StatementTransactionIdentity.sameStatementScope(statement, transaction.getStatement())) {
+                keys.add(StatementTransactionIdentity.key(transaction.getStatement(), transaction));
+            }
+        }
+        return keys;
     }
 
     private StatementUploadResultResponse result(UploadedFile uploadedFile, StatementParser parser, List<String> warnings,
@@ -138,18 +166,18 @@ public class StatementUploadService {
 
     private String parsingMessage(List<String> warnings) {
         if (warnings == null || warnings.isEmpty()) {
-            return "Draft statement created from detected parser";
+            return "Resumen en borrador creado a partir del formato detectado";
         }
-        return "Draft statement created with warnings: " + String.join("; ", warnings);
+        return "Resumen en borrador creado con advertencias: " + String.join("; ", warnings);
     }
 
     private String safeMessage(Exception exception) {
         if (exception instanceof IOException) {
-            return "PDF upload could not be processed. No statement text or raw PDF content was stored.";
+            return "No se pudo procesar el PDF. No se almacenó texto del resumen ni contenido original del PDF.";
         }
         String message = exception.getMessage();
         if (message == null || message.isBlank()) {
-            return "PDF upload could not be processed";
+            return "No se pudo procesar el PDF";
         }
         return message;
     }

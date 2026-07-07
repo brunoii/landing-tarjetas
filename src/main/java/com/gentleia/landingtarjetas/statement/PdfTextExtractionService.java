@@ -25,22 +25,24 @@ public class PdfTextExtractionService {
 
     public void validate(MultipartFile file) {
         if (file == null) {
-            throw new IllegalArgumentException("A PDF file is required");
+            throw new IllegalArgumentException("Se requiere un archivo PDF");
         }
         if (file.isEmpty()) {
-            throw new IllegalArgumentException("PDF file is empty");
+            throw new IllegalArgumentException("El archivo PDF está vacío");
         }
         if (file.getSize() > properties.getMaxFileSizeBytes()) {
-            throw new IllegalArgumentException("PDF file exceeds the local upload size limit");
+            throw new IllegalArgumentException("El archivo PDF supera el límite de tamaño permitido");
         }
         if (!hasPdfContentType(file) && !hasPdfExtension(file)) {
-            throw new IllegalArgumentException("Only PDF files are accepted");
+            throw new IllegalArgumentException("Solo se aceptan archivos PDF");
         }
     }
 
     public String extractText(byte[] pdfBytes) throws IOException {
         try (PDDocument document = Loader.loadPDF(pdfBytes)) {
             PDFTextStripper textStripper = new PDFTextStripper();
+            textStripper.setSortByPosition(true);
+            textStripper.setShouldSeparateByBeads(false);
             return textStripper.getText(document);
         }
     }
