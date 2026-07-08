@@ -7,7 +7,7 @@ export function renderCategories(categories, handlers) {
     if (categories.length === 0) {
         const empty = document.createElement("p");
         empty.className = "empty-state";
-        empty.textContent = "No active categories exist yet.";
+        empty.textContent = "Todavía no hay categorías activas.";
         list.append(empty);
         return;
     }
@@ -18,22 +18,22 @@ export function renderCategories(categories, handlers) {
         row.innerHTML = `
             <span class="color-swatch" aria-hidden="true"></span>
             <label>
-                Name
+                Nombre
                 <input name="name" type="text" maxlength="80" required value="${escapeHtml(category.name)}">
             </label>
             <label>
                 Color
                 <input name="color" type="text" maxlength="7" pattern="#[0-9A-Fa-f]{6}" value="${escapeHtml(category.color || "")}">
             </label>
-            <button type="submit" class="secondary-button">Save</button>
-            <button type="button" class="danger-button">Delete</button>
+            <button type="submit" class="secondary-button">Guardar</button>
+            <button type="button" class="danger-button">Eliminar</button>
         `;
         row.querySelector(".color-swatch").style.backgroundColor = safeHexColor(category.color);
         row.addEventListener("submit", (event) => {
             event.preventDefault();
             const formData = new FormData(row);
             const submitButton = row.querySelector('button[type="submit"]');
-            setButtonBusy(submitButton, true, "Saving...");
+            setButtonBusy(submitButton, true, "Guardando...");
             handlers.onUpdate(category.id, {
                 name: String(formData.get("name") || "").trim(),
                 color: String(formData.get("color") || "").trim() || null,
@@ -41,7 +41,7 @@ export function renderCategories(categories, handlers) {
             }).finally(() => setButtonBusy(submitButton, false));
         });
         row.querySelector(".danger-button").addEventListener("click", (event) => {
-            setButtonBusy(event.currentTarget, true, "Deleting...");
+            setButtonBusy(event.currentTarget, true, "Eliminando...");
             handlers.onDelete(category.id).finally(() => setButtonBusy(event.currentTarget, false));
         });
         list.append(row);

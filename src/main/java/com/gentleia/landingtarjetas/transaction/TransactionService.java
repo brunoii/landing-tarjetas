@@ -41,8 +41,8 @@ public class TransactionService {
     @Transactional
     public TransactionResponse createForDraftStatement(Long statementId, TransactionUpdateRequest request) {
         CardStatement statement = statementRepository.findById(statementId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Statement not found"));
-        requireDraftStatement(statement, "Only draft statement transactions can be created");
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "No se encontró el resumen"));
+        requireDraftStatement(statement, "Solo se pueden crear transacciones en resúmenes en borrador");
 
         StatementTransaction transaction = new StatementTransaction(statement, request.description().trim(), request.type());
         applyRequest(transaction, request);
@@ -53,7 +53,7 @@ public class TransactionService {
     @Transactional
     public TransactionResponse update(Long id, TransactionUpdateRequest request) {
         StatementTransaction transaction = getTransaction(id);
-        requireDraftStatement(transaction, "Only draft statement transactions can be modified");
+        requireDraftStatement(transaction, "Solo se pueden modificar transacciones de resúmenes en borrador");
         applyRequest(transaction, request);
         validate(transaction);
         return TransactionResponse.from(transaction);
@@ -62,13 +62,13 @@ public class TransactionService {
     @Transactional
     public void delete(Long id) {
         StatementTransaction transaction = getTransaction(id);
-        requireDraftStatement(transaction, "Only draft statement transactions can be modified");
+        requireDraftStatement(transaction, "Solo se pueden modificar transacciones de resúmenes en borrador");
         transactionRepository.delete(transaction);
     }
 
     public StatementTransaction getTransaction(Long id) {
         return transactionRepository.findById(id)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Transaction not found"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "No se encontró la transacción"));
     }
 
     public void validate(StatementTransaction transaction) {
@@ -104,7 +104,7 @@ public class TransactionService {
 
         Category category = request.categoryId() == null ? null : categoryService.getCategory(request.categoryId());
         if (category != null && !category.isActive()) {
-            throw new IllegalArgumentException("Cannot assign inactive category to transaction");
+            throw new IllegalArgumentException("No se puede asignar una categoría inactiva a la transacción");
         }
         transaction.setCategory(category);
     }

@@ -35,7 +35,7 @@ async function errorMessage(response) {
 function safeApiMessage(message, status) {
     const text = String(message || "").trim();
     if (!text) {
-        return `Request failed with status ${status}. No statement text or PDF content was exposed.`;
+        return `La solicitud falló con estado ${status}. No se expuso texto del resumen ni contenido del PDF.`;
     }
     return text.length > 260 ? `${text.slice(0, 260)}...` : text;
 }

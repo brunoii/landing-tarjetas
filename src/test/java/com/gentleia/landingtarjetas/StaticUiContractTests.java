@@ -104,7 +104,7 @@ class StaticUiContractTests {
         assertThat(index).doesNotContain("<html lang=\"en\">");
         assertThat(styles).contains("@media (max-width: 680px)", "overflow-x: auto", ".projection-row", ".actual-row");
         assertThat(app).contains("No se pudieron cargar los datos del panel", "No se pudieron cargar las transacciones", "setButtonBusy");
-        assertThat(statements).contains("Upload could not be completed", "No statement text or raw PDF content is shown", "setButtonBusy");
+        assertThat(statements).contains("No se pudo completar la carga", "No se muestra texto del resumen ni contenido del PDF original", "parserDisplayLabel", "setButtonBusy");
         assertThat(transactions).contains(
                 "resetTransactionFilters",
                 "renderFilterSummary",
@@ -133,12 +133,12 @@ class StaticUiContractTests {
 
         assertThat(index).contains(
                 "id=\"statement-files\" name=\"files\" type=\"file\"",
-                "raw PDFs are processed in memory",
-                "raw PDF bytes are not persisted",
-                "PDF only. Maximum 1 MB per file and 5 MB per request."
+                "los PDFs originales se procesan en memoria",
+                "sus bytes no se persisten",
+                "Solo PDF. Máximo 1 MB por archivo y 5 MB por solicitud."
         );
         assertThat(api).contains("formData.append(\"files\", file)");
-        assertThat(api).contains("No statement text or PDF content was exposed");
+        assertThat(api).contains("No se expuso texto del resumen ni contenido del PDF");
         assertThat(statements).contains("MAX_PDF_SIZE_BYTES = 1_048_576");
         assertThat(statements).doesNotContain("extractedText", "rawText", "pdfText");
     }
@@ -151,11 +151,11 @@ class StaticUiContractTests {
         String statements = readStatic("js/statements.js");
 
         assertThat(index).contains(
-                "Drafts are visible only here",
-                "Add missing transaction",
-                "Add a row only when a draft statement is missing a consumption",
-                "Draft transactions",
-                "Payment month"
+                "Los borradores son visibles solo aquí",
+                "Agregar transacción faltante",
+                "Agregue una fila solo cuando a un resumen en borrador le falte un consumo",
+                "Transacciones del borrador",
+                "Mes de pago"
         );
         assertThat(api).contains("createStatementTransaction(statementId, payload)");
         assertThat(app).contains(
@@ -163,8 +163,8 @@ class StaticUiContractTests {
                 "renderDraftStatementList(allStatements)"
         );
         assertThat(statements).contains(
-                "Payment month and at least one statement total are required before confirmation.",
-                "draft transaction rows",
+                "El mes de pago y al menos un total del resumen son obligatorios antes de confirmar.",
+                "filas de transacciones en borrador",
                 "activeDraft.status !== \"DRAFT\"",
                 "api.createStatementTransaction(intent.statementId",
                 "api.updateTransaction",

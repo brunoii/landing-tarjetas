@@ -3,18 +3,18 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Landing Tarjetas</title>
+    <title>Panel de tarjetas</title>
     <link rel="stylesheet" href="/css/styles.css">
 </head>
 <body>
 <header class="topbar">
     <div>
-        <p class="eyebrow">Local-only statement dashboard</p>
-        <h1>Credit-card statements</h1>
-        <p class="lede">A private dark-mode shell for uploading local PDFs, reviewing draft statement data, and confirming only the statements that should appear in the public dashboard.</p>
+        <p class="eyebrow">Panel local de resúmenes</p>
+        <h1>Resúmenes de tarjetas de crédito</h1>
+        <p class="lede">Un entorno privado en modo oscuro para cargar PDFs locales, revisar datos de resúmenes en borrador y confirmar solo los resúmenes que deben aparecer en el panel público.</p>
     </div>
     <label class="month-picker" for="month-input">
-        <span>Payment month</span>
+        <span>Mes de pago</span>
         <input id="month-input" type="month" autocomplete="off">
     </label>
 </header>
@@ -22,31 +22,31 @@
 <main class="app-shell">
     <section class="notice" role="status" aria-live="polite" id="app-status">Cargando datos locales del panel...</section>
 
-    <nav class="month-tabs" aria-label="Available months" id="month-tabs"></nav>
+    <nav class="month-tabs" aria-label="Meses disponibles" id="month-tabs"></nav>
 
     <section class="panel" aria-labelledby="upload-title">
         <div class="section-heading">
             <div>
-                <p class="eyebrow">Upload</p>
-                <h2 id="upload-title">Upload statement PDFs</h2>
+                <p class="eyebrow">Carga</p>
+                <h2 id="upload-title">Cargar PDFs de resúmenes</h2>
             </div>
-            <p class="section-note">Local-only workflow: do not commit real PDFs, raw PDFs are processed in memory, and raw PDF bytes are not persisted.</p>
+            <p class="section-note">Flujo solo local: no suba PDFs reales al repositorio; los PDFs originales se procesan en memoria y sus bytes no se persisten.</p>
         </div>
 
         <form class="upload-form" id="statement-upload-form" aria-describedby="statement-file-hint statement-upload-feedback">
             <label class="wide-field">
-                PDF files
+                Archivos PDF
                 <input id="statement-files" name="files" type="file" accept="application/pdf,.pdf" multiple required>
             </label>
-            <button type="submit" id="statement-upload-button">Upload drafts</button>
+            <button type="submit" id="statement-upload-button">Cargar borradores</button>
         </form>
-        <p class="form-feedback" id="statement-file-hint">PDF only. Maximum 1 MB per file and 5 MB per request.</p>
+        <p class="form-feedback" id="statement-file-hint">Solo PDF. Máximo 1 MB por archivo y 5 MB por solicitud.</p>
         <p class="form-feedback" id="statement-upload-feedback" role="status" aria-live="polite"></p>
         <div class="upload-results" id="upload-results"></div>
 
         <div class="draft-list-shell">
-            <h3>Drafts waiting for review</h3>
-            <p class="section-note">Drafts are visible only here. They stay out of the public dashboard and transaction table until confirmed.</p>
+            <h3>Borradores pendientes de revisión</h3>
+            <p class="section-note">Los borradores son visibles solo aquí. No aparecen en el panel público ni en la tabla de transacciones hasta que se confirman.</p>
             <div class="draft-list" id="draft-statement-list"></div>
         </div>
     </section>
@@ -54,135 +54,135 @@
     <section class="panel" aria-labelledby="draft-review-title">
         <div class="section-heading">
             <div>
-                <p class="eyebrow">Review</p>
-                <h2 id="draft-review-title">Review a draft statement</h2>
+                <p class="eyebrow">Revisión</p>
+                <h2 id="draft-review-title">Revisar un resumen en borrador</h2>
             </div>
-            <p class="section-note" id="draft-review-meta">Upload a PDF or choose a draft to review detected fields before confirmation.</p>
+            <p class="section-note" id="draft-review-meta">Cargue un PDF o elija un borrador para revisar los campos detectados antes de confirmar.</p>
         </div>
 
-        <p class="empty-state" id="draft-empty-state">No draft selected. Upload a PDF or open an existing draft from the review list.</p>
+        <p class="empty-state" id="draft-empty-state">No hay ningún borrador seleccionado. Cargue un PDF o abra un borrador existente desde la lista de revisión.</p>
 
         <div id="draft-review-panel" hidden>
             <form class="statement-form" id="statement-form">
                 <label>
-                    Provider
+                    Proveedor
                     <select id="statement-provider" required></select>
                 </label>
                 <label>
-                    Card
+                    Tarjeta
                     <select id="statement-card-brand" required></select>
                 </label>
                 <label>
-                    Card alias
-                    <input id="statement-card-alias" type="text" maxlength="80" placeholder="Local card label">
+                    Alias de tarjeta
+                    <input id="statement-card-alias" type="text" maxlength="80" placeholder="Etiqueta local de la tarjeta">
                 </label>
                 <label>
-                    Payment month
+                    Mes de pago
                     <input id="statement-payment-month" type="month">
                 </label>
                 <label>
-                    Period start
+                    Inicio del período
                     <input id="statement-period-start" type="date">
                 </label>
                 <label>
-                    Period end
+                    Fin del período
                     <input id="statement-period-end" type="date">
                 </label>
                 <label>
-                    Closing date
+                    Fecha de cierre
                     <input id="statement-closing-date" type="date">
                 </label>
                 <label>
-                    Due date
+                    Fecha de vencimiento
                     <input id="statement-due-date" type="date">
                 </label>
                 <label>
-                    Total pesos
+                    Total en pesos
                     <input id="statement-total-pesos" type="number" min="0" step="0.01" inputmode="decimal">
                 </label>
                 <label>
-                    Total USD
+                    Total en USD
                     <input id="statement-total-usd" type="number" min="0" step="0.01" inputmode="decimal">
                 </label>
                 <label>
-                    Minimum payment pesos
+                    Pago mínimo en pesos
                     <input id="statement-minimum-payment-pesos" type="number" min="0" step="0.01" inputmode="decimal">
                 </label>
                 <label>
-                    Notes
+                    Notas
                     <input id="statement-notes-placeholder" type="text" readonly>
                 </label>
                 <div class="form-actions">
-                    <button type="submit" class="secondary-button">Save draft</button>
-                    <button type="button" id="confirm-statement-button">Confirm statement</button>
+                    <button type="submit" class="secondary-button">Guardar borrador</button>
+                    <button type="button" id="confirm-statement-button">Confirmar resumen</button>
                 </div>
             </form>
             <p class="form-feedback" id="draft-review-feedback" role="status" aria-live="polite"></p>
 
             <form class="missing-transaction-form" id="missing-transaction-form" aria-describedby="draft-review-feedback">
-                <h3>Add missing transaction</h3>
-                <p class="section-note">Add a row only when a draft statement is missing a consumption. Pesos and USD stay separate with no conversion.</p>
+                <h3>Agregar transacción faltante</h3>
+                <p class="section-note">Agregue una fila solo cuando a un resumen en borrador le falte un consumo. Pesos y USD se mantienen separados, sin conversión.</p>
                 <label>
-                    Date
+                    Fecha
                     <input id="missing-transaction-date" type="date">
                 </label>
                 <label class="wide-field">
-                    Description
-                    <input id="missing-transaction-description" type="text" maxlength="240" required placeholder="Missing transaction description">
+                    Descripción
+                    <input id="missing-transaction-description" type="text" maxlength="240" required placeholder="Descripción de la transacción faltante">
                 </label>
                 <label>
-                    Type
+                    Tipo
                     <select id="missing-transaction-type" required></select>
                 </label>
                 <label>
-                    Category
+                    Categoría
                     <select id="missing-transaction-category"></select>
                 </label>
                 <label>
-                    Current installment
+                    Cuota actual
                     <input id="missing-transaction-current-installment" type="number" min="1" step="1">
                 </label>
                 <label>
-                    Total installments
+                    Total de cuotas
                     <input id="missing-transaction-total-installments" type="number" min="1" step="1">
                 </label>
                 <label>
-                    Amount pesos
+                    Importe en pesos
                     <input id="missing-transaction-amount-pesos" type="number" min="0" step="0.01" inputmode="decimal">
                 </label>
                 <label>
-                    Amount USD
+                    Importe en USD
                     <input id="missing-transaction-amount-usd" type="number" min="0" step="0.01" inputmode="decimal">
                 </label>
                 <label class="wide-field">
-                    Notes
-                    <input id="missing-transaction-notes" type="text" maxlength="500" placeholder="Optional local note">
+                    Notas
+                    <input id="missing-transaction-notes" type="text" maxlength="500" placeholder="Nota local opcional">
                 </label>
-                <button type="submit" id="add-missing-transaction-button">Add row</button>
+                <button type="submit" id="add-missing-transaction-button">Agregar fila</button>
             </form>
 
-            <h3>Draft transactions</h3>
-            <p class="section-note">You can edit, delete, assign categories, and add missing rows before confirming the draft.</p>
+            <h3>Transacciones del borrador</h3>
+            <p class="section-note">Puede editar, eliminar, asignar categorías y agregar filas faltantes antes de confirmar el borrador.</p>
             <div class="table-wrap draft-table-wrap">
                 <table>
                     <thead>
                     <tr>
-                        <th>Date</th>
-                        <th>Description</th>
-                        <th>Type</th>
-                        <th>Category</th>
-                        <th>Installment</th>
-                        <th>Total installments</th>
+                        <th>Fecha</th>
+                        <th>Descripción</th>
+                        <th>Tipo</th>
+                        <th>Categoría</th>
+                        <th>Cuota</th>
+                        <th>Total de cuotas</th>
                         <th>Pesos</th>
                         <th>USD</th>
-                        <th>Notes</th>
-                        <th>Actions</th>
+                        <th>Notas</th>
+                        <th>Acciones</th>
                     </tr>
                     </thead>
                     <tbody id="draft-transactions-table"></tbody>
                 </table>
             </div>
-            <p class="empty-state" id="draft-transactions-empty" hidden>No draft transactions were created yet. Add missing transactions manually before confirmation if needed.</p>
+            <p class="empty-state" id="draft-transactions-empty" hidden>Todavía no se crearon transacciones en el borrador. Agregue transacciones faltantes manualmente antes de confirmar, si hace falta.</p>
         </div>
     </section>
 
@@ -333,22 +333,22 @@
     <section class="panel" aria-labelledby="categories-title">
         <div class="section-heading">
             <div>
-                <p class="eyebrow">Administration</p>
-                <h2 id="categories-title">Categories</h2>
+                <p class="eyebrow">Administración</p>
+                <h2 id="categories-title">Categorías</h2>
             </div>
-            <p class="section-note">Categories are stored locally and listed only when active.</p>
+            <p class="section-note">Las categorías se guardan localmente y solo se muestran cuando están activas.</p>
         </div>
 
         <form class="category-form" id="category-form" aria-describedby="category-feedback">
             <label>
-                Name
-                <input id="category-name" type="text" maxlength="80" required placeholder="Category name">
+                Nombre
+                <input id="category-name" type="text" maxlength="80" required placeholder="Nombre de la categoría">
             </label>
             <label>
                 Color
                 <input id="category-color" type="text" maxlength="7" pattern="#[0-9A-Fa-f]{6}" placeholder="#38bdf8">
             </label>
-            <button type="submit">Create category</button>
+            <button type="submit">Crear categoría</button>
         </form>
         <p class="form-feedback" id="category-feedback" role="status" aria-live="polite"></p>
         <div class="category-list" id="category-list"></div>

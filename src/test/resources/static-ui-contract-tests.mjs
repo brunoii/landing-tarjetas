@@ -21,24 +21,25 @@ try {
     const {
         draftTransactionCountLabel,
         missingTransactionControlsState,
-        missingTransactionSubmitIntent
+        missingTransactionSubmitIntent,
+        parserDisplayLabel
     } = await import(pathToFileURL(path.join(moduleRoot, "statements.js")));
 
-    const successButton = fakeButton("Save");
-    setButtonBusy(successButton, true, "Saving...");
-    assert.equal(successButton.textContent, "Saving...");
+    const successButton = fakeButton("Guardar");
+    setButtonBusy(successButton, true, "Guardando...");
+    assert.equal(successButton.textContent, "Guardando...");
     assert.equal(successButton.disabled, true);
     assert.equal(successButton.attributes.get("aria-busy"), "true");
     setButtonBusy(successButton, false);
-    assert.equal(successButton.textContent, "Save");
+    assert.equal(successButton.textContent, "Guardar");
     assert.equal(successButton.disabled, false);
     assert.equal(successButton.attributes.has("aria-busy"), false);
     assert.equal("idleLabel" in successButton.dataset, false);
 
-    const errorButton = fakeButton("Delete");
-    setButtonBusy(errorButton, true, "Deleting...");
+    const errorButton = fakeButton("Eliminar");
+    setButtonBusy(errorButton, true, "Eliminando...");
     setButtonBusy(errorButton, false);
-    assert.equal(errorButton.textContent, "Delete");
+    assert.equal(errorButton.textContent, "Eliminar");
     assert.equal(errorButton.disabled, false);
     assert.equal(errorButton.attributes.has("aria-busy"), false);
 
@@ -165,34 +166,38 @@ try {
         confirmDisabled: true,
         formHidden: true
     });
-    assert.equal(draftTransactionCountLabel({ status: "DRAFT", transactions: [{}, {}] }), "DRAFT · 2 draft transaction rows");
+    assert.equal(draftTransactionCountLabel({ status: "DRAFT", transactions: [{}, {}] }), "Borrador · 2 filas de transacciones en borrador");
 
     assert.deepEqual(missingTransactionSubmitIntent({ id: 42, status: "CONFIRMED" }, "Manual fare", "10.00", ""), {
         reason: "not-draft",
         shouldSubmit: false
     });
     assert.deepEqual(missingTransactionSubmitIntent({ id: 42, status: "DRAFT" }, " ", "10.00", ""), {
-        feedback: "Missing transaction description is required.",
+        feedback: "La descripción de la transacción faltante es obligatoria.",
         reason: "missing-description",
         shouldSubmit: false
     });
     assert.deepEqual(missingTransactionSubmitIntent({ id: 42, status: "DRAFT" }, "Manual fare", "", ""), {
-        feedback: "Missing transaction requires an amount in pesos or USD.",
+        feedback: "La transacción faltante requiere un importe en pesos o USD.",
         reason: "missing-amount",
         shouldSubmit: false
     });
     assert.deepEqual(missingTransactionSubmitIntent({ id: 42, status: "DRAFT" }, " Manual fare ", "0", ""), {
         clearBusyInFinally: true,
         description: "Manual fare",
-        errorPrefix: "Missing transaction could not be added:",
-        loadingLabel: "Adding...",
+        errorPrefix: "No se pudo agregar la transacción faltante:",
+        loadingLabel: "Agregando...",
         notifyDraftChanged: true,
         reloadDraft: true,
         resetForm: true,
         shouldSubmit: true,
         statementId: 42,
-        successFeedback: "Missing transaction added to the draft."
+        successFeedback: "Transacción faltante agregada al borrador."
     });
+    assert.equal(parserDisplayLabel("SantanderVisaParser"), "Santander Visa");
+    assert.equal(parserDisplayLabel("UnknownBankParser"), "Analizador compatible");
+    assert.equal(parserDisplayLabel("Santander Visa"), "Santander Visa");
+    assert.equal(parserDisplayLabel(null), "Sin analizador seleccionado");
 } finally {
     await rm(moduleRoot, { force: true, recursive: true });
 }

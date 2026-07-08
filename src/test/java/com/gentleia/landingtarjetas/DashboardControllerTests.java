@@ -76,6 +76,13 @@ class DashboardControllerTests {
     }
 
     @Test
+    void dashboardSummaryRejectsInvalidMonthWithSpanishError() throws Exception {
+        mockMvc.perform(get("/api/dashboard/summary").param("month", "2026/07"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("Use el formato de mes YYYY-MM"));
+    }
+
+    @Test
     void dashboardMonthDetailUsesTransactionSumsForSantanderVisaCardTotals() throws Exception {
         CardStatement statement = new CardStatement(Provider.SANTANDER, CardBrand.VISA);
         statement.setStatus(StatementStatus.DRAFT);

@@ -55,13 +55,22 @@ export function cardLabel(cardBrand) {
         VISA: "Visa",
         AMERICAN_EXPRESS: "American Express",
         MASTERCARD: "Mastercard",
-        OTHER: "Other"
+        OTHER: "Otra"
     };
-    return labels[cardBrand] || cardBrand || "Unknown card";
+    return labels[cardBrand] || cardBrand || "Tarjeta desconocida";
 }
 
 export function typeLabel(type) {
-    return String(type || "Unknown").toLowerCase().replaceAll("_", " ").replace(/^./, (letter) => letter.toUpperCase());
+    const labels = {
+        PURCHASE: "Compra",
+        INSTALLMENT: "Cuota",
+        FEE: "Cargo",
+        TAX: "Impuesto",
+        PAYMENT: "Pago",
+        REFUND: "Reintegro",
+        ADJUSTMENT: "Ajuste"
+    };
+    return labels[type] || String(type || "Desconocido").toLowerCase().replaceAll("_", " ").replace(/^./, (letter) => letter.toUpperCase());
 }
 
 export function escapeHtml(value) {
@@ -82,7 +91,7 @@ export function safeHexColor(value, fallback = "#38bdf8") {
     return isSafeHexColor(color) ? color : fallback;
 }
 
-export function setButtonBusy(button, isBusy, busyLabel = "Working...") {
+export function setButtonBusy(button, isBusy, busyLabel = "Procesando...") {
     if (!button) {
         return;
     }

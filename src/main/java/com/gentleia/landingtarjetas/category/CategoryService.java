@@ -63,13 +63,13 @@ public class CategoryService {
 
     public Category getCategory(Long id) {
         return categoryRepository.findById(id)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Category not found"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "No se encontró la categoría"));
     }
 
     private void ensureUniqueName(String name, Long currentId) {
         categoryRepository.findByNameIgnoreCase(name.trim()).ifPresent(existing -> {
             if (!existing.getId().equals(currentId)) {
-                throw new IllegalArgumentException("Category name already exists");
+                throw new IllegalArgumentException("Ya existe una categoría con ese nombre");
             }
         });
     }
@@ -87,7 +87,7 @@ public class CategoryService {
             return null;
         }
         if (!color.matches(HEX_COLOR_PATTERN)) {
-            throw new IllegalArgumentException("Category color must be empty or a hex color like #38bdf8");
+            throw new IllegalArgumentException("El color de la categoría debe estar vacío o ser hexadecimal, por ejemplo #38bdf8");
         }
         return color;
     }

@@ -12,7 +12,7 @@ public class SantanderAmexParser implements StatementParser {
 
     @Override
     public String name() {
-        return "SantanderAmexParser";
+        return "Santander American Express";
     }
 
     @Override

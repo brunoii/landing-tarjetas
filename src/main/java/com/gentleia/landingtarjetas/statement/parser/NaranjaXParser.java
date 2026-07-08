@@ -12,7 +12,7 @@ public class NaranjaXParser implements StatementParser {
 
     @Override
     public String name() {
-        return "NaranjaXParser";
+        return "Naranja X";
     }
 
     @Override

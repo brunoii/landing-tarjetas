@@ -512,7 +512,7 @@ class DomainServiceValidationTests {
         assertThatThrownBy(() -> transactionService.update(transaction.getId(), request))
                 .isInstanceOfSatisfying(ResponseStatusException.class, exception -> {
                     assertThat(exception.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
-                    assertThat(exception.getReason()).isEqualTo("Only draft statement transactions can be modified");
+                    assertThat(exception.getReason()).isEqualTo("Solo se pueden modificar transacciones de resúmenes en borrador");
                 });
         assertThat(transactionRepository.findById(transaction.getId()))
                 .get()
@@ -532,7 +532,7 @@ class DomainServiceValidationTests {
         assertThatThrownBy(() -> transactionService.delete(transaction.getId()))
                 .isInstanceOfSatisfying(ResponseStatusException.class, exception -> {
                     assertThat(exception.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
-                    assertThat(exception.getReason()).isEqualTo("Only draft statement transactions can be modified");
+                    assertThat(exception.getReason()).isEqualTo("Solo se pueden modificar transacciones de resúmenes en borrador");
                 });
         assertThat(transactionRepository.existsById(transaction.getId())).isTrue();
     }
@@ -630,7 +630,7 @@ class DomainServiceValidationTests {
         assertThatThrownBy(() -> transactionService.createForDraftStatement(statement.getId(), request))
                 .isInstanceOfSatisfying(ResponseStatusException.class, exception -> {
                     assertThat(exception.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
-                    assertThat(exception.getReason()).isEqualTo("Only draft statement transactions can be created");
+                    assertThat(exception.getReason()).isEqualTo("Solo se pueden crear transacciones en resúmenes en borrador");
                 });
     }
 
@@ -735,7 +735,7 @@ class DomainServiceValidationTests {
 
         assertThatThrownBy(() -> transactionService.createForDraftStatement(statement.getId(), request))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("inactive category");
+                .hasMessageContaining("categoría inactiva");
     }
 
     @Test
@@ -812,7 +812,7 @@ class DomainServiceValidationTests {
 
         assertThatThrownBy(() -> categoryService.create(request))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("hex color");
+                .hasMessageContaining("hexadecimal");
     }
 
     @Test
@@ -845,7 +845,7 @@ class DomainServiceValidationTests {
 
         assertThatThrownBy(() -> transactionService.update(transaction.getId(), request))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("inactive category");
+                .hasMessageContaining("categoría inactiva");
     }
 
     private StatementTransaction saveTransaction(TransactionType type) {

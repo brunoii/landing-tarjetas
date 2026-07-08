@@ -14,13 +14,13 @@ import jakarta.validation.constraints.Size;
 
 public record TransactionUpdateRequest(
         LocalDate transactionDate,
-        @NotBlank @Size(max = 240) String description,
-        @NotNull TransactionType type,
+        @NotBlank(message = "es obligatoria") @Size(max = 240, message = "no puede superar 240 caracteres") String description,
+        @NotNull(message = "es obligatorio") TransactionType type,
         Long categoryId,
-        @PositiveOrZero @Digits(integer = 17, fraction = 2) BigDecimal amountPesos,
-        @PositiveOrZero @Digits(integer = 17, fraction = 2) BigDecimal amountUsd,
-        @Positive Integer currentInstallment,
-        @Positive Integer totalInstallments,
-        @Size(max = 500) String notes
+        @PositiveOrZero(message = "debe ser cero o mayor") @Digits(integer = 17, fraction = 2, message = "debe tener hasta 17 dígitos enteros y 2 decimales") BigDecimal amountPesos,
+        @PositiveOrZero(message = "debe ser cero o mayor") @Digits(integer = 17, fraction = 2, message = "debe tener hasta 17 dígitos enteros y 2 decimales") BigDecimal amountUsd,
+        @Positive(message = "debe ser mayor que cero") Integer currentInstallment,
+        @Positive(message = "debe ser mayor que cero") Integer totalInstallments,
+        @Size(max = 500, message = "no puede superar 500 caracteres") String notes
 ) {
 }

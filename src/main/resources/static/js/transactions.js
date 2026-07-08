@@ -118,7 +118,7 @@ function transactionCardLabel(cardBrand) {
     const labels = {
         OTHER: "Otra"
     };
-    return labels[cardBrand] || cardLabel(cardBrand).replace("Unknown card", "Tarjeta desconocida");
+    return labels[cardBrand] || cardLabel(cardBrand);
 }
 
 function transactionTypeLabel(type) {

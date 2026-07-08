@@ -12,16 +12,16 @@ import jakarta.validation.constraints.PositiveOrZero;
 import jakarta.validation.constraints.Size;
 
 public record StatementUpdateRequest(
-        @NotNull Provider provider,
-        @NotNull CardBrand cardBrand,
-        @Size(max = 80) String cardAlias,
+        @NotNull(message = "es obligatorio") Provider provider,
+        @NotNull(message = "es obligatoria") CardBrand cardBrand,
+        @Size(max = 80, message = "no puede superar 80 caracteres") String cardAlias,
         LocalDate periodStart,
         LocalDate periodEnd,
         LocalDate closingDate,
         LocalDate dueDate,
         LocalDate paymentMonth,
-        @PositiveOrZero @Digits(integer = 17, fraction = 2) BigDecimal totalPesos,
-        @PositiveOrZero @Digits(integer = 17, fraction = 2) BigDecimal totalUsd,
-        @PositiveOrZero @Digits(integer = 17, fraction = 2) BigDecimal minimumPaymentPesos
+        @PositiveOrZero(message = "debe ser cero o mayor") @Digits(integer = 17, fraction = 2, message = "debe tener hasta 17 dígitos enteros y 2 decimales") BigDecimal totalPesos,
+        @PositiveOrZero(message = "debe ser cero o mayor") @Digits(integer = 17, fraction = 2, message = "debe tener hasta 17 dígitos enteros y 2 decimales") BigDecimal totalUsd,
+        @PositiveOrZero(message = "debe ser cero o mayor") @Digits(integer = 17, fraction = 2, message = "debe tener hasta 17 dígitos enteros y 2 decimales") BigDecimal minimumPaymentPesos
 ) {
 }

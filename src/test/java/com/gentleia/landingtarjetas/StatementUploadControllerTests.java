@@ -86,14 +86,15 @@ class StatementUploadControllerTests {
                 .andExpect(jsonPath("$.files[0].detectedProvider").value("SANTANDER"))
                 .andExpect(jsonPath("$.files[0].detectedCardBrand").value("VISA"))
                 .andExpect(jsonPath("$.files[0].parsingStatus").value("PARSED"))
-                .andExpect(jsonPath("$.files[0].parserName").value("SantanderVisaParser"))
+                .andExpect(jsonPath("$.files[0].parserName").value("Santander Visa"))
                 .andExpect(jsonPath("$.files[0].draftStatement.status").value("DRAFT"))
                 .andExpect(jsonPath("$.files[0].draftStatement.provider").value("SANTANDER"))
                 .andExpect(jsonPath("$.files[0].draftStatement.cardBrand").value("VISA"))
                 .andExpect(jsonPath("$.files[0].draftStatement.uploadedFile.detectedProvider").doesNotExist())
                 .andExpect(jsonPath("$.files[0].draftStatement.uploadedFile.detectedCardBrand").doesNotExist())
                 .andExpect(jsonPath("$.files[0].draftStatement.transactions[0].description").value("Fictional bookstore cuota 2/6"))
-                .andExpect(content().string(not(containsString("Synthetic Santander Visa statement"))));
+                .andExpect(content().string(not(containsString("Synthetic Santander Visa statement"))))
+                .andExpect(content().string(not(containsString("SantanderVisaParser"))));
 
         assertThat(statementRepository.findAll()).singleElement()
                 .satisfies(statement -> assertThat(statement.getStatus()).isEqualTo(StatementStatus.DRAFT));

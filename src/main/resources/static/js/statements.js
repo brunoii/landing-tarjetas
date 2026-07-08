@@ -38,7 +38,7 @@ export function renderDraftStatementList(statements) {
     const drafts = statements.filter((statement) => statement.status === "DRAFT");
 
     if (drafts.length === 0) {
-        list.innerHTML = '<p class="empty-state">No draft statements are waiting for review.</p>';
+        list.innerHTML = '<p class="empty-state">No hay resúmenes en borrador pendientes de revisión.</p>';
         return;
     }
 
@@ -48,14 +48,14 @@ export function renderDraftStatementList(statements) {
         item.innerHTML = `
             <div>
                 <strong>${escapeHtml(cardLabel(statement.cardBrand))}</strong>
-                <p class="muted">${escapeHtml(statement.provider || "Unknown provider")} · ${escapeHtml(toYearMonth(statement.paymentMonth) || "No payment month")}</p>
+                <p class="muted">${escapeHtml(statement.provider || "Proveedor desconocido")} · ${escapeHtml(toYearMonth(statement.paymentMonth) || "Sin mes de pago")}</p>
             </div>
             <dl>
                 <div><dt>Total ARS</dt><dd>${formatPesos(statement.totalPesos)}</dd></div>
                 <div><dt>Total USD</dt><dd>${formatUsd(statement.totalUsd)}</dd></div>
-                <div><dt>Rows</dt><dd>${statement.transactionCount || 0}</dd></div>
+                <div><dt>Filas</dt><dd>${statement.transactionCount || 0}</dd></div>
             </dl>
-            <button type="button" class="secondary-button" data-review-draft="${statement.id}">Review draft</button>
+            <button type="button" class="secondary-button" data-review-draft="${statement.id}">Revisar borrador</button>
         `;
         item.querySelector("[data-review-draft]").addEventListener("click", () => openDraft(statement.id));
         list.append(item);
@@ -73,8 +73,8 @@ async function uploadSelectedStatements(event) {
     }
 
     try {
-        setButtonBusy(document.querySelector("#statement-upload-button"), true, "Uploading...");
-        showUploadFeedback("Uploading PDFs locally for metadata-only parsing. Raw PDF bytes are not persisted.");
+        setButtonBusy(document.querySelector("#statement-upload-button"), true, "Cargando...");
+        showUploadFeedback("Cargando PDFs localmente para analizar solo metadatos. Los bytes del PDF original no se persisten.");
         const response = await api.uploadStatements(files);
         renderUploadResults(response.files || []);
         input.value = "";
@@ -84,10 +84,10 @@ async function uploadSelectedStatements(event) {
         if (firstDraft) {
             await openDraft(firstDraft.id);
         }
-        showUploadFeedback("Upload finished. Review each draft before confirming it.");
+        showUploadFeedback("Carga finalizada. Revise cada borrador antes de confirmarlo.");
     } catch (error) {
-        showUploadFeedback(`Upload could not be completed: ${error.message}`, true);
-        callbacks.setStatus(`Upload could not be completed: ${error.message}`, true);
+        showUploadFeedback(`No se pudo completar la carga: ${error.message}`, true);
+        callbacks.setStatus(`No se pudo completar la carga: ${error.message}`, true);
     } finally {
         setButtonBusy(document.querySelector("#statement-upload-button"), false);
     }
@@ -95,19 +95,19 @@ async function uploadSelectedStatements(event) {
 
 function validateFiles(files) {
     if (files.length === 0) {
-        return "Select one or more PDF files before uploading.";
+        return "Seleccione uno o más archivos PDF antes de cargarlos.";
     }
     const totalSize = files.reduce((current, file) => current + file.size, 0);
     if (totalSize > MAX_REQUEST_SIZE_BYTES) {
-        return "The selected files exceed the 5 MB request limit.";
+        return "Los archivos seleccionados superan el límite de 5 MB por solicitud.";
     }
     const invalid = files.find((file) => !isPdf(file));
     if (invalid) {
-        return `${invalid.name} is not a PDF file.`;
+        return `${invalid.name} no es un archivo PDF.`;
     }
     const tooLarge = files.find((file) => file.size > MAX_PDF_SIZE_BYTES);
     if (tooLarge) {
-        return `${tooLarge.name} exceeds the 1 MB per-file limit.`;
+        return `${tooLarge.name} supera el límite de 1 MB por archivo.`;
     }
     return "";
 }
@@ -120,18 +120,18 @@ function showSelectedFileHint() {
     const files = [...document.querySelector("#statement-files").files];
     const hint = document.querySelector("#statement-file-hint");
     if (files.length === 0) {
-        hint.textContent = "PDF only. Maximum 1 MB per file and 5 MB per request.";
+        hint.textContent = "Solo PDF. Máximo 1 MB por archivo y 5 MB por solicitud.";
         return;
     }
     const names = files.map((file) => `${file.name} (${formatBytes(file.size)})`).join(", ");
-    hint.textContent = `${files.length} selected: ${names}`;
+    hint.textContent = `${files.length} seleccionado${files.length === 1 ? "" : "s"}: ${names}`;
 }
 
 function renderUploadResults(results) {
     const container = document.querySelector("#upload-results");
     container.innerHTML = "";
     if (results.length === 0) {
-        container.innerHTML = '<p class="empty-state">No upload results returned.</p>';
+        container.innerHTML = '<p class="empty-state">No se recibieron resultados de carga.</p>';
         return;
     }
 
@@ -143,19 +143,19 @@ function renderUploadResults(results) {
         article.innerHTML = `
             <header>
                 <div>
-                    <strong>${escapeHtml(uploadedFile.originalFilename || "Unnamed PDF")}</strong>
-                    <p class="muted">${escapeHtml(result.parsingStatus || uploadedFile.parsingStatus || "UNKNOWN")} · ${escapeHtml(result.parserName || "No parser selected")}</p>
+                    <strong>${escapeHtml(uploadedFile.originalFilename || "PDF sin nombre")}</strong>
+                    <p class="muted">${escapeHtml(parsingStatusLabel(result.parsingStatus || uploadedFile.parsingStatus))} · ${escapeHtml(parserDisplayLabel(result.parserName))}</p>
                 </div>
-                <span class="status-chip ${result.parsingStatus === "PARSED" ? "loaded" : ""}">${escapeHtml(result.parsingStatus || "UNKNOWN")}</span>
+                <span class="status-chip ${result.parsingStatus === "PARSED" ? "loaded" : ""}">${escapeHtml(parsingStatusLabel(result.parsingStatus))}</span>
             </header>
             <dl>
-                <div><dt>Hash</dt><dd>${escapeHtml(uploadedFile.checksumSha256 || "Unavailable")}</dd></div>
-                <div><dt>Detected provider</dt><dd>${escapeHtml(result.detectedProvider || "Unknown")}</dd></div>
-                <div><dt>Detected card</dt><dd>${escapeHtml(cardLabel(result.detectedCardBrand))}</dd></div>
-                <div><dt>Message</dt><dd>${escapeHtml(uploadResultMessage(result, uploadedFile))}</dd></div>
+                <div><dt>Hash</dt><dd>${escapeHtml(uploadedFile.checksumSha256 || "No disponible")}</dd></div>
+                <div><dt>Proveedor detectado</dt><dd>${escapeHtml(result.detectedProvider || "Desconocido")}</dd></div>
+                <div><dt>Tarjeta detectada</dt><dd>${escapeHtml(cardLabel(result.detectedCardBrand))}</dd></div>
+                <div><dt>Mensaje</dt><dd>${escapeHtml(uploadResultMessage(result, uploadedFile))}</dd></div>
             </dl>
             ${renderWarnings(result.warnings)}
-            ${draft ? `<p class="muted">Draft #${draft.id}: ${escapeHtml(toYearMonth(draft.paymentMonth) || "no payment month")} · ${formatPesos(draft.totalPesos)} / ${formatUsd(draft.totalUsd)} · ${draft.transactions?.length || 0} rows</p><button type="button" class="secondary-button" data-open-upload-draft="${draft.id}">Review draft #${draft.id}</button>` : '<p class="muted">No draft was created for this file.</p>'}
+            ${draft ? `<p class="muted">Borrador #${draft.id}: ${escapeHtml(toYearMonth(draft.paymentMonth) || "sin mes de pago")} · ${formatPesos(draft.totalPesos)} / ${formatUsd(draft.totalUsd)} · ${draft.transactions?.length || 0} filas</p><button type="button" class="secondary-button" data-open-upload-draft="${draft.id}">Revisar borrador #${draft.id}</button>` : '<p class="muted">No se creó ningún borrador para este archivo.</p>'}
         `;
         article.querySelector("[data-open-upload-draft]")?.addEventListener("click", () => openDraft(draft.id));
         container.append(article);
@@ -172,12 +172,12 @@ function renderWarnings(warnings) {
 
 async function openDraft(id) {
     try {
-        showReviewFeedback("Loading draft statement...");
+        showReviewFeedback("Cargando resumen en borrador...");
         activeDraft = await api.statement(id);
         renderDraftReview(activeDraft);
-        showReviewFeedback("Draft loaded for review.");
+        showReviewFeedback("Borrador cargado para revisión.");
     } catch (error) {
-        showReviewFeedback(`Draft could not be loaded: ${error.message}`, true);
+        showReviewFeedback(`No se pudo cargar el borrador: ${error.message}`, true);
     }
 }
 
@@ -188,14 +188,14 @@ async function saveActiveDraft(event) {
     }
 
     try {
-        setButtonBusy(document.querySelector("#statement-form button[type='submit']"), true, "Saving...");
+        setButtonBusy(document.querySelector("#statement-form button[type='submit']"), true, "Guardando...");
         const response = await api.updateStatement(activeDraft.id, statementPayload());
         activeDraft = response;
         renderDraftReview(activeDraft);
         await callbacks.onDraftChanged();
-        showReviewFeedback("Draft statement saved.");
+        showReviewFeedback("Resumen en borrador guardado.");
     } catch (error) {
-        showReviewFeedback(`Draft could not be saved: ${error.message}`, true);
+        showReviewFeedback(`No se pudo guardar el borrador: ${error.message}`, true);
     } finally {
         setButtonBusy(document.querySelector("#statement-form button[type='submit']"), false);
     }
@@ -207,19 +207,19 @@ async function confirmActiveDraft() {
     }
     const payload = statementPayload();
     if (!payload.paymentMonth || (!payload.totalPesos && !payload.totalUsd)) {
-        showReviewFeedback("Payment month and at least one statement total are required before confirmation.", true);
+        showReviewFeedback("El mes de pago y al menos un total del resumen son obligatorios antes de confirmar.", true);
         return;
     }
 
     try {
-        setButtonBusy(document.querySelector("#confirm-statement-button"), true, "Confirming...");
+        setButtonBusy(document.querySelector("#confirm-statement-button"), true, "Confirmando...");
         await api.updateStatement(activeDraft.id, payload);
         activeDraft = await api.confirmStatement(activeDraft.id);
         renderDraftReview(activeDraft);
         await callbacks.onDraftConfirmed(activeDraft);
-        showReviewFeedback("Statement confirmed. Public dashboard data was refreshed.");
+        showReviewFeedback("Resumen confirmado. Se actualizaron los datos del panel público.");
     } catch (error) {
-        showReviewFeedback(`Statement could not be confirmed: ${error.message}`, true);
+        showReviewFeedback(`No se pudo confirmar el resumen: ${error.message}`, true);
     } finally {
         setButtonBusy(document.querySelector("#confirm-statement-button"), false);
         if (activeDraft) {
@@ -232,7 +232,7 @@ function renderDraftReview(statement) {
     document.querySelector("#draft-empty-state").hidden = true;
     const panel = document.querySelector("#draft-review-panel");
     panel.hidden = false;
-    document.querySelector("#draft-review-title").textContent = `Draft statement #${statement.id}`;
+    document.querySelector("#draft-review-title").textContent = `Resumen en borrador #${statement.id}`;
     document.querySelector("#draft-review-meta").textContent = draftTransactionCountLabel(statement);
     renderStatementForm(statement);
     renderMissingTransactionForm(statement);
@@ -240,12 +240,13 @@ function renderDraftReview(statement) {
 }
 
 export function draftTransactionCountLabel(statement) {
-    return `${statement.status} · ${statement.transactions?.length || 0} draft transaction rows`;
+    const count = statement.transactions?.length || 0;
+    return `${statementStatusLabel(statement.status)} · ${count} ${count === 1 ? "fila de transacción en borrador" : "filas de transacciones en borrador"}`;
 }
 
 function renderStatementForm(statement) {
     const controls = missingTransactionControlsState(statement);
-    document.querySelector("#statement-provider").innerHTML = options(providers, statement.provider, (value) => value.replaceAll("_", " "));
+    document.querySelector("#statement-provider").innerHTML = options(providers, statement.provider, providerLabel);
     document.querySelector("#statement-card-brand").innerHTML = options(cardBrands, statement.cardBrand, cardLabel);
     document.querySelector("#statement-card-alias").value = statement.cardAlias || "";
     document.querySelector("#statement-period-start").value = statement.periodStart || "";
@@ -256,7 +257,7 @@ function renderStatementForm(statement) {
     document.querySelector("#statement-total-pesos").value = decimalValue(statement.totalPesos);
     document.querySelector("#statement-total-usd").value = decimalValue(statement.totalUsd);
     document.querySelector("#statement-minimum-payment-pesos").value = decimalValue(statement.minimumPaymentPesos);
-    document.querySelector("#statement-notes-placeholder").value = "Statement notes are not supported by the current API.";
+    document.querySelector("#statement-notes-placeholder").value = "La API actual no permite guardar notas del resumen.";
     document.querySelector("#confirm-statement-button").disabled = controls.confirmDisabled;
 }
 
@@ -268,7 +269,7 @@ function renderMissingTransactionForm(statement) {
     }
 
     document.querySelector("#missing-transaction-type").innerHTML = options(transactionTypes, "PURCHASE", typeLabel);
-    document.querySelector("#missing-transaction-category").innerHTML = `<option value="">Uncategorized</option>${categoryOptions()}`;
+    document.querySelector("#missing-transaction-category").innerHTML = `<option value="">Sin categoría</option>${categoryOptions()}`;
     resetMissingTransactionForm(false);
 }
 
@@ -307,15 +308,15 @@ function renderDraftTransactions(transactions) {
             <td><input name="transactionDate" type="date" value="${escapeHtml(transaction.transactionDate || "")}"></td>
             <td><input name="description" type="text" maxlength="240" required value="${escapeHtml(transaction.description || "")}"></td>
             <td><select name="type">${options(transactionTypes, transaction.type, typeLabel)}</select></td>
-            <td><select name="categoryId"><option value="">Uncategorized</option>${categoryOptions(transaction.category?.id)}</select></td>
+            <td><select name="categoryId"><option value="">Sin categoría</option>${categoryOptions(transaction.category?.id)}</select></td>
             <td><input name="currentInstallment" type="number" min="1" step="1" value="${escapeHtml(transaction.currentInstallment || "")}"></td>
             <td><input name="totalInstallments" type="number" min="1" step="1" value="${escapeHtml(transaction.totalInstallments || "")}"></td>
             <td><input name="amountPesos" type="number" min="0" step="0.01" value="${decimalValue(transaction.amountPesos)}"></td>
             <td><input name="amountUsd" type="number" min="0" step="0.01" value="${decimalValue(transaction.amountUsd)}"></td>
             <td><input name="notes" type="text" maxlength="500" value="${escapeHtml(transaction.notes || "")}"></td>
             <td class="row-actions">
-                <button type="button" class="secondary-button" data-save-transaction>Save row</button>
-                <button type="button" class="danger-button" data-delete-transaction>Delete row</button>
+                <button type="button" class="secondary-button" data-save-transaction>Guardar fila</button>
+                <button type="button" class="danger-button" data-delete-transaction>Eliminar fila</button>
             </td>
         `;
         row.querySelector("[data-save-transaction]").addEventListener("click", () => saveDraftTransaction(row));
@@ -330,14 +331,14 @@ async function saveDraftTransaction(row) {
     try {
         const description = row.querySelector('[name="description"]').value.trim();
         if (!description) {
-            showReviewFeedback("Transaction description is required.", true);
+            showReviewFeedback("La descripción de la transacción es obligatoria.", true);
             return;
         }
-        setButtonBusy(button, true, "Saving...");
+        setButtonBusy(button, true, "Guardando...");
         await api.updateTransaction(row.dataset.transactionId, transactionPayload(row, description));
-        await reloadActiveDraft("Transaction saved.");
+        await reloadActiveDraft("Transacción guardada.");
     } catch (error) {
-        showReviewFeedback(`Transaction could not be saved: ${error.message}`, true);
+        showReviewFeedback(`No se pudo guardar la transacción: ${error.message}`, true);
     } finally {
         setButtonBusy(button, false);
     }
@@ -347,11 +348,11 @@ async function deleteDraftTransaction(id) {
     const row = document.querySelector(`[data-transaction-id="${id}"]`);
     const button = row?.querySelector("[data-delete-transaction]");
     try {
-        setButtonBusy(button, true, "Deleting...");
+        setButtonBusy(button, true, "Eliminando...");
         await api.deleteTransaction(id);
-        await reloadActiveDraft("Transaction deleted from the draft.");
+        await reloadActiveDraft("Transacción eliminada del borrador.");
     } catch (error) {
-        showReviewFeedback(`Transaction could not be deleted: ${error.message}`, true);
+        showReviewFeedback(`No se pudo eliminar la transacción: ${error.message}`, true);
     } finally {
         setButtonBusy(button, false);
     }
@@ -364,7 +365,7 @@ async function addMissingTransaction(event) {
     }
 
     const button = document.querySelector("#add-missing-transaction-button");
-    let errorPrefix = "Missing transaction could not be added:";
+    let errorPrefix = "No se pudo agregar la transacción faltante:";
     try {
         const description = textOrNull("#missing-transaction-description");
         const intent = missingTransactionSubmitIntent(
@@ -402,14 +403,14 @@ export function missingTransactionSubmitIntent(activeStatement, description, amo
     }
     if (!normalizedDescription) {
         return {
-            feedback: "Missing transaction description is required.",
+            feedback: "La descripción de la transacción faltante es obligatoria.",
             reason: "missing-description",
             shouldSubmit: false
         };
     }
     if (!hasAmount) {
         return {
-            feedback: "Missing transaction requires an amount in pesos or USD.",
+            feedback: "La transacción faltante requiere un importe en pesos o USD.",
             reason: "missing-amount",
             shouldSubmit: false
         };
@@ -418,14 +419,14 @@ export function missingTransactionSubmitIntent(activeStatement, description, amo
     return {
         clearBusyInFinally: true,
         description: normalizedDescription,
-        errorPrefix: "Missing transaction could not be added:",
-        loadingLabel: "Adding...",
+        errorPrefix: "No se pudo agregar la transacción faltante:",
+        loadingLabel: "Agregando...",
         notifyDraftChanged: true,
         reloadDraft: true,
         resetForm: true,
         shouldSubmit: true,
         statementId: activeStatement.id,
-        successFeedback: "Missing transaction added to the draft."
+        successFeedback: "Transacción faltante agregada al borrador."
     };
 }
 
@@ -537,9 +538,57 @@ function showReviewFeedback(message, isError = false) {
 
 function uploadResultMessage(result, uploadedFile) {
     if (result.error) {
-        return `${result.error} No statement text or raw PDF content is shown.`;
+        return `${result.error} No se muestra texto del resumen ni contenido del PDF original.`;
     }
-    return uploadedFile.parsingMessage || "No parser message";
+    return uploadedFile.parsingMessage || "Sin mensaje del analizador";
+}
+
+function parsingStatusLabel(status) {
+    const labels = {
+        NOT_STARTED: "No iniciado",
+        PENDING: "Pendiente",
+        PARSED: "Analizado",
+        FAILED: "Fallido",
+        SKIPPED: "Omitido",
+        UNKNOWN: "Desconocido"
+    };
+    return labels[status] || status || "Desconocido";
+}
+
+export function parserDisplayLabel(parserName) {
+    const labels = {
+        SantanderVisaParser: "Santander Visa",
+        SantanderAmexParser: "Santander American Express",
+        NaranjaXParser: "Naranja X"
+    };
+    const text = String(parserName || "").trim();
+    if (!text) {
+        return "Sin analizador seleccionado";
+    }
+    if (labels[text]) {
+        return labels[text];
+    }
+    return /^[A-Z][A-Za-z0-9]+Parser$/.test(text) ? "Analizador compatible" : text;
+}
+
+function providerLabel(provider) {
+    const labels = {
+        VISA_HOME: "Visa Home",
+        MASTERCARD_HOME: "Mastercard Home",
+        BANK_PORTAL: "Portal bancario",
+        SANTANDER: "Santander",
+        NARANJA_X: "Naranja X",
+        MANUAL: "Manual"
+    };
+    return labels[provider] || provider || "Proveedor desconocido";
+}
+
+function statementStatusLabel(status) {
+    const labels = {
+        CONFIRMED: "Confirmado",
+        DRAFT: "Borrador"
+    };
+    return labels[status] || status || "Sin estado";
 }
 
 function formatBytes(bytes) {

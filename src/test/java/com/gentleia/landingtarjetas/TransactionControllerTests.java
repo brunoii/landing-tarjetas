@@ -85,9 +85,28 @@ class TransactionControllerTests {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(createPayload(null)))
                 .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.error").value("Only draft statement transactions can be created"));
+                .andExpect(jsonPath("$.error").value("Solo se pueden crear transacciones en resúmenes en borrador"));
 
         assertThat(transactionRepository.findAll()).isEmpty();
+    }
+
+    @Test
+    void postReturnsSpanishValidationErrorsForStaticUi() throws Exception {
+        CardStatement statement = saveStatement(StatementStatus.DRAFT);
+
+        mockMvc.perform(post("/api/statements/{id}/transactions", statement.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "description": " ",
+                                  "type": null,
+                                  "amountPesos": 10.00
+                                }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("La validación de la solicitud falló"))
+                .andExpect(jsonPath("$.details[?(@ == 'Descripción: es obligatoria')]").exists())
+                .andExpect(jsonPath("$.details[?(@ == 'Tipo: es obligatorio')]").exists());
     }
 
     @Test
@@ -99,7 +118,7 @@ class TransactionControllerTests {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(updatePayload()))
                 .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.error").value("Only draft statement transactions can be modified"));
+                .andExpect(jsonPath("$.error").value("Solo se pueden modificar transacciones de resúmenes en borrador"));
 
         assertThat(transactionRepository.findById(transaction.getId()))
                 .get()
@@ -117,7 +136,7 @@ class TransactionControllerTests {
 
         mockMvc.perform(delete("/api/transactions/{id}", transaction.getId()))
                 .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.error").value("Only draft statement transactions can be modified"));
+                .andExpect(jsonPath("$.error").value("Solo se pueden modificar transacciones de resúmenes en borrador"));
 
         assertThat(transactionRepository.existsById(transaction.getId())).isTrue();
     }
