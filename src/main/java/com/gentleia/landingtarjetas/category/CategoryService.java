@@ -2,6 +2,7 @@ package com.gentleia.landingtarjetas.category;
 
 import java.util.List;
 
+import com.gentleia.landingtarjetas.manualexpense.ManualExpenseRepository;
 import com.gentleia.landingtarjetas.transaction.StatementTransactionRepository;
 
 import org.springframework.http.HttpStatus;
@@ -16,10 +17,14 @@ public class CategoryService {
 
     private final CategoryRepository categoryRepository;
     private final StatementTransactionRepository transactionRepository;
+    private final ManualExpenseRepository manualExpenseRepository;
 
-    public CategoryService(CategoryRepository categoryRepository, StatementTransactionRepository transactionRepository) {
+    public CategoryService(CategoryRepository categoryRepository,
+                           StatementTransactionRepository transactionRepository,
+                           ManualExpenseRepository manualExpenseRepository) {
         this.categoryRepository = categoryRepository;
         this.transactionRepository = transactionRepository;
+        this.manualExpenseRepository = manualExpenseRepository;
     }
 
     @Transactional(readOnly = true)
@@ -54,7 +59,7 @@ public class CategoryService {
     @Transactional
     public void deleteSafely(Long id) {
         Category category = getCategory(id);
-        if (transactionRepository.existsByCategoryId(id)) {
+        if (transactionRepository.existsByCategoryId(id) || manualExpenseRepository.existsByCategoryId(id)) {
             category.setActive(false);
             return;
         }

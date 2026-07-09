@@ -1,6 +1,10 @@
 import { api } from "./api.js";
 import { categoryFormPayload, renderCategories, resetCategoryForm, showCategoryFeedback } from "./categories.js";
-import { renderDashboard } from "./dashboard.js?v=20260707-dashboard-spanish-copy";
+import { renderDashboard } from "./dashboard.js?v=20260709-stage-7-polish";
+import { loadIncomes, setupIncomes } from "./incomes.js";
+import { renderManualExpenses, setManualExpenseApi, setManualExpenseCategories, setupManualExpenses } from "./manual-expenses.js";
+import { setupPrimaryTabs } from "./navigation.js";
+import { setSimulatorApi, setSimulatorCategories, setupSimulator } from "./simulator.js?v=20260709-stage-7-polish";
 import { renderDraftStatementList, setStatementCategories, setupStatementUpload } from "./statements.js";
 import { renderTransactions, rerenderTransactionsAfterSearch, resetTransactionFilters, setTransactionCategories, transactionFilters } from "./transactions.js";
 import { currentYearMonth, setButtonBusy } from "./utils.js";
@@ -11,6 +15,13 @@ const state = {
 };
 
 document.addEventListener("DOMContentLoaded", () => {
+    setupPrimaryTabs();
+    setManualExpenseApi(api);
+    setSimulatorApi(api);
+    setupManualExpenses({ onChanged: loadDashboard });
+    setupIncomes({ onChanged: loadDashboard });
+    setupSimulator();
+
     const monthInput = document.querySelector("#month-input");
     monthInput.value = state.month;
     monthInput.addEventListener("change", () => {
@@ -49,18 +60,20 @@ document.addEventListener("DOMContentLoaded", () => {
 async function loadAll() {
     await loadCategories();
     await loadDashboard();
+    await loadIncomes();
 }
 
 async function loadDashboard() {
     try {
         setStatus("Cargando datos del panel...", false, true);
-        const [summary, statements, transactions, allStatements, months, monthDetail] = await Promise.all([
+        const [summary, statements, transactions, allStatements, months, monthDetail, manualExpenses] = await Promise.all([
             api.summary(state.month),
             api.statements({ month: state.month }),
             api.transactions({ month: state.month }),
             api.statements(),
             api.dashboardMonths(),
-            api.dashboardMonthDetail(state.month)
+            api.dashboardMonthDetail(state.month),
+            api.manualExpenses({ month: state.month })
         ]);
         const confirmedStatements = statements.filter((statement) => statement.status === "CONFIRMED");
         const confirmedAllStatements = allStatements.filter((statement) => statement.status === "CONFIRMED");
@@ -75,9 +88,10 @@ async function loadDashboard() {
         });
         renderDraftStatementList(allStatements);
         renderTransactions(transactions, state.month);
+        renderManualExpenses(manualExpenses, state.month);
         setStatus(monthDetail.projectionOnly
             ? "Datos proyectados de cuotas cargados para un mes futuro."
-            : confirmedStatements.length || transactions.length
+            : confirmedStatements.length || transactions.length || summary.incomeCount
                 ? "Datos confirmados del panel cargados."
                 : statements.length
                 ? "Hay borradores pendientes de revisión; el panel público sigue vacío para este mes."
@@ -103,6 +117,8 @@ async function loadCategories() {
         state.categories = await api.categories();
         setTransactionCategories(state.categories);
         setStatementCategories(state.categories);
+        setManualExpenseCategories(state.categories);
+        setSimulatorCategories(state.categories);
         renderCategories(state.categories, {
             onUpdate: updateCategory,
             onDelete: deleteCategory

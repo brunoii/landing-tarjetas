@@ -13,6 +13,7 @@ import com.gentleia.landingtarjetas.category.CategoryRequest;
 import com.gentleia.landingtarjetas.category.CategoryService;
 import com.gentleia.landingtarjetas.dashboard.CategoryBreakdownResponse;
 import com.gentleia.landingtarjetas.dashboard.DashboardService;
+import com.gentleia.landingtarjetas.manualexpense.ManualExpenseRepository;
 import com.gentleia.landingtarjetas.projection.InstallmentProjection;
 import com.gentleia.landingtarjetas.projection.InstallmentProjectionRepository;
 import com.gentleia.landingtarjetas.shared.CardBrand;
@@ -62,9 +63,12 @@ class DomainServiceValidationTests {
     private InstallmentProjectionRepository projectionRepository;
     @Autowired
     private CategoryRepository categoryRepository;
+    @Autowired
+    private ManualExpenseRepository manualExpenseRepository;
 
     @BeforeEach
     void cleanDatabase() {
+        manualExpenseRepository.deleteAll();
         projectionRepository.deleteAll();
         transactionRepository.deleteAll();
         statementRepository.deleteAll();

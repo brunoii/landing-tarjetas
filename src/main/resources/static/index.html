@@ -4,10 +4,10 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Panel de tarjetas</title>
-    <link rel="stylesheet" href="/css/styles.css">
+    <link rel="stylesheet" href="/css/styles.css?v=20260709-stage-7-polish">
 </head>
 <body>
-<header class="topbar">
+<header class="topbar tab-section" id="tab-summary" data-tab-panel="summary" role="tabpanel" aria-labelledby="primary-tab-summary">
     <div>
         <p class="eyebrow">Panel local de resúmenes</p>
         <h1>Resúmenes de tarjetas de crédito</h1>
@@ -22,9 +22,19 @@
 <main class="app-shell">
     <section class="notice" role="status" aria-live="polite" id="app-status">Cargando datos locales del panel...</section>
 
-    <nav class="month-tabs" aria-label="Meses disponibles" id="month-tabs"></nav>
+    <nav class="primary-tabs" aria-label="Secciones principales" role="tablist">
+        <button type="button" id="primary-tab-summary" role="tab" aria-controls="tab-summary" aria-selected="true" data-tab-target="summary" class="active">Resumen</button>
+        <button type="button" id="primary-tab-expenses-upload" role="tab" aria-controls="tab-expenses-upload" aria-selected="false" data-tab-target="expenses-upload">Cargar Gastos</button>
+        <button type="button" id="primary-tab-expenses-table" role="tab" aria-controls="tab-expenses-table" aria-selected="false" data-tab-target="expenses-table">Tabla Gastos</button>
+        <button type="button" id="primary-tab-income-table" role="tab" aria-controls="tab-income-table" aria-selected="false" data-tab-target="income-table">Tabla Ingresos</button>
+        <button type="button" id="primary-tab-income-upload" role="tab" aria-controls="tab-income-upload" aria-selected="false" data-tab-target="income-upload">Cargar Ingresos</button>
+        <button type="button" id="primary-tab-simulator" role="tab" aria-controls="tab-simulator" aria-selected="false" data-tab-target="simulator">Simulador</button>
+        <button type="button" id="primary-tab-categories" role="tab" aria-controls="tab-categories" aria-selected="false" data-tab-target="categories">Categorías</button>
+    </nav>
 
-    <section class="panel" aria-labelledby="upload-title">
+    <nav class="month-tabs tab-section" aria-label="Meses disponibles" id="month-tabs" data-tab-panel="summary"></nav>
+
+    <section class="panel tab-section" id="tab-expenses-upload" data-tab-panel="expenses-upload" role="tabpanel" aria-labelledby="primary-tab-expenses-upload" hidden>
         <div class="section-heading">
             <div>
                 <p class="eyebrow">Carga</p>
@@ -34,7 +44,7 @@
         </div>
 
         <form class="upload-form" id="statement-upload-form" aria-describedby="statement-file-hint statement-upload-feedback">
-            <label class="wide-field">
+            <label>
                 Archivos PDF
                 <input id="statement-files" name="files" type="file" accept="application/pdf,.pdf" multiple required>
             </label>
@@ -44,6 +54,87 @@
         <p class="form-feedback" id="statement-upload-feedback" role="status" aria-live="polite"></p>
         <div class="upload-results" id="upload-results"></div>
 
+        <div class="manual-expense-shell">
+            <div class="section-heading">
+                <div>
+                    <p class="eyebrow">Carga manual</p>
+                    <h3>Gastos manuales y préstamos</h3>
+                </div>
+                <p class="section-note">Cargue gastos individuales, efectivo, cuotas manuales, cargos, impuestos y préstamos. Pesos y USD se mantienen separados, sin conversión.</p>
+            </div>
+            <form class="manual-expense-form" id="manual-expense-form" aria-describedby="manual-expense-feedback manual-expenses-summary">
+                <label>
+                    Descripción
+                    <input id="manual-expense-description" type="text" maxlength="240" required placeholder="Ejemplo: Préstamo personal">
+                </label>
+                <label>
+                    Tipo
+                    <select id="manual-expense-type" required>
+                        <option value="ONE_PAYMENT">Un pago</option>
+                        <option value="INSTALLMENT">Cuota</option>
+                        <option value="CASH">Efectivo</option>
+                        <option value="LOAN">Préstamo</option>
+                        <option value="FEE">Cargo</option>
+                        <option value="TAX">Impuesto</option>
+                    </select>
+                </label>
+                <label>
+                    Monto en pesos
+                    <input id="manual-expense-amount-pesos" type="number" min="0" step="0.01" inputmode="decimal" required placeholder="0.00">
+                </label>
+                <label>
+                    Monto en USD
+                    <input id="manual-expense-amount-usd" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0.00">
+                </label>
+                <label>
+                    Mes de inicio
+                    <input id="manual-expense-start-month" type="month" required autocomplete="off">
+                </label>
+                <label>
+                    Cantidad de cuotas
+                    <input id="manual-expense-total-installments" type="number" min="1" step="1">
+                </label>
+                <label>
+                    Cuota actual
+                    <input id="manual-expense-current-installment" type="number" min="1" step="1">
+                </label>
+                <label>
+                    Categoría
+                    <select id="manual-expense-category"><option value="">Sin categoría</option></select>
+                </label>
+                <label>
+                    Notas
+                    <input id="manual-expense-notes" type="text" maxlength="500" placeholder="Nota opcional">
+                </label>
+                <div class="form-actions">
+                    <button type="submit">Crear gasto manual</button>
+                    <button class="secondary-button" type="reset">Limpiar</button>
+                </div>
+            </form>
+            <p class="form-feedback" id="manual-expense-feedback" role="status" aria-live="polite"></p>
+            <p class="filter-summary" id="manual-expenses-summary" aria-live="polite">No hay gastos manuales para el mes seleccionado.</p>
+            <div class="table-wrap manual-expense-table-wrap">
+                <table>
+                    <thead>
+                    <tr>
+                        <th>Mes</th>
+                        <th>Descripción</th>
+                        <th>Tipo</th>
+                        <th>Cuota</th>
+                        <th>Categoría</th>
+                        <th>Pesos</th>
+                        <th>USD</th>
+                        <th>Estado</th>
+                        <th>Notas</th>
+                        <th>Acciones</th>
+                    </tr>
+                    </thead>
+                    <tbody id="manual-expenses-table"></tbody>
+                </table>
+            </div>
+            <p class="empty-state" id="manual-expenses-empty" hidden>No hay gastos manuales cargados para este mes.</p>
+        </div>
+
         <div class="draft-list-shell">
             <h3>Borradores pendientes de revisión</h3>
             <p class="section-note">Los borradores son visibles solo aquí. No aparecen en el panel público ni en la tabla de transacciones hasta que se confirman.</p>
@@ -51,7 +142,7 @@
         </div>
     </section>
 
-    <section class="panel" aria-labelledby="draft-review-title">
+    <section class="panel tab-section" aria-labelledby="draft-review-title" data-tab-panel="expenses-upload" hidden>
         <div class="section-heading">
             <div>
                 <p class="eyebrow">Revisión</p>
@@ -126,7 +217,7 @@
                     Fecha
                     <input id="missing-transaction-date" type="date">
                 </label>
-                <label class="wide-field">
+                <label>
                     Descripción
                     <input id="missing-transaction-description" type="text" maxlength="240" required placeholder="Descripción de la transacción faltante">
                 </label>
@@ -154,7 +245,7 @@
                     Importe en USD
                     <input id="missing-transaction-amount-usd" type="number" min="0" step="0.01" inputmode="decimal">
                 </label>
-                <label class="wide-field">
+                <label>
                     Notas
                     <input id="missing-transaction-notes" type="text" maxlength="500" placeholder="Nota local opcional">
                 </label>
@@ -186,40 +277,65 @@
         </div>
     </section>
 
-    <section class="summary-grid" aria-label="Resumen mensual">
+    <section class="summary-grid tab-section" aria-label="Resumen mensual" data-tab-panel="summary">
         <article class="metric-card featured">
-            <span class="metric-label">Total pesos</span>
+            <span class="metric-label">Total ingresos</span>
+            <strong id="monthly-income-total">ARS 0.00</strong>
+            <small>Total de ingresos del mes seleccionado.</small>
+        </article>
+        <article class="metric-card secondary">
+            <span class="metric-label">Total sueldos</span>
+            <strong id="salary-income-total">ARS 0.00</strong>
+            <small>Ingresos registrados como sueldo para el mes.</small>
+        </article>
+        <article class="metric-card secondary">
+            <span class="metric-label">Total ingresos varios</span>
+            <strong id="variable-income-total">ARS 0.00</strong>
+            <small>Ingresos variables aplicables al mes seleccionado.</small>
+        </article>
+        <article class="metric-card secondary" id="projected-income-card" hidden>
+            <span class="metric-label">Ingresos proyectados</span>
+            <strong id="projected-income-total">ARS 0.00</strong>
+            <small>Ingresos recurrentes proyectados para este mes.</small>
+        </article>
+        <article class="metric-card featured">
+            <span class="metric-label">Gastos del mes</span>
             <strong id="total-pesos">ARS 0.00</strong>
             <small id="total-pesos-hint">No hay transacciones cargadas para este mes.</small>
+        </article>
+        <article class="metric-card featured">
+            <span class="metric-label">Saldo resultante <span class="summary-estimated-label" id="summary-estimated-label" hidden>Estimado</span></span>
+            <strong id="monthly-balance-pesos">ARS 0.00</strong>
+            <small id="monthly-balance-hint">Ingresos del mes menos gastos en pesos.</small>
         </article>
         <article class="metric-card featured">
             <span class="metric-label">Total USD</span>
             <strong id="total-usd">USD 0.00</strong>
             <small>USD se muestra por separado. No se aplica conversión.</small>
         </article>
-        <article class="metric-card">
+        <article class="metric-card secondary">
             <span class="metric-label">Total en un pago</span>
             <strong id="one-payment-total">ARS 0.00 / USD 0.00</strong>
             <small>Derivado de transacciones de compra.</small>
         </article>
-        <article class="metric-card">
+        <article class="metric-card secondary">
             <span class="metric-label">Cuotas</span>
             <strong id="installment-total">ARS 0.00 / USD 0.00</strong>
             <small>Derivado de transacciones en cuotas.</small>
         </article>
-        <article class="metric-card">
+        <article class="metric-card secondary">
             <span class="metric-label">Cargos e impuestos</span>
             <strong id="charges-total">ARS 0.00 / USD 0.00</strong>
             <small>Derivado de cargos e impuestos.</small>
         </article>
-        <article class="metric-card">
+        <article class="metric-card secondary">
             <span class="metric-label">Resúmenes / transacciones</span>
-            <strong id="record-counts">0 / 0</strong>
-            <small>Cargado desde la API REST local.</small>
+            <strong id="record-counts">0 / 0 / 0</strong>
+            <small>Resúmenes / filas / ingresos cargados desde la API REST local.</small>
         </article>
     </section>
 
-    <section class="panel" aria-labelledby="card-status-title">
+    <section class="panel tab-section" aria-labelledby="card-status-title" data-tab-panel="summary">
         <div class="section-heading">
             <div>
                 <p class="eyebrow">Estado de tarjetas</p>
@@ -230,7 +346,7 @@
         <div class="card-detail-grid" id="card-detail-grid"></div>
     </section>
 
-    <section class="panel" aria-labelledby="month-detail-title">
+    <section class="panel tab-section" aria-labelledby="month-detail-title" data-tab-panel="summary">
         <div class="section-heading">
             <div>
                 <p class="eyebrow">Meses futuros</p>
@@ -260,7 +376,7 @@
         <p class="empty-state" id="month-detail-empty" hidden>No hay filas de cuotas reales o proyectadas disponibles para este mes.</p>
     </section>
 
-    <section class="panel" aria-labelledby="transactions-title">
+    <section class="panel tab-section" id="tab-expenses-table" data-tab-panel="expenses-table" role="tabpanel" aria-labelledby="primary-tab-expenses-table" hidden>
         <div class="section-heading">
             <div>
                 <p class="eyebrow">Transacciones</p>
@@ -299,7 +415,7 @@
                     <option value="ADJUSTMENT">Ajuste</option>
                 </select>
             </label>
-            <label class="wide-field">
+            <label>
                 Búsqueda
                 <input id="filter-search" type="search" placeholder="Descripción, notas, categoría o tarjeta">
             </label>
@@ -330,7 +446,148 @@
         <p class="empty-state" id="transactions-empty" hidden>No hay transacciones confirmadas que coincidan con el mes actual, la tarjeta, la categoría, el tipo y la búsqueda.</p>
     </section>
 
-    <section class="panel" aria-labelledby="categories-title">
+    <section class="panel tab-section" id="tab-income-table" data-tab-panel="income-table" role="tabpanel" aria-labelledby="primary-tab-income-table" hidden>
+        <div class="section-heading">
+            <div>
+                <p class="eyebrow">Ingresos</p>
+                <h2>Tabla de ingresos</h2>
+            </div>
+            <p class="section-note">Administre ingresos reales y proyecciones recurrentes que alimentan el resumen del panel.</p>
+        </div>
+        <form class="filters income-filters" id="income-filter-form" aria-describedby="income-filters-summary incomes-empty">
+            <label>
+                Mes
+                <input id="income-filter-month" type="month" autocomplete="off">
+            </label>
+            <button class="secondary-button" type="submit">Filtrar ingresos</button>
+            <button class="secondary-button" type="button" id="clear-income-filter">Ver todos</button>
+        </form>
+        <p class="filter-summary" id="income-filters-summary" aria-live="polite">Se muestran todos los ingresos. Filtre por mes si necesita una proyección mensual.</p>
+
+        <div class="table-wrap income-table-wrap">
+            <table>
+                <thead>
+                <tr>
+                    <th>Mes</th>
+                    <th>Descripción</th>
+                    <th>Tipo</th>
+                    <th>Monto</th>
+                    <th>Recurrente</th>
+                    <th>Aplica desde</th>
+                    <th>Aplica hasta</th>
+                    <th>Estado real/proyectado</th>
+                    <th>Notas</th>
+                    <th>Acciones</th>
+                </tr>
+                </thead>
+                <tbody id="incomes-table"></tbody>
+            </table>
+        </div>
+        <p class="empty-state" id="incomes-empty" hidden>No hay ingresos cargados para el filtro seleccionado.</p>
+    </section>
+
+    <section class="panel tab-section" id="tab-income-upload" data-tab-panel="income-upload" role="tabpanel" aria-labelledby="primary-tab-income-upload" hidden>
+        <div class="section-heading">
+            <div>
+                <p class="eyebrow">Ingresos</p>
+                <h2>Cargar ingresos</h2>
+            </div>
+            <p class="section-note">Cargue ingresos manuales en pesos para calcular el saldo mensual del resumen.</p>
+        </div>
+        <form class="income-form" id="income-form" aria-describedby="income-feedback">
+            <label>
+                Descripción
+                <input id="income-description" type="text" maxlength="240" required placeholder="Ejemplo: Sueldo principal">
+            </label>
+            <label>
+                Tipo
+                <select id="income-type" required>
+                    <option value="SALARY">Sueldo</option>
+                    <option value="VARIABLE">Variable</option>
+                </select>
+            </label>
+            <label>
+                Monto
+                <input id="income-amount" type="number" min="0" step="0.01" inputmode="decimal" required placeholder="0.00">
+            </label>
+            <label>
+                Mes de inicio
+                <input id="income-start-month" type="month" required autocomplete="off">
+            </label>
+            <label>
+                Recurrente mensual
+                <select id="income-recurring-monthly">
+                    <option value="true">Sí</option>
+                    <option value="false">No</option>
+                </select>
+            </label>
+            <label>
+                Notas
+                <input id="income-notes" type="text" maxlength="500" placeholder="Nota opcional">
+            </label>
+            <div class="form-actions">
+                <button type="submit">Crear ingreso</button>
+                <button class="secondary-button" type="reset">Limpiar</button>
+            </div>
+        </form>
+        <p class="form-feedback" id="income-feedback" role="status" aria-live="polite"></p>
+    </section>
+
+    <section class="panel tab-section" id="tab-simulator" data-tab-panel="simulator" role="tabpanel" aria-labelledby="primary-tab-simulator" hidden>
+        <div class="section-heading">
+            <div>
+                <p class="eyebrow">Simulación</p>
+                <h2>Simulador</h2>
+            </div>
+            <p class="section-note">Simule una compra futura en cuotas sin guardar datos en la base. Usa los ingresos y gastos actuales del panel para cada mes afectado.</p>
+        </div>
+        <form class="simulator-form" id="simulator-form" aria-describedby="simulator-feedback simulator-summary">
+            <label>
+                Descripción de compra
+                <input id="simulator-description" type="text" maxlength="240" placeholder="Ejemplo: Notebook">
+            </label>
+            <label>
+                Importe total en pesos
+                <input id="simulator-total-amount" type="number" min="0" step="0.01" inputmode="decimal" required placeholder="0.00">
+            </label>
+            <label>
+                Cantidad de cuotas
+                <input id="simulator-installment-count" type="number" min="1" max="60" step="1" required placeholder="1">
+            </label>
+            <label>
+                Mes de inicio
+                <input id="simulator-start-month" type="month" required autocomplete="off">
+            </label>
+            <label>
+                Categoría opcional
+                <select id="simulator-category"><option value="">Sin categoría</option></select>
+            </label>
+            <div class="form-actions">
+                <button type="submit">Simular compra</button>
+                <button class="secondary-button" type="button" id="clear-simulation">Limpiar simulación</button>
+            </div>
+        </form>
+        <p class="form-feedback" id="simulator-feedback" role="status" aria-live="polite"></p>
+        <p class="filter-summary" id="simulator-summary" aria-live="polite">No hay una simulación activa.</p>
+        <div class="table-wrap simulator-table-wrap">
+            <table>
+                <thead>
+                <tr>
+                    <th>Mes</th>
+                    <th>Ingresos del mes</th>
+                    <th>Deuda/gastos actuales del mes</th>
+                    <th>Nueva cuota simulada</th>
+                    <th>Saldo actual sin simulación</th>
+                    <th>Saldo final con simulación</th>
+                </tr>
+                </thead>
+                <tbody id="simulation-results-table"></tbody>
+            </table>
+        </div>
+        <p class="empty-state" id="simulation-empty">Complete los campos obligatorios y ejecute una simulación para ver los meses afectados.</p>
+    </section>
+
+    <section class="panel tab-section" id="tab-categories" data-tab-panel="categories" role="tabpanel" aria-labelledby="primary-tab-categories" hidden>
         <div class="section-heading">
             <div>
                 <p class="eyebrow">Administración</p>
@@ -355,6 +612,6 @@
     </section>
 </main>
 
-<script type="module" src="/js/app.js?v=20260707-dashboard-spanish-copy"></script>
+<script type="module" src="/js/app.js?v=20260709-stage-7-polish"></script>
 </body>
 </html>

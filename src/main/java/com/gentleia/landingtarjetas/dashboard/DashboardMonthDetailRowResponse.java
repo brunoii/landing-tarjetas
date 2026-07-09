@@ -5,7 +5,6 @@ import java.time.LocalDate;
 
 import com.gentleia.landingtarjetas.shared.CardBrand;
 import com.gentleia.landingtarjetas.shared.Provider;
-import com.gentleia.landingtarjetas.shared.TransactionType;
 
 public record DashboardMonthDetailRowResponse(
         String kind,
@@ -17,7 +16,7 @@ public record DashboardMonthDetailRowResponse(
         Provider provider,
         CardBrand cardBrand,
         String cardAlias,
-        TransactionType type,
+        String type,
         Long categoryId,
         String categoryName,
         Integer installmentNumber,

@@ -7,6 +7,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Set;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -21,10 +22,96 @@ class StaticUiContractTests {
     void indexLinksExpectedStaticAssets() throws IOException {
         String index = readStatic("index.html");
 
-        assertThat(index).contains("<link rel=\"stylesheet\" href=\"/css/styles.css\">");
-        assertThat(index).contains("<script type=\"module\" src=\"/js/app.js?v=20260707-dashboard-spanish-copy\"></script>");
+        assertThat(index).contains("<link rel=\"stylesheet\" href=\"/css/styles.css?v=20260709-stage-7-polish\">");
+        assertThat(index).doesNotContain("<link rel=\"stylesheet\" href=\"/css/styles.css\">");
+        assertThat(index).contains("<script type=\"module\" src=\"/js/app.js?v=20260709-stage-7-polish\"></script>");
         assertThat(readStatic("js/app.js"))
-                .contains("./api.js", "./categories.js", "./dashboard.js?v=20260707-dashboard-spanish-copy", "./statements.js", "./transactions.js", "./utils.js");
+                .contains("./api.js", "./categories.js", "./dashboard.js?v=20260709-stage-7-polish", "./incomes.js", "./manual-expenses.js", "./navigation.js", "./simulator.js?v=20260709-stage-7-polish", "./statements.js", "./transactions.js", "./utils.js");
+    }
+
+    @Test
+    void stageOneTabsRedistributeExistingFrontendSectionsOnly() throws IOException {
+        String index = readStatic("index.html");
+        String styles = readStatic("css/styles.css");
+        String app = readStatic("js/app.js");
+        String navigation = readStatic("js/navigation.js");
+
+        assertThat(index).containsSubsequence(
+                "role=\"tablist\"",
+                "Resumen",
+                "Cargar Gastos",
+                "Tabla Gastos",
+                "Tabla Ingresos",
+                "Cargar Ingresos",
+                "Simulador",
+                "Categorías"
+        );
+        assertThat(index).contains(
+                "id=\"primary-tab-summary\" role=\"tab\"",
+                "aria-selected=\"true\" data-tab-target=\"summary\" class=\"active\"",
+                "data-tab-panel=\"summary\"",
+                "id=\"tab-expenses-upload\" data-tab-panel=\"expenses-upload\"",
+                "id=\"tab-expenses-table\" data-tab-panel=\"expenses-table\"",
+                "id=\"tab-income-table\" data-tab-panel=\"income-table\"",
+                "id=\"tab-income-upload\" data-tab-panel=\"income-upload\"",
+                "id=\"tab-simulator\" data-tab-panel=\"simulator\"",
+                "id=\"tab-categories\" data-tab-panel=\"categories\""
+        );
+        assertThat(index).doesNotContain("/api/simulator", "/api/simulador");
+        assertThat(styles).contains(".primary-tabs", ".tab-section[hidden]", "overflow-x: auto");
+        assertThat(app).contains("setupPrimaryTabs()");
+        assertThat(navigation).contains(
+                "DEFAULT_PRIMARY_TAB_ID = \"summary\"",
+                "label: \"Resumen\"",
+                "label: \"Cargar Gastos\"",
+                "label: \"Tabla Gastos\"",
+                "label: \"Tabla Ingresos\"",
+                "label: \"Cargar Ingresos\"",
+                "label: \"Simulador\"",
+                "label: \"Categorías\""
+        );
+        assertThat(extractPrimaryTabTargets(index)).containsExactlyElementsOf(extractNavigationTabIds(navigation));
+        assertThat(extractPrimaryTabLabels(index)).containsExactlyElementsOf(extractNavigationTabLabels(navigation));
+    }
+
+    @Test
+    void simulatorUiUsesDashboardSummariesWithoutPersistence() throws IOException {
+        String index = readStatic("index.html");
+        String app = readStatic("js/app.js");
+        String simulator = readStatic("js/simulator.js");
+        String staticFiles = readAllStaticText();
+
+        assertThat(index).contains(
+                "id=\"simulator-form\"",
+                "id=\"simulator-description\"",
+                "id=\"simulator-total-amount\"",
+                "id=\"simulator-installment-count\"",
+                "id=\"simulator-installment-count\" type=\"number\" min=\"1\" max=\"60\" step=\"1\"",
+                "id=\"simulator-start-month\"",
+                "id=\"simulator-category\"",
+                "id=\"clear-simulation\"",
+                "id=\"simulation-results-table\"",
+                "Ingresos del mes",
+                "Deuda/gastos actuales del mes",
+                "Nueva cuota simulada",
+                "Saldo actual sin simulación",
+                "Saldo final con simulación"
+        );
+        assertThat(app).contains(
+                "setSimulatorApi(api)",
+                "setupSimulator()",
+                "setSimulatorCategories(state.categories)"
+        );
+        assertThat(simulator).contains(
+                "apiClient.summary(month)",
+                "MAX_SIMULATOR_INSTALLMENTS = 60",
+                "Number(payload.installmentCount) > MAX_SIMULATOR_INSTALLMENTS",
+                "calculateMonthlyInstallment(payload.totalAmount, payload.installmentCount)",
+                "validateSimulationPayload",
+                "clearSimulation",
+                "No se guardó en la base de datos."
+        );
+        assertThat(staticFiles).doesNotContain("createSimulation", "saveSimulation", "risk", "recommendation", "viability", "/api/simulator", "/api/simulador");
     }
 
     @Test
@@ -43,6 +130,140 @@ class StaticUiContractTests {
                 "/api/categories"
         );
         assertThat(api).doesNotContain("/api/uploads", "/api/upload", "/api/parse", "/api/parsing", "/api/projections");
+    }
+
+    @Test
+    void incomeUiUsesStageThreeApiHelpersAndSpanishContracts() throws IOException {
+        String index = readStatic("index.html");
+        String api = readStatic("js/api.js");
+        String app = readStatic("js/app.js");
+        String incomes = readStatic("js/incomes.js");
+        String styles = readStatic("css/styles.css");
+
+        assertThat(index).contains(
+                "id=\"income-form\"",
+                "id=\"income-description\"",
+                "id=\"income-type\"",
+                "id=\"income-amount\"",
+                "id=\"income-start-month\"",
+                "id=\"income-recurring-monthly\"",
+                "id=\"income-notes\"",
+                "id=\"income-filter-month\"",
+                "id=\"incomes-table\"",
+                "Estado real/proyectado",
+                "Aplica desde",
+                "Aplica hasta",
+                "Crear ingreso",
+                "Cargue ingresos manuales en pesos para calcular el saldo mensual del resumen."
+        );
+        assertThat(optionValues(index, "income-type")).isEqualTo(enumValues("src/main/java/com/gentleia/landingtarjetas/income/IncomeType.java"));
+        assertThat(index).doesNotContain("/api/incomes");
+        assertThat(api).contains(
+                "incomes(filters = {})",
+                "withQuery(\"/api/incomes\", filters)",
+                "createIncome(payload)",
+                "updateIncome(id, payload)",
+                "updateIncomeFromMonth(id, yearMonth, payload)",
+                "`/api/incomes/${id}/from-month/${yearMonth}`",
+                "deleteIncome(id)"
+        );
+        assertThat(app).contains("setupIncomes({ onChanged: loadDashboard })", "await loadIncomes()");
+        assertThat(incomes).contains(
+                "Sueldo",
+                "Variable",
+                "Ingreso creado correctamente.",
+                "No se pudieron cargar los ingresos",
+                "Guardar desde mes",
+                "incomeApi.updateIncomeFromMonth(id, effectiveMonth",
+                "No se pudo versionar el ingreso recurrente",
+                "notifyIncomeChanged"
+        );
+        assertThat(styles).contains(".income-form", ".income-table-wrap table", ".income-actions");
+    }
+
+    @Test
+    void summaryDashboardIncludesIncomeExpenseAndMonthlyBalanceContracts() throws IOException {
+        String index = readStatic("index.html");
+        String dashboard = readStatic("js/dashboard.js");
+
+        assertThat(index).contains(
+                "Total ingresos",
+                "id=\"monthly-income-total\"",
+                "Total sueldos",
+                "id=\"salary-income-total\"",
+                "Total ingresos varios",
+                "id=\"variable-income-total\"",
+                "Ingresos proyectados",
+                "id=\"projected-income-total\"",
+                "Gastos del mes",
+                "Saldo resultante",
+                "Estimado",
+                "id=\"monthly-balance-pesos\"",
+                "id=\"monthly-balance-hint\"",
+                "Resúmenes / filas / ingresos"
+        );
+        assertThat(dashboard).contains(
+                "summary?.incomeTotalPesos",
+                "summary?.salaryIncomeTotalPesos",
+                "summary?.variableIncomeTotalPesos",
+                "summary?.projectedIncomeTotalPesos",
+                "summary?.estimated",
+                "#monthly-income-total",
+                "#salary-income-total",
+                "#variable-income-total",
+                "#projected-income-total",
+                "#monthly-balance-pesos",
+                "#monthly-balance-hint",
+                "summary?.incomeCount"
+        );
+    }
+
+    @Test
+    void manualExpensesUiUsesStageFiveApiHelpersAndSpanishContracts() throws IOException {
+        String index = readStatic("index.html");
+        String api = readStatic("js/api.js");
+        String app = readStatic("js/app.js");
+        String manualExpenses = readStatic("js/manual-expenses.js");
+        String styles = readStatic("css/styles.css");
+
+        assertThat(index).contains(
+                "Gastos manuales y préstamos",
+                "id=\"manual-expense-form\"",
+                "id=\"manual-expense-description\"",
+                "id=\"manual-expense-type\"",
+                "id=\"manual-expense-amount-pesos\"",
+                "id=\"manual-expense-amount-usd\"",
+                "id=\"manual-expense-start-month\"",
+                "id=\"manual-expense-total-installments\"",
+                "id=\"manual-expense-current-installment\"",
+                "id=\"manual-expense-category\"",
+                "id=\"manual-expenses-table\"",
+                "Pesos y USD se mantienen separados, sin conversión"
+        );
+        assertThat(optionValues(index, "manual-expense-type")).isEqualTo(enumValues("src/main/java/com/gentleia/landingtarjetas/manualexpense/ManualExpenseType.java"));
+        assertThat(index).doesNotContain("/api/manual-expenses");
+        assertThat(api).contains(
+                "manualExpenses(filters = {})",
+                "withQuery(\"/api/manual-expenses\", filters)",
+                "createManualExpense(payload)",
+                "updateManualExpense(id, payload)",
+                "deleteManualExpense(id)"
+        );
+        assertThat(app).contains(
+                "setupManualExpenses({ onChanged: loadDashboard })",
+                "api.manualExpenses({ month: state.month })",
+                "renderManualExpenses(manualExpenses, state.month)",
+                "setManualExpenseCategories(state.categories)"
+        );
+        assertThat(manualExpenses).contains(
+                "Gasto manual creado correctamente.",
+                "La cantidad de cuotas es obligatoria para cuotas y préstamos.",
+                "La cuota actual no puede superar el total de cuotas.",
+                "Préstamo",
+                "Efectivo",
+                "Proyectado"
+        );
+        assertThat(styles).contains(".manual-expense-form", ".manual-expense-table-wrap table");
     }
 
     @Test
@@ -103,6 +324,19 @@ class StaticUiContractTests {
         );
         assertThat(index).doesNotContain("<html lang=\"en\">");
         assertThat(styles).contains("@media (max-width: 680px)", "overflow-x: auto", ".projection-row", ".actual-row");
+        assertThat(styles).contains(
+                "--surface-raised",
+                "--table-min-width: 980px",
+                "--income-table-min-width: 1580px",
+                "min-width: var(--table-min-width)",
+                "scroll-snap-type: inline proximity",
+                ".metric-card.secondary",
+                "grid-template-columns: repeat(12, minmax(0, 1fr))",
+                "repeat(auto-fit, minmax(13rem, 1fr))",
+                "@media (max-width: 520px)"
+        );
+        assertThat(styles).doesNotContain("--border-strong", ".placeholder-panel .empty-state", ".wide-field");
+        assertThat(index).doesNotContain("class=\"wide-field\"");
         assertThat(app).contains("No se pudieron cargar los datos del panel", "No se pudieron cargar las transacciones", "setButtonBusy");
         assertThat(statements).contains("No se pudo completar la carga", "No se muestra texto del resumen ni contenido del PDF original", "parserDisplayLabel", "setButtonBusy");
         assertThat(transactions).contains(
@@ -211,7 +445,7 @@ class StaticUiContractTests {
         String index = readStatic("index.html");
 
         assertThat(index).contains("USD se muestra por separado. No se aplica conversión.");
-        assertThat(index).contains("Total pesos", "Total USD");
+        assertThat(index).contains("Gastos del mes", "Total USD");
     }
 
     private static String readStatic(String relativePath) throws IOException {
@@ -235,7 +469,7 @@ class StaticUiContractTests {
     }
 
     private static Set<String> optionValues(String html, String selectId) {
-        var selectMatcher = Pattern.compile("<select id=\\\"" + selectId + "\\\">(.*?)</select>", Pattern.DOTALL).matcher(html);
+        var selectMatcher = Pattern.compile("<select id=\\\"" + selectId + "\\\"[^>]*>(.*?)</select>", Pattern.DOTALL).matcher(html);
         assertThat(selectMatcher.find()).isTrue();
 
         return Pattern.compile("<option value=\\\"([^\\\"]+)\\\">")
@@ -245,8 +479,42 @@ class StaticUiContractTests {
                 .collect(Collectors.toSet());
     }
 
+    private static List<String> extractPrimaryTabTargets(String index) {
+        return Pattern.compile("<button[^>]*data-tab-target=\"([^\"]+)\"[^>]*>[^<]+</button>")
+                .matcher(index)
+                .results()
+                .map(result -> result.group(1))
+                .toList();
+    }
+
+    private static List<String> extractPrimaryTabLabels(String index) {
+        return Pattern.compile("<button[^>]*data-tab-target=\"[^\"]+\"[^>]*>([^<]+)</button>")
+                .matcher(index)
+                .results()
+                .map(result -> result.group(1))
+                .toList();
+    }
+
+    private static List<String> extractNavigationTabIds(String navigation) {
+        return Pattern.compile("\\{ id: \"([^\"]+)\", label: \"[^\"]+\" }")
+                .matcher(navigation)
+                .results()
+                .map(result -> result.group(1))
+                .toList();
+    }
+
+    private static List<String> extractNavigationTabLabels(String navigation) {
+        return Pattern.compile("\\{ id: \"[^\"]+\", label: \"([^\"]+)\" }")
+                .matcher(navigation)
+                .results()
+                .map(result -> result.group(1))
+                .toList();
+    }
+
     private static Set<String> enumValues(String enumName) throws IOException {
-        Path enumPath = Path.of("src/main/java/com/gentleia/landingtarjetas/shared", enumName + ".java");
+        Path enumPath = enumName.contains("/")
+                ? Path.of(enumName)
+                : Path.of("src/main/java/com/gentleia/landingtarjetas/shared", enumName + ".java");
         String enumBody = Files.readString(enumPath)
                 .replaceAll("(?s).*?\\{", "")
                 .replaceAll("(?s)\\}.*", "");

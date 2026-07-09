@@ -88,17 +88,35 @@ export function monthTabLabel(month) {
 }
 
 function renderSummary(summary, transactions, monthDetail) {
-    const onePaymentTotals = totalByType(transactions, ["PURCHASE"]);
-    const installmentTotals = totalByType(transactions, ["INSTALLMENT"]);
-    const chargesTotals = totalByType(transactions, ["FEE", "TAX"]);
     const detailRows = monthDetail?.rows || [];
+    const rowsForTypeTotals = detailRows.length ? detailRows : transactions;
+    const onePaymentTotals = totalByType(rowsForTypeTotals, ["PURCHASE", "ONE_PAYMENT", "CASH"]);
+    const installmentTotals = totalByType(rowsForTypeTotals, ["INSTALLMENT", "LOAN"]);
+    const chargesTotals = totalByType(rowsForTypeTotals, ["FEE", "TAX"]);
     const detailTotals = {
         pesos: monthDetail?.totalPesos ?? summary?.totalPesos,
         usd: monthDetail?.totalUsd ?? summary?.totalUsd
     };
+    const incomeTotalPesos = Number(summary?.incomeTotalPesos || 0);
+    const salaryIncomeTotalPesos = Number(summary?.salaryIncomeTotalPesos || 0);
+    const variableIncomeTotalPesos = Number(summary?.variableIncomeTotalPesos || 0);
+    const projectedIncomeTotalPesos = Number(summary?.projectedIncomeTotalPesos || 0);
+    const balancePesos = Number(summary?.monthlyBalancePesos ?? (incomeTotalPesos - Number(detailTotals.pesos || 0)));
+    const estimatedLabel = document.querySelector("#summary-estimated-label");
+    const projectedIncomeCard = document.querySelector("#projected-income-card");
 
+    document.querySelector("#monthly-income-total").textContent = formatPesos(incomeTotalPesos);
+    document.querySelector("#salary-income-total").textContent = formatPesos(salaryIncomeTotalPesos);
+    document.querySelector("#variable-income-total").textContent = formatPesos(variableIncomeTotalPesos);
+    document.querySelector("#projected-income-total").textContent = formatPesos(projectedIncomeTotalPesos);
+    projectedIncomeCard.hidden = projectedIncomeTotalPesos <= 0;
+    estimatedLabel.hidden = !summary?.estimated;
     document.querySelector("#total-pesos").textContent = formatPesos(detailTotals.pesos);
     document.querySelector("#total-usd").textContent = formatUsd(detailTotals.usd);
+    document.querySelector("#monthly-balance-pesos").textContent = formatPesos(balancePesos);
+    document.querySelector("#monthly-balance-hint").textContent = balancePesos >= 0
+        ? "Ingresos del mes menos gastos en pesos."
+        : "Los gastos en pesos superan los ingresos del mes.";
     document.querySelector("#total-pesos-hint").textContent = monthDetail?.projectionOnly
         ? "Mes solo con proyección de cuotas pendientes."
         : monthDetail?.currentReal
@@ -111,7 +129,7 @@ function renderSummary(summary, transactions, monthDetail) {
     document.querySelector("#one-payment-total").textContent = formatMoneyPair(onePaymentTotals);
     document.querySelector("#installment-total").textContent = formatMoneyPair(installmentTotals);
     document.querySelector("#charges-total").textContent = formatMoneyPair(chargesTotals);
-    document.querySelector("#record-counts").textContent = `${summary?.statementCount || 0} / ${detailRows.length || summary?.transactionCount || 0}`;
+    document.querySelector("#record-counts").textContent = `${summary?.statementCount || 0} / ${detailRows.length || summary?.transactionCount || 0} / ${summary?.incomeCount || 0}`;
 }
 
 export function renderCardDetails(statements, selectedMonth, monthDetail) {
@@ -202,7 +220,7 @@ function installmentText(row) {
 
 function sourceText(row) {
     if (!row.sourceStatementId) {
-        return "—";
+        return row.sourceStatementMonth ? `Manual · ${formatMonth(row.sourceStatementMonth)}` : "Manual";
     }
     return `Resumen #${row.sourceStatementId} · ${formatMonth(row.sourceStatementMonth)}`;
 }

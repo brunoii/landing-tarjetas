@@ -4,16 +4,25 @@
     --bg-soft: #0b1020;
     --surface: rgba(17, 24, 39, 0.86);
     --surface-strong: rgba(24, 35, 56, 0.94);
+    --surface-raised: rgba(15, 23, 42, 0.96);
     --surface-muted: rgba(255, 255, 255, 0.055);
     --text: #e5e7eb;
     --muted: #9ca3af;
     --accent: #7dd3fc;
     --accent-strong: #38bdf8;
+    --accent-soft: rgba(125, 211, 252, 0.12);
     --danger: #f87171;
     --success: #86efac;
     --warning: #facc15;
-    --border: rgba(255, 255, 255, 0.12);
+    --border: rgba(148, 163, 184, 0.22);
+    --table-min-width: 980px;
+    --manual-expense-table-min-width: 1100px;
+    --simulator-table-min-width: 1080px;
+    --draft-table-min-width: 1320px;
+    --income-table-min-width: 1580px;
+    --mobile-table-min-width: 840px;
     --shadow: 0 24px 70px rgba(0, 0, 0, 0.35);
+    --shadow-soft: 0 14px 40px rgba(0, 0, 0, 0.24);
     font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
@@ -33,7 +42,8 @@ body {
 
 button,
 input,
-select {
+select,
+textarea {
     font: inherit;
 }
 
@@ -45,7 +55,7 @@ button {
     color: #031522;
     cursor: pointer;
     font-weight: 800;
-    transition: transform 140ms ease, opacity 140ms ease, border-color 140ms ease;
+    transition: transform 140ms ease, opacity 140ms ease, border-color 140ms ease, background 140ms ease;
 }
 
 button:hover:not(:disabled) {
@@ -58,13 +68,27 @@ button:disabled {
 }
 
 input,
-select {
+select,
+textarea {
     width: 100%;
     border: 1px solid var(--border);
     border-radius: 14px;
     padding: 0.7rem 0.85rem;
-    background: rgba(3, 7, 18, 0.72);
+    background: rgba(3, 7, 18, 0.78);
     color: var(--text);
+}
+
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+button:focus-visible {
+    outline: 3px solid rgba(125, 211, 252, 0.72);
+    outline-offset: 3px;
+}
+
+input::placeholder,
+textarea::placeholder {
+    color: rgba(156, 163, 175, 0.74);
 }
 
 input[readonly] {
@@ -150,6 +174,7 @@ h3 {
 .notice,
 .panel,
 .metric-card,
+.primary-tabs button,
 .month-tabs button,
 .card-detail,
 .category-row {
@@ -187,9 +212,40 @@ h3 {
     padding-bottom: 0.15rem;
 }
 
+.primary-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.65rem;
+    overflow-x: auto;
+    padding: 0.25rem 0 0.35rem;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-inline: contain;
+    scrollbar-width: thin;
+    scroll-snap-type: inline proximity;
+}
+
+.primary-tabs button {
+    flex: 0 0 auto;
+    color: var(--text);
+    background: rgba(255, 255, 255, 0.075);
+    scroll-snap-align: start;
+    white-space: nowrap;
+}
+
+.primary-tabs button.active {
+    border-color: rgba(125, 211, 252, 0.72);
+    background: linear-gradient(145deg, rgba(14, 165, 233, 0.32), rgba(17, 24, 39, 0.88));
+    color: #e0f2fe;
+}
+
+.tab-section[hidden] {
+    display: none !important;
+}
+
 .month-tabs button {
     color: var(--text);
     background: var(--surface-muted);
+    scroll-snap-align: start;
     white-space: nowrap;
 }
 
@@ -213,7 +269,7 @@ h3 {
 
 .summary-grid {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(12, minmax(0, 1fr));
     gap: 1rem;
 }
 
@@ -225,12 +281,21 @@ h3 {
 .metric-card {
     display: grid;
     gap: 0.6rem;
+    grid-column: span 3;
     min-height: 160px;
     padding: 1.4rem;
 }
 
 .metric-card.featured {
     background: linear-gradient(145deg, rgba(14, 165, 233, 0.22), rgba(17, 24, 39, 0.88));
+}
+
+.metric-card.secondary {
+    grid-column: span 2;
+    min-height: 128px;
+    padding: 1rem;
+    background: rgba(15, 23, 42, 0.74);
+    box-shadow: var(--shadow-soft);
 }
 
 .metric-label {
@@ -241,13 +306,34 @@ h3 {
     text-transform: uppercase;
 }
 
+.summary-estimated-label {
+    display: inline-flex;
+    margin-left: 0.4rem;
+    border: 1px solid rgba(250, 204, 21, 0.34);
+    border-radius: 999px;
+    padding: 0.12rem 0.4rem;
+    color: var(--warning);
+    font-size: 0.68rem;
+    letter-spacing: 0.06em;
+}
+
+.summary-estimated-label[hidden],
+.metric-card[hidden] {
+    display: none !important;
+}
+
 .metric-card strong {
     font-size: clamp(1.25rem, 3vw, 2.05rem);
     line-height: 1.1;
 }
 
+.metric-card.secondary strong {
+    font-size: clamp(1.05rem, 2vw, 1.45rem);
+}
+
 .panel {
     padding: clamp(1rem, 3vw, 1.5rem);
+    background: var(--surface-raised);
 }
 
 .section-heading {
@@ -343,10 +429,13 @@ h3 {
 .filters,
 .category-form,
 .upload-form,
+.income-form,
+.manual-expense-form,
+.simulator-form,
 .statement-form,
 .missing-transaction-form {
     display: grid;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
     gap: 0.85rem;
     align-items: end;
     margin-bottom: 1rem;
@@ -362,6 +451,40 @@ h3 {
 
 .upload-form {
     grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.income-form {
+    grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+}
+
+.manual-expense-shell {
+    display: grid;
+    gap: 0.85rem;
+    margin-top: 1.4rem;
+    padding: 1rem;
+    border: 1px solid var(--border);
+    border-radius: 24px;
+    background: var(--accent-soft);
+}
+
+.manual-expense-form {
+    grid-template-columns: repeat(auto-fit, minmax(12.5rem, 1fr));
+}
+
+.simulator-form {
+    grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+}
+
+.manual-expense-table-wrap table {
+    min-width: var(--manual-expense-table-min-width);
+}
+
+.simulator-table-wrap table {
+    min-width: var(--simulator-table-min-width);
+}
+
+.income-filters {
+    grid-template-columns: minmax(12rem, 240px) auto auto;
 }
 
 .statement-form {
@@ -397,10 +520,6 @@ h3 {
     color: #fecaca;
 }
 
-.wide-field {
-    grid-column: span 1;
-}
-
 .filter-summary {
     margin: -0.2rem 0 1rem;
     color: var(--muted);
@@ -416,12 +535,16 @@ h3 {
 .table-wrap {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    background: rgba(3, 7, 18, 0.28);
+    scrollbar-width: thin;
 }
 
 table {
     width: 100%;
     border-collapse: collapse;
-    min-width: 980px;
+    min-width: var(--table-min-width);
 }
 
 th,
@@ -433,10 +556,19 @@ td {
 }
 
 th {
+    background: rgba(15, 23, 42, 0.92);
     color: var(--muted);
     font-size: 0.78rem;
     letter-spacing: 0.08em;
     text-transform: uppercase;
+}
+
+tbody tr:last-child td {
+    border-bottom: 0;
+}
+
+tbody tr:hover {
+    background: rgba(125, 211, 252, 0.045);
 }
 
 td {
@@ -527,7 +659,29 @@ td {
 }
 
 .draft-table-wrap table {
-    min-width: 1320px;
+    min-width: var(--draft-table-min-width);
+}
+
+.income-table-wrap table {
+    min-width: var(--income-table-min-width);
+}
+
+#incomes-table input,
+#incomes-table select {
+    min-width: 120px;
+}
+
+#incomes-table [name="description"],
+#incomes-table [name="notes"] {
+    min-width: 220px;
+}
+
+.income-actions {
+    min-width: 220px;
+}
+
+.inline-edit-field {
+    min-width: 160px;
 }
 
 #draft-transactions-table input,
@@ -585,10 +739,12 @@ td {
         align-items: stretch;
     }
 
-    .summary-grid,
     .card-detail-grid,
     .category-form,
     .upload-form,
+    .income-form,
+    .manual-expense-form,
+    .simulator-form,
     .statement-form,
     .missing-transaction-form,
     .category-row {
@@ -599,6 +755,15 @@ td {
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
+    .summary-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .metric-card,
+    .metric-card.secondary {
+        grid-column: span 1;
+    }
+
     .form-actions,
     .upload-result dl,
     .draft-card dl {
@@ -607,6 +772,11 @@ td {
     }
 
     .month-tabs {
+        flex-wrap: nowrap;
+        scroll-snap-type: inline proximity;
+    }
+
+    .primary-tabs {
         flex-wrap: nowrap;
     }
 }
@@ -629,9 +799,25 @@ td {
         border-radius: 20px;
     }
 
+    .summary-grid {
+        gap: 0.75rem;
+    }
+
+    .metric-card {
+        min-height: 132px;
+        padding: 1rem;
+    }
+
+    .metric-card.secondary {
+        min-height: 112px;
+    }
+
     .filters,
     .category-form,
     .upload-form,
+    .income-form,
+    .manual-expense-form,
+    .simulator-form,
     .statement-form,
     .missing-transaction-form {
         grid-template-columns: 1fr;
@@ -649,6 +835,31 @@ td {
     }
 
     table {
-        min-width: 840px;
+        min-width: var(--mobile-table-min-width);
+    }
+}
+
+@media (max-width: 520px) {
+    .summary-grid {
+        grid-template-columns: 1fr;
+    }
+
+    h1 {
+        font-size: clamp(2rem, 16vw, 3.2rem);
+    }
+
+    .primary-tabs,
+    .month-tabs {
+        margin-inline: -0.5rem;
+        padding-inline: 0.5rem;
+    }
+
+    .section-heading {
+        gap: 0.55rem;
+    }
+
+    .section-note,
+    .lede {
+        line-height: 1.55;
     }
 }

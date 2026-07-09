@@ -90,6 +90,48 @@ export const api = {
     transactions(filters = {}) {
         return request(withQuery("/api/transactions", filters));
     },
+    manualExpenses(filters = {}) {
+        return request(withQuery("/api/manual-expenses", filters));
+    },
+    createManualExpense(payload) {
+        return request("/api/manual-expenses", {
+            method: "POST",
+            body: JSON.stringify(payload)
+        });
+    },
+    updateManualExpense(id, payload) {
+        return request(`/api/manual-expenses/${id}`, {
+            method: "PUT",
+            body: JSON.stringify(payload)
+        });
+    },
+    deleteManualExpense(id) {
+        return request(`/api/manual-expenses/${id}`, { method: "DELETE" });
+    },
+    incomes(filters = {}) {
+        return request(withQuery("/api/incomes", filters));
+    },
+    createIncome(payload) {
+        return request("/api/incomes", {
+            method: "POST",
+            body: JSON.stringify(payload)
+        });
+    },
+    updateIncome(id, payload) {
+        return request(`/api/incomes/${id}`, {
+            method: "PUT",
+            body: JSON.stringify(payload)
+        });
+    },
+    updateIncomeFromMonth(id, yearMonth, payload) {
+        return request(`/api/incomes/${id}/from-month/${yearMonth}`, {
+            method: "PUT",
+            body: JSON.stringify(payload)
+        });
+    },
+    deleteIncome(id) {
+        return request(`/api/incomes/${id}`, { method: "DELETE" });
+    },
     updateTransaction(id, payload) {
         return request(`/api/transactions/${id}`, {
             method: "PUT",
