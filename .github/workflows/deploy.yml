@@ -17,14 +17,33 @@ jobs:
     steps:
       - name: Configurar SSH
         shell: bash
+        env:
+          ORACLE_SSH_KEY: ${{ secrets.ORACLE_SSH_KEY }}
         run: |
+          set -euo pipefail
+
           mkdir -p ~/.ssh
           chmod 700 ~/.ssh
 
-          printf '%s' "${{ secrets.ORACLE_SSH_KEY }}" \
-            > ~/.ssh/oracle_deploy
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+
+          key = os.environ["ORACLE_SSH_KEY"]
+          key = key.replace("\\r\\n", "\n").replace("\\n", "\n")
+          key = key.replace("\r\n", "\n").replace("\r", "\n")
+          if not key.endswith("\n"):
+              key += "\n"
+
+          Path.home().joinpath(".ssh", "oracle_deploy").write_text(key, encoding="utf-8", newline="\n")
+          PY
 
           chmod 600 ~/.ssh/oracle_deploy
+
+          ssh-keygen -y -f ~/.ssh/oracle_deploy > /dev/null || {
+            echo "::error::ORACLE_SSH_KEY is not a readable private key. Store the full private key, including BEGIN/END lines and line breaks."
+            exit 1
+          }
 
           ssh-keyscan -H "${{ secrets.ORACLE_HOST }}" \
             >> ~/.ssh/known_hosts
