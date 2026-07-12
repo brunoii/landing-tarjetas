@@ -1,0 +1,42 @@
+name: Deploy Oracle VM
+
+on:
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: tarjetas-production
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Configurar SSH
+        shell: bash
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+
+          printf '%s' "${{ secrets.ORACLE_SSH_KEY }}" \
+            > ~/.ssh/oracle_deploy
+
+          chmod 600 ~/.ssh/oracle_deploy
+
+          ssh-keyscan -H "${{ secrets.ORACLE_HOST }}" \
+            >> ~/.ssh/known_hosts
+
+          chmod 600 ~/.ssh/known_hosts
+
+      - name: Ejecutar despliegue
+        shell: bash
+        run: |
+          ssh \
+            -i ~/.ssh/oracle_deploy \
+            -o BatchMode=yes \
+            -o ConnectTimeout=15 \
+            "${{ secrets.ORACLE_USER }}@${{ secrets.ORACLE_HOST }}" \
+            "/opt/tarjetas-app/deploy.sh"

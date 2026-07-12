@@ -4,9 +4,15 @@ const headers = {
 };
 
 async function request(path, options = {}) {
+    const method = String(options.method || "GET").toUpperCase();
     const response = await fetch(path, {
-        headers,
-        ...options
+        ...options,
+        credentials: "same-origin",
+        headers: {
+            ...headers,
+            ...csrfHeaders(method),
+            ...(options.headers || {})
+        }
     });
 
     if (!response.ok) {
@@ -164,7 +170,8 @@ export const api = {
 async function uploadRequest(path, body) {
     const response = await fetch(path, {
         method: "POST",
-        headers: { "Accept": "application/json" },
+        credentials: "same-origin",
+        headers: { "Accept": "application/json", ...csrfHeaders("POST") },
         body
     });
 
@@ -173,4 +180,45 @@ async function uploadRequest(path, body) {
     }
 
     return response.json();
+}
+
+export function appendCsrfField(form) {
+    if (!form) {
+        return;
+    }
+    const token = csrfToken();
+    if (!token) {
+        return;
+    }
+    let input = form.querySelector("input[name='_csrf']");
+    if (!input) {
+        input = document.createElement("input");
+        input.type = "hidden";
+        input.name = "_csrf";
+        form.append(input);
+    }
+    input.value = token;
+}
+
+function csrfHeaders(method) {
+    if (!isUnsafeMethod(method)) {
+        return {};
+    }
+    const token = csrfToken();
+    return token ? { "X-XSRF-TOKEN": token } : {};
+}
+
+function csrfToken() {
+    if (typeof document === "undefined" || typeof document.cookie !== "string") {
+        return "";
+    }
+    const cookie = document.cookie
+            .split(";")
+            .map((cookie) => cookie.trim())
+            .find((cookie) => cookie.startsWith("XSRF-TOKEN="));
+    return cookie ? decodeURIComponent(cookie.slice("XSRF-TOKEN=".length)) : "";
+}
+
+function isUnsafeMethod(method) {
+    return !["GET", "HEAD", "OPTIONS", "TRACE"].includes(method);
 }

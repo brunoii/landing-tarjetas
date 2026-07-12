@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Panel de tarjetas</title>
-    <link rel="stylesheet" href="/css/styles.css?v=20260709-stage-7-polish">
+    <link rel="stylesheet" href="/css/styles.css?v=20260711-security-login">
 </head>
 <body>
 <header class="topbar tab-section" id="tab-summary" data-tab-panel="summary" role="tabpanel" aria-labelledby="primary-tab-summary">
@@ -13,10 +13,15 @@
         <h1>Resúmenes de tarjetas de crédito</h1>
         <p class="lede">Un entorno privado en modo oscuro para cargar PDFs locales, revisar datos de resúmenes en borrador y confirmar solo los resúmenes que deben aparecer en el panel público.</p>
     </div>
-    <label class="month-picker" for="month-input">
-        <span>Mes de pago</span>
-        <input id="month-input" type="month" autocomplete="off">
-    </label>
+    <div class="topbar-actions">
+        <label class="month-picker" for="month-input">
+            <span>Mes de pago</span>
+            <input id="month-input" type="month" autocomplete="off">
+        </label>
+        <form class="logout-form" id="logout-form" method="post" action="/logout">
+            <button type="submit" class="secondary-button">Cerrar sesión</button>
+        </form>
+    </div>
 </header>
 
 <main class="app-shell">
@@ -612,6 +617,6 @@
     </section>
 </main>
 
-<script type="module" src="/js/app.js?v=20260709-stage-7-polish"></script>
+<script type="module" src="/js/app.js?v=20260711-security-login"></script>
 </body>
 </html>

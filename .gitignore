@@ -14,6 +14,10 @@ exports/*
 !exports/.gitkeep
 logs/*
 !logs/.gitkeep
+uploads/*
+!uploads/.gitkeep
+tmp/*
+!tmp/.gitkeep
 
 # Sensitive financial inputs and generated artifacts
 *.pdf
@@ -24,10 +28,14 @@ logs/*
 *.ofx
 *.qif
 *.db
+*.db-shm
+*.db-wal
+*.h2.db
+*.h2.db.mv.db
 *.mv.db
 *.trace.db
 *.lock.db
-*.h2.db
+*.lock
 *.sqlite
 *.sqlite3
 
@@ -44,10 +52,15 @@ Thumbs.db
 .env
 .env.*
 !.env.example
+*.env
+*.env.*
+!.env.example
 application-local.properties
 application-local.yml
 application-private.properties
 application-private.yml
+application-prod-local.properties
+application-prod-local.yml
 
 # Local AI/tooling metadata with machine-specific paths
 .atl/

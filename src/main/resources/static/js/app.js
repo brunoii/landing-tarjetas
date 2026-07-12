@@ -1,4 +1,4 @@
-import { api } from "./api.js";
+import { api, appendCsrfField } from "./api.js?v=20260712-security-hardening";
 import { categoryFormPayload, renderCategories, resetCategoryForm, showCategoryFeedback } from "./categories.js";
 import { renderDashboard } from "./dashboard.js?v=20260709-stage-7-polish";
 import { loadIncomes, setupIncomes } from "./incomes.js";
@@ -15,6 +15,7 @@ const state = {
 };
 
 document.addEventListener("DOMContentLoaded", () => {
+    appendCsrfField(document.querySelector("#logout-form"));
     setupPrimaryTabs();
     setManualExpenseApi(api);
     setSimulatorApi(api);

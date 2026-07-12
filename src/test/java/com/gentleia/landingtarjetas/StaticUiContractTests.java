@@ -3,11 +3,13 @@ package com.gentleia.landingtarjetas;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.io.IOException;
+import java.io.StringReader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Properties;
 import java.util.Set;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -22,11 +24,73 @@ class StaticUiContractTests {
     void indexLinksExpectedStaticAssets() throws IOException {
         String index = readStatic("index.html");
 
-        assertThat(index).contains("<link rel=\"stylesheet\" href=\"/css/styles.css?v=20260709-stage-7-polish\">");
+        assertThat(index).contains("<link rel=\"stylesheet\" href=\"/css/styles.css?v=20260711-security-login\">");
         assertThat(index).doesNotContain("<link rel=\"stylesheet\" href=\"/css/styles.css\">");
-        assertThat(index).contains("<script type=\"module\" src=\"/js/app.js?v=20260709-stage-7-polish\"></script>");
+        assertThat(index).contains("<script type=\"module\" src=\"/js/app.js?v=20260711-security-login\"></script>");
         assertThat(readStatic("js/app.js"))
-                .contains("./api.js", "./categories.js", "./dashboard.js?v=20260709-stage-7-polish", "./incomes.js", "./manual-expenses.js", "./navigation.js", "./simulator.js?v=20260709-stage-7-polish", "./statements.js", "./transactions.js", "./utils.js");
+                .contains("./api.js?v=20260712-security-hardening", "./categories.js", "./dashboard.js?v=20260709-stage-7-polish", "./incomes.js", "./manual-expenses.js", "./navigation.js", "./simulator.js?v=20260709-stage-7-polish", "./statements.js", "./transactions.js", "./utils.js")
+                .doesNotContain("./api.js\";");
+    }
+
+    @Test
+    void productionConfigFailsClosedForSecurityAndDatasource() throws IOException {
+        String prod = Files.readString(Path.of("src/main/resources/application-prod.properties"), StandardCharsets.UTF_8);
+        String springFactories = Files.readString(Path.of("src/main/resources/META-INF/spring.factories"), StandardCharsets.UTF_8);
+
+        assertThat(prod).contains(
+                "spring.datasource.url=${APP_DATASOURCE_URL}",
+                "spring.datasource.username=${APP_DATASOURCE_USERNAME}",
+                "spring.datasource.password=${APP_DATASOURCE_PASSWORD}",
+                "app.security.enabled=true",
+                "server.tomcat.accesslog.enabled=true",
+                "server.tomcat.accesslog.pattern=%h %l %u %t \"%m %U %H\" %s %b %D"
+        );
+        assertThat(prod).doesNotContain(
+                "jdbc:h2:file:./data/landing-tarjetas-prod",
+                "APP_DATASOURCE_USERNAME:sa",
+                "APP_DATASOURCE_PASSWORD:",
+                "app.security.enabled=false",
+                "spring.datasource.driver-class-name=org.h2.Driver"
+        );
+        assertThat(springFactories).contains("ProductionSafetyEnvironmentPostProcessor");
+    }
+
+    @Test
+    void productionConfigLocksPublicHardeningProperties() throws IOException {
+        Properties prod = readProdProperties();
+
+        assertThat(prod.getProperty("spring.h2.console.enabled")).isEqualTo("false");
+        assertThat(prod.getProperty("server.servlet.session.cookie.secure"))
+                .isEqualTo("${APP_SESSION_COOKIE_SECURE:true}");
+        assertThat(prod.getProperty("server.error.include-exception")).isEqualTo("false");
+        assertThat(prod.getProperty("server.error.include-message")).isEqualTo("never");
+        assertThat(prod.getProperty("server.error.include-stacktrace")).isEqualTo("never");
+        assertThat(prod.getProperty("server.error.include-binding-errors")).isEqualTo("never");
+        assertThat(prod.getProperty("management.endpoint.health.show-details")).isEqualTo("never");
+    }
+
+    @Test
+    void directApiImportsUseSecurityHardeningVersion() throws IOException {
+        String approvedApiImport = "./api.js?v=20260712-security-hardening";
+        Pattern directApiImport = Pattern.compile("(?:from\\s+|import\\(\\s*)[\"'](\\./api\\.js(?:\\?[^\"']*)?)[\"']");
+        var imports = new java.util.ArrayList<String>();
+        var offenders = new java.util.ArrayList<String>();
+
+        try (var files = Files.walk(STATIC_ROOT.resolve("js"))) {
+            for (Path file : files.filter(path -> path.toString().endsWith(".js")).toList()) {
+                String source = Files.readString(file, StandardCharsets.UTF_8);
+                directApiImport.matcher(source).results().forEach(result -> {
+                    String importPath = result.group(1);
+                    imports.add(STATIC_ROOT.relativize(file) + " -> " + importPath);
+                    if (!approvedApiImport.equals(importPath)) {
+                        offenders.add(STATIC_ROOT.relativize(file) + " -> " + importPath);
+                    }
+                });
+            }
+        }
+
+        assertThat(imports).isNotEmpty();
+        assertThat(offenders).isEmpty();
     }
 
     @Test
@@ -130,6 +194,38 @@ class StaticUiContractTests {
                 "/api/categories"
         );
         assertThat(api).doesNotContain("/api/uploads", "/api/upload", "/api/parse", "/api/parsing", "/api/projections");
+    }
+
+    @Test
+    void securityUiUsesCsrfAwareLoginLogoutAndFetchHelpers() throws IOException {
+        String index = readStatic("index.html");
+        String login = readStatic("login.html");
+        String api = readStatic("js/api.js");
+        String app = readStatic("js/app.js");
+        String loginJs = readStatic("js/login.js");
+
+        assertThat(index).contains(
+                "id=\"logout-form\" method=\"post\" action=\"/logout\"",
+                "Cerrar sesión"
+        );
+        assertThat(login).contains(
+                "id=\"login-form\" method=\"post\" action=\"/login\"",
+                "name=\"username\"",
+                "name=\"password\"",
+                "/js/login.js?v=20260711-security-login"
+        );
+        assertThat(app).contains("from \"./api.js?v=20260712-security-hardening\"")
+                .doesNotContain("from \"./api.js\"");
+        assertThat(loginJs).contains("from \"./api.js?v=20260712-security-hardening\"")
+                .doesNotContain("from \"./api.js\"");
+        assertThat(api).contains(
+                "export function appendCsrfField(form)",
+                "X-XSRF-TOKEN",
+                "XSRF-TOKEN",
+                "credentials: \"same-origin\""
+        );
+        assertThat(app).contains("appendCsrfField(document.querySelector(\"#logout-form\"))");
+        assertThat(loginJs).contains("appendCsrfField(form)", "Usuario o contraseña inválidos.");
     }
 
     @Test
@@ -466,6 +562,13 @@ class StaticUiContractTests {
                     })
                     .collect(Collectors.joining("\n"));
         }
+    }
+
+
+    private static Properties readProdProperties() throws IOException {
+        Properties properties = new Properties();
+        properties.load(new StringReader(Files.readString(Path.of("src/main/resources/application-prod.properties"), StandardCharsets.UTF_8)));
+        return properties;
     }
 
     private static Set<String> optionValues(String html, String selectId) {

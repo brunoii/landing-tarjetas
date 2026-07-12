@@ -1,4 +1,4 @@
-import { api } from "./api.js";
+import { api } from "./api.js?v=20260712-security-hardening";
 import { cardLabel, escapeHtml, formatPesos, formatUsd, setButtonBusy, toYearMonth, typeLabel } from "./utils.js";
 
 const MAX_PDF_SIZE_BYTES = 1_048_576;

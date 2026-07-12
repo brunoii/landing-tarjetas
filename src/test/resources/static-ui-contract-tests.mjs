@@ -6,12 +6,13 @@ import { pathToFileURL } from "node:url";
 
 const sourceRoot = path.resolve("src/main/resources/static/js");
 const moduleRoot = path.join(tmpdir(), `landing-tarjetas-static-ui-${process.pid}`);
+const staticModuleFileNames = ["api.js", "app.js", "categories.js", "dashboard.js", "incomes.js", "login.js", "manual-expenses.js", "navigation.js", "simulator.js", "statements.js", "transactions.js", "utils.js"];
 
 await rm(moduleRoot, { force: true, recursive: true });
 await mkdir(moduleRoot, { recursive: true });
 await writeFile(path.join(moduleRoot, "package.json"), JSON.stringify({ type: "module" }));
 
-for (const fileName of ["api.js", "app.js", "categories.js", "dashboard.js", "incomes.js", "manual-expenses.js", "navigation.js", "simulator.js", "statements.js", "transactions.js", "utils.js"]) {
+for (const fileName of staticModuleFileNames) {
     await copyFile(path.join(sourceRoot, fileName), path.join(moduleRoot, fileName));
 }
 
@@ -58,6 +59,33 @@ try {
     } = await import(pathToFileURL(path.join(moduleRoot, "statements.js")));
 
     const indexHtml = await readFile(path.resolve("src/main/resources/static/index.html"), "utf8");
+
+    const loginHtml = await readFile(path.resolve("src/main/resources/static/login.html"), "utf8");
+    const appSource = await readFile(path.resolve("src/main/resources/static/js/app.js"), "utf8");
+    const loginSource = await readFile(path.resolve("src/main/resources/static/js/login.js"), "utf8");
+    assert.match(indexHtml, /\/css\/styles\.css\?v=20260711-security-login/);
+    assert.match(indexHtml, /\/js\/app\.js\?v=20260711-security-login/);
+    assert.match(loginHtml, /\/js\/login\.js\?v=20260711-security-login/);
+    assert.match(appSource, /from "\.\/api\.js\?v=20260712-security-hardening"/);
+    assert.doesNotMatch(appSource, /from "\.\/api\.js"/);
+    assert.match(loginSource, /from "\.\/api\.js\?v=20260712-security-hardening"/);
+    assert.doesNotMatch(loginSource, /from "\.\/api\.js"/);
+    const approvedApiImport = "./api.js?v=20260712-security-hardening";
+    const directApiImportPattern = /(?:from\s+|import\(\s*)["'](\.\/api\.js(?:\?[^"']*)?)["']/g;
+    const apiImportOffenders = [];
+    let apiImportCount = 0;
+    for (const fileName of staticModuleFileNames) {
+        const source = await readFile(path.join(sourceRoot, fileName), "utf8");
+        for (const match of source.matchAll(directApiImportPattern)) {
+            apiImportCount += 1;
+            if (match[1] !== approvedApiImport) {
+                apiImportOffenders.push(`${fileName} -> ${match[1]}`);
+            }
+        }
+    }
+    assert.ok(apiImportCount > 0);
+    assert.deepEqual(apiImportOffenders, []);
+
     const primaryTabButtons = extractPrimaryTabButtons(indexHtml);
     assert.deepEqual(primaryTabButtons.map(({ id, label }) => ({ id, label })), primaryTabs);
     assert.deepEqual(primaryTabButtons.map(({ buttonId, controls, selected }) => ({ buttonId, controls, selected })), primaryTabs.map((tab) => ({
@@ -87,6 +115,35 @@ try {
     assert.equal(formatMonth("2026-07"), "jul 2026");
     assert.equal(formatMonth(""), "Sin mes");
     assert.equal(formatDate("2026-07-10"), "10 de jul de 2026");
+
+    const previousLoginDocument = globalThis.document;
+    const previousLoginWindow = globalThis.window;
+    try {
+        const loginDom = fakeLoginDom("?error");
+        globalThis.document = loginDom.document;
+        globalThis.window = loginDom.window;
+        const { renderLoginFeedback } = await import(`${pathToFileURL(path.join(moduleRoot, "login.js")).href}?feedback-error`);
+        renderLoginFeedback();
+        assert.equal(loginDom.feedback.textContent, "Usuario o contraseña inválidos.");
+        assert.equal(loginDom.feedback.classList.contains("error"), true);
+
+        loginDom.window.location.search = "?logout";
+        renderLoginFeedback();
+        assert.equal(loginDom.feedback.textContent, "Sesión cerrada correctamente.");
+        assert.equal(loginDom.feedback.classList.contains("error"), false);
+    } finally {
+        if (previousLoginDocument === undefined) {
+            delete globalThis.document;
+        } else {
+            globalThis.document = previousLoginDocument;
+        }
+        if (previousLoginWindow === undefined) {
+            delete globalThis.window;
+        } else {
+            globalThis.window = previousLoginWindow;
+        }
+    }
+
 
     assert.equal(incomeTypeLabel("SALARY"), "Sueldo");
     assert.equal(incomeTypeLabel("VARIABLE"), "Variable");
@@ -819,6 +876,43 @@ function fakeElement() {
         },
         setAttribute(name, value) {
             this.attributes.set(name, value);
+        }
+    };
+}
+
+function fakeLoginDom(search) {
+    const feedbackClasses = new Set();
+    const feedback = {
+        textContent: "",
+        classList: {
+            add(name) {
+                feedbackClasses.add(name);
+            },
+            remove(name) {
+                feedbackClasses.delete(name);
+            },
+            contains(name) {
+                return feedbackClasses.has(name);
+            }
+        }
+    };
+
+    return {
+        feedback,
+        document: {
+            addEventListener() {},
+            querySelector(selector) {
+                if (selector === "#login-feedback") {
+                    return feedback;
+                }
+                if (selector === "#login-form") {
+                    return fakeForm();
+                }
+                throw new Error(`Unexpected login selector: ${selector}`);
+            }
+        },
+        window: {
+            location: { search }
         }
     };
 }

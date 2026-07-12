@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="es-AR">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Ingresar | Panel de tarjetas</title>
+    <link rel="stylesheet" href="/css/styles.css?v=20260711-security-login">
+</head>
+<body class="login-page">
+<main class="login-shell">
+    <section class="login-card" aria-labelledby="login-title">
+        <p class="eyebrow">Acceso privado</p>
+        <h1 id="login-title">Ingresar al panel</h1>
+        <p class="lede">Protección mínima para usar el panel personal desde una VM pública.</p>
+
+        <p class="form-feedback login-feedback" id="login-feedback" role="status" aria-live="polite"></p>
+
+        <form class="login-form" id="login-form" method="post" action="/login">
+            <label>
+                Usuario
+                <input id="username" name="username" type="text" autocomplete="username" required autofocus>
+            </label>
+            <label>
+                Contraseña
+                <input id="password" name="password" type="password" autocomplete="current-password" required>
+            </label>
+            <button type="submit">Ingresar</button>
+        </form>
+    </section>
+</main>
+<script type="module" src="/js/login.js?v=20260711-security-login"></script>
+</body>
+</html>
