@@ -1,13 +1,13 @@
 import { api, appendCsrfField } from "./api.js?v=20260712-security-hardening";
 import { categoryFormPayload, renderCategories, resetCategoryForm, showCategoryFeedback } from "./categories.js";
-import { renderDashboard } from "./dashboard.js?v=20260709-stage-7-polish";
-import { loadIncomes, setupIncomes } from "./incomes.js?v=20260710-mobile-slice-2";
-import { renderManualExpenses, setManualExpenseApi, setManualExpenseCategories, setupManualExpenses } from "./manual-expenses.js?v=20260710-mobile-slice-2";
-import { setupPrimaryTabs } from "./navigation.js";
-import { setSimulatorApi, setSimulatorCategories, setupSimulator } from "./simulator.js?v=20260711-mobile-simulator";
-import { renderDraftStatementList, setStatementCategories, setupStatementUpload } from "./statements.js?v=20260711-mobile-draft-responsive";
-import { setupSupermarket } from "./supermarket.js?v=20260711-mobile-supermarket";
-import { renderTransactions, rerenderTransactionsAfterSearch, resetTransactionFilters, setTransactionCategories, syncTransactionMonth, transactionFilters } from "./transactions.js?v=20260710-mobile-slice-2";
+import { renderDashboard } from "./dashboard.js?v=20260713-pending-main";
+import { loadIncomes, setupIncomes } from "./incomes.js?v=20260713-pending-main";
+import { renderManualExpenses, setManualExpenseApi, setManualExpenseCategories, setupManualExpenses } from "./manual-expenses.js?v=20260713-pending-main";
+import { setupPrimaryTabs } from "./navigation.js?v=20260713-pending-main";
+import { setSimulatorApi, setSimulatorCategories, setupSimulator } from "./simulator.js?v=20260713-pending-main";
+import { renderDraftStatementList, setStatementCategories, setupStatementUpload } from "./statements.js?v=20260713-pending-main";
+import { setupSupermarket } from "./supermarket.js?v=20260713-pending-main";
+import { renderTransactions, rerenderTransactionsAfterSearch, resetTransactionFilters, setTransactionCategories, syncTransactionMonth, transactionFilters } from "./transactions.js?v=20260713-pending-main";
 import { currentYearMonth, setButtonBusy } from "./utils.js";
 
 const state = {

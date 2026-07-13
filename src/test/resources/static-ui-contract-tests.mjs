@@ -7,6 +7,8 @@ import { pathToFileURL } from "node:url";
 const sourceRoot = path.resolve("src/main/resources/static/js");
 const moduleRoot = path.join(tmpdir(), `landing-tarjetas-static-ui-${process.pid}`);
 const staticModuleFileNames = ["api.js", "app.js", "categories.js", "dashboard.js", "incomes.js", "login.js", "manual-expenses.js", "navigation.js", "simulator.js", "statements.js", "supermarket.js", "transactions.js", "utils.js"];
+const freshStaticToken = "20260713-pending-main";
+const securityApiToken = "20260712-security-hardening";
 
 await rm(moduleRoot, { force: true, recursive: true });
 await mkdir(moduleRoot, { recursive: true });
@@ -94,14 +96,17 @@ try {
     assert.doesNotMatch(indexHtml, /id="super-(?:item-name|item-notes|category-name)"[^>]+maxlength=/);
     assert.match(indexHtml, /id="super-category-toggle"[^>]+aria-expanded="false"[^>]+aria-controls="super-category-table-wrap"/);
     assert.match(indexHtml, /<table class="super-category-table">[\s\S]*<th>Categoría<\/th>[\s\S]*<tbody id="super-category-list">/);
-    assert.match(indexHtml, /\/css\/styles\.css\?v=20260711-security-login/);
-    assert.match(indexHtml, /\/js\/app\.js\?v=20260711-security-login/);
+    assert.ok(indexHtml.includes(`/css/styles.css?v=${freshStaticToken}`));
+    assert.ok(indexHtml.includes(`/js/app.js?v=${freshStaticToken}`));
+    assert.ok(loginHtml.includes(`/css/styles.css?v=${freshStaticToken}`));
+    assert.doesNotMatch(indexHtml, /\/css\/styles\.css\?v=20260711-security-login|\/js\/app\.js\?v=20260711-security-login/);
+    assert.doesNotMatch(loginHtml, /\/css\/styles\.css\?v=20260711-security-login/);
     assert.match(loginHtml, /\/js\/login\.js\?v=20260711-security-login/);
-    assert.match(appSource, /from "\.\/api\.js\?v=20260712-security-hardening"/);
+    assert.ok(appSource.includes(`from "./api.js?v=${securityApiToken}"`));
     assert.doesNotMatch(appSource, /from "\.\/api\.js"/);
-    assert.match(loginSource, /from "\.\/api\.js\?v=20260712-security-hardening"/);
+    assert.ok(loginSource.includes(`from "./api.js?v=${securityApiToken}"`));
     assert.doesNotMatch(loginSource, /from "\.\/api\.js"/);
-    const approvedApiImport = "./api.js?v=20260712-security-hardening";
+    const approvedApiImport = `./api.js?v=${securityApiToken}`;
     const directApiImportPattern = /(?:from\s+|import\(\s*)["'](\.\/api\.js(?:\?[^"']*)?)["']/g;
     const apiImportOffenders = [];
     let apiImportCount = 0;
@@ -116,7 +121,10 @@ try {
     }
     assert.ok(apiImportCount > 0);
     assert.deepEqual(apiImportOffenders, []);
-    assert.match(appSource, /from "\.\/statements\.js\?v=20260711-mobile-draft-responsive"/);
+    for (const moduleName of ["dashboard", "incomes", "manual-expenses", "navigation", "simulator", "statements", "supermarket", "transactions"]) {
+        assert.ok(appSource.includes(`./${moduleName}.js?v=${freshStaticToken}`), `${moduleName}.js should use fresh cache token`);
+    }
+    assert.doesNotMatch(appSource, /20260709-stage-7-polish|20260710-mobile-slice-2|20260711-mobile-simulator|20260711-mobile-draft-responsive|20260711-mobile-supermarket/);
     assert.doesNotMatch(appSource, /from "\.\/statements\.js";/);
     const primaryTabButtons = extractPrimaryTabButtons(indexHtml);
     assert.deepEqual(primaryTabButtons.map(({ id, label }) => ({ id, label })), primaryTabs);

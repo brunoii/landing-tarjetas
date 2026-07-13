@@ -21,18 +21,25 @@ import org.junit.jupiter.api.Test;
 class StaticUiContractTests {
 
     private static final Path STATIC_ROOT = Path.of("src/main/resources/static");
+    private static final String FRESH_STATIC_TOKEN = "20260713-pending-main";
+    private static final String SECURITY_API_TOKEN = "20260712-security-hardening";
 
     @Test
     void indexLinksExpectedStaticAssets() throws IOException {
         String index = readStatic("index.html");
+        String login = readStatic("login.html");
+        String app = readStatic("js/app.js");
 
-        assertThat(index).contains("<link rel=\"stylesheet\" href=\"/css/styles.css?v=20260711-security-login\">");
+        assertThat(index).contains("<link rel=\"stylesheet\" href=\"/css/styles.css?v=" + FRESH_STATIC_TOKEN + "\">");
         assertThat(index).doesNotContain("<link rel=\"stylesheet\" href=\"/css/styles.css\">");
-        assertThat(index).contains("<script type=\"module\" src=\"/js/app.js?v=20260711-security-login\"></script>");
-        assertThat(readStatic("js/app.js"))
-                .contains("./api.js?v=20260712-security-hardening", "./categories.js", "./dashboard.js?v=20260709-stage-7-polish", "./incomes.js?v=20260710-mobile-slice-2", "./manual-expenses.js?v=20260710-mobile-slice-2", "./navigation.js", "./simulator.js?v=20260711-mobile-simulator", "./statements.js?v=20260711-mobile-draft-responsive", "./supermarket.js?v=20260711-mobile-supermarket", "./transactions.js?v=20260710-mobile-slice-2", "./utils.js")
+        assertThat(index).contains("<script type=\"module\" src=\"/js/app.js?v=" + FRESH_STATIC_TOKEN + "\"></script>");
+        assertThat(index).doesNotContain("/css/styles.css?v=20260711-security-login", "/js/app.js?v=20260711-security-login");
+        assertThat(login).contains("<link rel=\"stylesheet\" href=\"/css/styles.css?v=" + FRESH_STATIC_TOKEN + "\">")
+                .doesNotContain("/css/styles.css?v=20260711-security-login");
+        assertThat(app)
+                .contains("./api.js?v=" + SECURITY_API_TOKEN, "./categories.js", "./dashboard.js?v=" + FRESH_STATIC_TOKEN, "./incomes.js?v=" + FRESH_STATIC_TOKEN, "./manual-expenses.js?v=" + FRESH_STATIC_TOKEN, "./navigation.js?v=" + FRESH_STATIC_TOKEN, "./simulator.js?v=" + FRESH_STATIC_TOKEN, "./statements.js?v=" + FRESH_STATIC_TOKEN, "./supermarket.js?v=" + FRESH_STATIC_TOKEN, "./transactions.js?v=" + FRESH_STATIC_TOKEN, "./utils.js")
                 .doesNotContain("./api.js\";")
-                .doesNotContain("./statements.js\";");
+                .doesNotContain("./statements.js\";", "20260709-stage-7-polish", "20260710-mobile-slice-2", "20260711-mobile-simulator", "20260711-mobile-draft-responsive", "20260711-mobile-supermarket");
     }
 
     @Test
@@ -74,7 +81,7 @@ class StaticUiContractTests {
 
     @Test
     void directApiImportsUseSecurityHardeningVersion() throws IOException {
-        String approvedApiImport = "./api.js?v=20260712-security-hardening";
+        String approvedApiImport = "./api.js?v=" + SECURITY_API_TOKEN;
         Pattern directApiImport = Pattern.compile("(?:from\\s+|import\\(\\s*)[\"'](\\./api\\.js(?:\\?[^\"']*)?)[\"']");
         var imports = new java.util.ArrayList<String>();
         var offenders = new java.util.ArrayList<String>();
@@ -262,9 +269,9 @@ class StaticUiContractTests {
                 "name=\"password\"",
                 "/js/login.js?v=20260711-security-login"
         );
-        assertThat(app).contains("from \"./api.js?v=20260712-security-hardening\"")
+        assertThat(app).contains("from \"./api.js?v=" + SECURITY_API_TOKEN + "\"")
                 .doesNotContain("from \"./api.js\"");
-        assertThat(loginJs).contains("from \"./api.js?v=20260712-security-hardening\"")
+        assertThat(loginJs).contains("from \"./api.js?v=" + SECURITY_API_TOKEN + "\"")
                 .doesNotContain("from \"./api.js\"");
         assertThat(api).contains(
                 "export function appendCsrfField(form)",
