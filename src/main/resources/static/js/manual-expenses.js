@@ -38,16 +38,16 @@ export function renderManualExpenses(expenses = [], month = "") {
         const row = document.createElement("tr");
         row.dataset.manualExpenseId = expense.id;
         row.innerHTML = `
-            <td>${escapeHtml(formatMonth(expense.startMonth))}</td>
-            <td>${escapeHtml(expense.description || "—")}</td>
-            <td>${escapeHtml(manualExpenseTypeLabel(expense.type))}</td>
-            <td>${installmentText(expense)}</td>
-            <td>${escapeHtml(expense.category?.name || "Sin categoría")}</td>
-            <td class="amount">${formatPesos(expense.amountPesos)}</td>
-            <td class="amount">${formatUsd(expense.amountUsd)}</td>
-            <td><span class="status-chip ${expense.projected ? "projection" : "loaded"}">${escapeHtml(manualProjectionLabel(expense))}</span></td>
-            <td>${escapeHtml(expense.notes || "—")}</td>
-            <td><button type="button" class="danger-button" data-delete-manual-expense="${expense.id}">Eliminar</button></td>
+            <td data-label="Mes">${escapeHtml(formatMonth(expense.startMonth))}</td>
+            <td data-label="Descripción">${escapeHtml(expense.description || "—")}</td>
+            <td data-label="Tipo">${escapeHtml(manualExpenseTypeLabel(expense.type))}</td>
+            <td data-label="Cuota">${installmentText(expense)}</td>
+            <td data-label="Categoría">${escapeHtml(expense.category?.name || "Sin categoría")}</td>
+            <td class="amount" data-label="Pesos">${formatPesos(expense.amountPesos)}</td>
+            <td class="amount" data-label="USD">${formatUsd(expense.amountUsd)}</td>
+            <td data-label="Estado"><span class="status-chip ${expense.projected ? "projection" : "loaded"}">${escapeHtml(manualProjectionLabel(expense))}</span></td>
+            <td data-label="Notas">${escapeHtml(expense.notes || "—")}</td>
+            <td data-label="Acciones"><button type="button" class="danger-button" data-delete-manual-expense="${expense.id}">Eliminar</button></td>
         `;
         row.querySelector("[data-delete-manual-expense]").addEventListener("click", () => deleteManualExpense(expense.id));
         table.append(row);

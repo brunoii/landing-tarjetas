@@ -112,12 +112,12 @@ export function renderSimulationResults(rows = [], payload = {}) {
     rows.forEach((row) => {
         const tr = document.createElement("tr");
         tr.innerHTML = `
-            <td>${escapeHtml(formatMonth(row.month))}</td>
-            <td class="amount">${formatPesos(row.monthlyIncome)}</td>
-            <td class="amount">${formatPesos(row.currentExpenses)}</td>
-            <td class="amount">${formatPesos(row.simulatedInstallment)}</td>
-            <td class="amount">${formatPesos(row.currentBalance)}</td>
-            <td class="amount">${formatPesos(row.simulatedBalance)}</td>
+            <td class="simulation-month-cell" data-label="Mes">${escapeHtml(formatMonth(row.month))}</td>
+            <td class="amount simulation-amount-cell" data-label="Ingresos del mes">${formatPesos(row.monthlyIncome)}</td>
+            <td class="amount simulation-amount-cell" data-label="Deuda/gastos actuales del mes">${formatPesos(row.currentExpenses)}</td>
+            <td class="amount simulation-amount-cell" data-label="Nueva cuota simulada">${formatPesos(row.simulatedInstallment)}</td>
+            <td class="amount simulation-amount-cell" data-label="Saldo actual sin simulación">${formatPesos(row.currentBalance)}</td>
+            <td class="amount simulation-amount-cell" data-label="Saldo final con simulación">${formatPesos(row.simulatedBalance)}</td>
         `;
         table.append(tr);
     });

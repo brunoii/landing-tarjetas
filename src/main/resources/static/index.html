@@ -118,7 +118,7 @@
             </form>
             <p class="form-feedback" id="manual-expense-feedback" role="status" aria-live="polite"></p>
             <p class="filter-summary" id="manual-expenses-summary" aria-live="polite">No hay gastos manuales para el mes seleccionado.</p>
-            <div class="table-wrap manual-expense-table-wrap">
+            <div class="table-wrap manual-expense-table-wrap responsive-card-table">
                 <table>
                     <thead>
                     <tr>
@@ -259,7 +259,7 @@
 
             <h3>Transacciones del borrador</h3>
             <p class="section-note">Puede editar, eliminar, asignar categorías y agregar filas faltantes antes de confirmar el borrador.</p>
-            <div class="table-wrap draft-table-wrap">
+            <div class="table-wrap draft-table-wrap responsive-card-table responsive-edit-table">
                 <table>
                     <thead>
                     <tr>
@@ -592,20 +592,28 @@
         </form>
         <p class="form-feedback" id="simulator-feedback" role="status" aria-live="polite"></p>
         <p class="filter-summary" id="simulator-summary" aria-live="polite">No hay una simulación activa.</p>
-        <div class="table-wrap simulator-table-wrap">
-            <table>
-                <thead>
-                <tr>
-                    <th>Mes</th>
-                    <th>Ingresos del mes</th>
-                    <th>Deuda/gastos actuales del mes</th>
-                    <th>Nueva cuota simulada</th>
-                    <th>Saldo actual sin simulación</th>
-                    <th>Saldo final con simulación</th>
-                </tr>
-                </thead>
-                <tbody id="simulation-results-table"></tbody>
-            </table>
+        <div class="table-wrap simulator-table-wrap responsive-card-table">
+                <table class="simulator-results-table">
+                    <colgroup>
+                        <col class="simulation-month-column">
+                        <col class="simulation-amount-column">
+                        <col class="simulation-amount-column">
+                        <col class="simulation-amount-column">
+                        <col class="simulation-amount-column">
+                        <col class="simulation-amount-column">
+                    </colgroup>
+                    <thead>
+                    <tr>
+                        <th class="simulation-month-cell" scope="col">Mes</th>
+                        <th class="simulation-amount-cell" scope="col">Ingresos del mes</th>
+                        <th class="simulation-amount-cell" scope="col">Deuda/gastos actuales del mes</th>
+                        <th class="simulation-amount-cell" scope="col">Nueva cuota simulada</th>
+                        <th class="simulation-amount-cell" scope="col">Saldo actual sin simulación</th>
+                        <th class="simulation-amount-cell" scope="col">Saldo final con simulación</th>
+                    </tr>
+                    </thead>
+                    <tbody id="simulation-results-table"></tbody>
+                </table>
         </div>
         <p class="empty-state" id="simulation-empty">Complete los campos obligatorios y ejecute una simulación para ver los meses afectados.</p>
     </section>

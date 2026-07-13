@@ -17,12 +17,16 @@
     --border: rgba(148, 163, 184, 0.22);
     --table-min-width: 980px;
     --manual-expense-table-min-width: 1100px;
-    --simulator-table-min-width: 1080px;
+    --expenses-table-min-width: 1740px;
+    --simulator-table-min-width: 1160px;
+    --supermarket-table-min-width: 980px;
+    --super-category-table-min-width: 420px;
     --draft-table-min-width: 1320px;
-    --income-table-min-width: 1580px;
+    --income-table-min-width: 1180px;
     --mobile-table-min-width: 840px;
     --shadow: 0 24px 70px rgba(0, 0, 0, 0.35);
     --shadow-soft: 0 14px 40px rgba(0, 0, 0, 0.24);
+    --tap-target-min: 44px;
     font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
@@ -50,6 +54,7 @@ textarea {
 button {
     border: 0;
     border-radius: 999px;
+    min-height: var(--tap-target-min);
     padding: 0.75rem 1rem;
     background: var(--accent-strong);
     color: #031522;
@@ -89,6 +94,18 @@ button:focus-visible {
 input::placeholder,
 textarea::placeholder {
     color: rgba(156, 163, 175, 0.74);
+}
+
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
 }
 
 input[readonly] {
@@ -188,6 +205,51 @@ h3 {
     padding: 1rem;
 }
 
+.topbar-actions {
+    display: grid;
+    gap: 0.75rem;
+}
+
+.logout-form {
+    display: grid;
+}
+
+.logout-form .secondary-button {
+    width: 100%;
+}
+
+.login-page {
+    display: grid;
+    place-items: center;
+    padding: 1rem;
+}
+
+.login-shell {
+    width: min(100%, 440px);
+}
+
+.login-card {
+    border: 1px solid var(--border);
+    border-radius: 28px;
+    padding: clamp(1.25rem, 5vw, 2rem);
+    background: var(--surface);
+    box-shadow: var(--shadow);
+}
+
+.login-card h1 {
+    font-size: clamp(2.25rem, 10vw, 4rem);
+}
+
+.login-form {
+    display: grid;
+    gap: 1rem;
+    margin-top: 1.5rem;
+}
+
+.login-feedback.error {
+    color: #fecaca;
+}
+
 .notice {
     border-radius: 18px;
     padding: 0.85rem 1rem;
@@ -208,6 +270,8 @@ h3 {
     display: flex;
     flex-wrap: wrap;
     gap: 0.65rem;
+    max-width: 100%;
+    min-width: 0;
     overflow-x: auto;
     padding-bottom: 0.15rem;
 }
@@ -216,6 +280,8 @@ h3 {
     display: flex;
     flex-wrap: wrap;
     gap: 0.65rem;
+    max-width: 100%;
+    min-width: 0;
     overflow-x: auto;
     padding: 0.25rem 0 0.35rem;
     -webkit-overflow-scrolling: touch;
@@ -269,8 +335,33 @@ h3 {
 
 .summary-grid {
     display: grid;
-    grid-template-columns: repeat(12, minmax(0, 1fr));
+    grid-template-columns: minmax(0, 1fr);
     gap: 1rem;
+}
+
+.summary-block {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr));
+    gap: 1rem;
+    min-width: 0;
+}
+
+.summary-block-result,
+.summary-block-income {
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 20rem), 1fr));
+}
+
+.summary-block-expenses {
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 18.5rem), 1fr));
+}
+
+.summary-block-heading {
+    grid-column: 1 / -1;
+    min-width: 0;
+}
+
+.summary-block-heading h2 {
+    font-size: clamp(1rem, 2vw, 1.35rem);
 }
 
 .metric-card,
@@ -281,9 +372,14 @@ h3 {
 .metric-card {
     display: grid;
     gap: 0.6rem;
-    grid-column: span 3;
+    grid-column: auto;
+    min-width: 0;
     min-height: 160px;
     padding: 1.4rem;
+}
+
+.summary-block-expenses .record-count-card {
+    grid-column: span 2;
 }
 
 .metric-card.featured {
@@ -291,7 +387,7 @@ h3 {
 }
 
 .metric-card.secondary {
-    grid-column: span 2;
+    grid-column: auto;
     min-height: 128px;
     padding: 1rem;
     background: rgba(15, 23, 42, 0.74);
@@ -323,12 +419,41 @@ h3 {
 }
 
 .metric-card strong {
-    font-size: clamp(1.25rem, 3vw, 2.05rem);
+    display: block;
+    max-width: 100%;
+    font-size: clamp(1.2rem, 2.35vw, 2.05rem);
     line-height: 1.1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .metric-card.secondary strong {
-    font-size: clamp(1.05rem, 2vw, 1.45rem);
+    font-size: clamp(1rem, 1.65vw, 1.35rem);
+}
+
+.record-count-list {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.55rem;
+}
+
+.record-count-list span {
+    display: grid;
+    min-width: 0;
+    gap: 0.2rem;
+    padding: 0.55rem;
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    background: rgba(255, 255, 255, 0.035);
+}
+
+.record-count-list strong {
+    font-size: clamp(1rem, 2vw, 1.25rem);
+}
+
+.record-count-list small {
+    font-size: 0.75rem;
 }
 
 .panel {
@@ -384,8 +509,18 @@ h3 {
     color: var(--success);
 }
 
-.status-chip.projection,
-#month-detail-label.projection {
+.status-chip.manual,
+.status-chip.statement {
+    border-color: rgba(125, 211, 252, 0.4);
+    color: var(--accent);
+}
+
+.status-chip.debt {
+    border-color: rgba(248, 113, 113, 0.36);
+    color: #fecaca;
+}
+
+.status-chip.projection {
     border-color: rgba(250, 204, 21, 0.42);
     color: var(--warning);
 }
@@ -423,11 +558,16 @@ h3 {
 
 .card-detail dd {
     color: var(--text);
+    min-width: 0;
     text-align: right;
+    overflow-wrap: anywhere;
+    word-break: break-word;
 }
 
 .filters,
 .category-form,
+.super-category-form,
+.super-item-form,
 .upload-form,
 .income-form,
 .manual-expense-form,
@@ -442,11 +582,19 @@ h3 {
 }
 
 .filters {
-    grid-template-columns: repeat(4, minmax(0, 1fr)) minmax(12rem, 1.4fr) auto auto;
+    grid-template-columns: repeat(5, minmax(0, 1fr)) minmax(12rem, 1.4fr) auto auto;
 }
 
 .category-form {
     grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr) auto;
+}
+
+.super-category-form {
+    grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.super-item-form {
+    grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
 }
 
 .upload-form {
@@ -479,8 +627,43 @@ h3 {
     min-width: var(--manual-expense-table-min-width);
 }
 
+#tab-expenses-table .table-wrap table {
+    min-width: var(--expenses-table-min-width);
+}
+
 .simulator-table-wrap table {
     min-width: var(--simulator-table-min-width);
+    table-layout: fixed;
+}
+
+.simulator-results-table .simulation-month-column {
+    width: 14%;
+}
+
+.simulator-results-table .simulation-amount-column {
+    width: 17.2%;
+}
+
+.simulator-results-table .simulation-month-cell {
+    text-align: left;
+}
+
+.simulator-results-table .simulation-amount-cell {
+    text-align: right;
+}
+
+.simulator-results-table th,
+.simulator-results-table td {
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.simulator-results-table td {
+    vertical-align: middle;
+}
+
+.simulator-results-table .amount {
+    font-variant-numeric: tabular-nums;
 }
 
 .income-filters {
@@ -532,6 +715,16 @@ h3 {
     border: 1px solid rgba(125, 211, 252, 0.32);
 }
 
+.icon-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.5rem;
+    min-width: 2.5rem;
+    height: 2.5rem;
+    padding: 0;
+}
+
 .table-wrap {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
@@ -539,6 +732,24 @@ h3 {
     border-radius: 18px;
     background: rgba(3, 7, 18, 0.28);
     scrollbar-width: thin;
+}
+
+.responsive-card-table {
+    --responsive-card-label-width: 8rem;
+}
+
+.expenses-table-wrap.responsive-card-table,
+.income-table-wrap.responsive-card-table,
+.manual-expense-table-wrap.responsive-card-table,
+.draft-table-wrap.responsive-card-table,
+.simulator-table-wrap.responsive-card-table,
+.super-items-table-wrap.responsive-card-table,
+.super-category-table-wrap.responsive-card-table {
+    --responsive-card-label-width: 7.75rem;
+}
+
+.responsive-card-table [data-label] {
+    min-width: 0;
 }
 
 table {
@@ -666,22 +877,189 @@ td {
     min-width: var(--income-table-min-width);
 }
 
-#incomes-table input,
-#incomes-table select {
-    min-width: 120px;
+.supermarket-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1rem;
+    margin-top: 1rem;
 }
 
-#incomes-table [name="description"],
-#incomes-table [name="notes"] {
-    min-width: 220px;
+.supermarket-card,
+.super-generated-card {
+    border: 1px solid var(--border);
+    border-radius: 24px;
+    padding: 1rem;
+    background: var(--surface-muted);
+}
+
+.super-category-heading {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    align-items: start;
+    margin-bottom: 1rem;
+}
+
+.super-category-heading h3 {
+    margin-bottom: 0.35rem;
+}
+
+.super-category-management {
+    margin-top: 1rem;
+}
+
+.super-category-table-wrap[hidden] {
+    display: none;
+}
+
+.super-category-table {
+    min-width: var(--super-category-table-min-width);
+}
+
+.super-category-table th,
+.super-category-table td {
+    padding: 0.55rem 0.7rem;
+    vertical-align: middle;
+}
+
+.super-category-table input {
+    min-width: 12rem;
+    padding: 0.55rem 0.7rem;
+}
+
+.super-category-actions {
+    display: grid;
+    grid-template-columns: repeat(2, max-content);
+    gap: 0.4rem;
+    justify-content: end;
+    align-items: center;
+    min-width: 5.4rem;
+}
+
+.supermarket-list-actions,
+.super-generated-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    align-items: center;
+}
+
+.super-items-table-wrap table {
+    min-width: var(--supermarket-table-min-width);
+}
+
+.super-item-checked {
+    background: rgba(134, 239, 172, 0.06);
+}
+
+.super-category-group-row th {
+    background: rgba(148, 163, 184, 0.12);
+    color: var(--accent);
+    font-size: 0.82rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.super-item-actions {
+    display: grid;
+    grid-template-columns: repeat(2, max-content);
+    gap: 0.4rem;
+    justify-content: end;
+    align-items: center;
+    min-width: 5.75rem;
+}
+
+.super-generated-card {
+    margin-top: 1rem;
+}
+
+.super-generated-list {
+    max-width: 100%;
+    min-height: 8rem;
+    margin: 0;
+    padding: 1rem;
+    overflow-x: auto;
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    background: rgba(3, 7, 18, 0.56);
+    color: var(--text);
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    word-break: break-word;
 }
 
 .income-actions {
-    min-width: 220px;
+    display: grid;
+    grid-template-columns: repeat(2, max-content);
+    gap: 0.4rem;
+    justify-content: end;
+    align-items: center;
+    min-width: 5.75rem;
 }
 
-.inline-edit-field {
-    min-width: 160px;
+.modal-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 20;
+    display: grid;
+    place-items: center;
+    padding: 1.25rem;
+    background: rgba(3, 7, 18, 0.74);
+    backdrop-filter: blur(10px);
+}
+
+.modal-overlay[hidden] {
+    display: none;
+}
+
+.modal-card {
+    width: min(100%, 760px);
+    max-height: min(92vh, 920px);
+    overflow-y: auto;
+    border: 1px solid var(--border);
+    border-radius: 24px;
+    padding: 1.25rem;
+    background: var(--surface-raised);
+    box-shadow: var(--shadow);
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    align-items: start;
+    margin-bottom: 1rem;
+}
+
+.modal-header h3 {
+    margin: 0.2rem 0 0;
+}
+
+.income-edit-form {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.9rem;
+}
+
+.income-edit-help,
+.income-edit-feedback,
+.income-edit-notes-field,
+.modal-actions {
+    grid-column: 1 / -1;
+}
+
+.income-edit-help {
+    margin: -0.15rem 0 0;
+    color: var(--muted);
+    line-height: 1.6;
+}
+
+.modal-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 0.75rem;
+    margin-top: 0.25rem;
 }
 
 #draft-transactions-table input,
@@ -693,7 +1071,8 @@ td {
     min-width: 240px;
 }
 
-.row-actions {
+.expense-badges,
+.row-actions:not(.income-actions) {
     display: flex;
     flex-wrap: wrap;
     gap: 0.5rem;
@@ -741,6 +1120,9 @@ td {
 
     .card-detail-grid,
     .category-form,
+    .super-category-form,
+    .super-item-form,
+    .supermarket-layout,
     .upload-form,
     .income-form,
     .manual-expense-form,
@@ -756,11 +1138,17 @@ td {
     }
 
     .summary-grid {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
+        grid-template-columns: minmax(0, 1fr);
     }
 
-    .metric-card,
-    .metric-card.secondary {
+    .summary-block,
+    .summary-block-result,
+    .summary-block-income,
+    .summary-block-expenses {
+        grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr));
+    }
+
+    .summary-block-expenses .record-count-card {
         grid-column: span 1;
     }
 
@@ -788,7 +1176,41 @@ td {
     }
 
     .topbar {
+        gap: 1rem;
         padding-top: 1.5rem;
+    }
+
+    .app-shell {
+        gap: 0.85rem;
+        padding-bottom: 2rem;
+    }
+
+    h1 {
+        font-size: clamp(2rem, 13vw, 3.3rem);
+        line-height: 1;
+        letter-spacing: -0.045em;
+    }
+
+    h2 {
+        font-size: clamp(1.18rem, 7vw, 1.55rem);
+    }
+
+    .lede,
+    .section-note {
+        font-size: 0.95rem;
+    }
+
+    .primary-tabs,
+    .month-tabs {
+        gap: 0.5rem;
+        padding-bottom: 0.45rem;
+    }
+
+    .primary-tabs button,
+    .month-tabs button {
+        min-height: var(--tap-target-min);
+        padding: 0.7rem 0.85rem;
+        font-size: 0.92rem;
     }
 
     .panel,
@@ -808,12 +1230,40 @@ td {
         padding: 1rem;
     }
 
+    .metric-card strong {
+        overflow: visible;
+        text-overflow: clip;
+        white-space: normal;
+        overflow-wrap: anywhere;
+        font-size: clamp(1.05rem, 7vw, 1.55rem);
+    }
+
     .metric-card.secondary {
         min-height: 112px;
     }
 
+    .metric-card.secondary strong {
+        font-size: clamp(1rem, 5.8vw, 1.28rem);
+    }
+
+    .card-detail {
+        padding: 1rem;
+    }
+
+    .card-detail header,
+    .card-detail div {
+        display: grid;
+        grid-template-columns: 1fr;
+    }
+
+    .card-detail dd {
+        text-align: left;
+    }
+
     .filters,
     .category-form,
+    .super-category-form,
+    .super-item-form,
     .upload-form,
     .income-form,
     .manual-expense-form,
@@ -824,23 +1274,188 @@ td {
     }
 
     .form-actions,
-    .row-actions {
+    .row-actions:not(.income-actions):not(.super-item-actions),
+    .super-category-heading {
         display: grid;
         grid-column: span 1;
         grid-template-columns: 1fr;
+    }
+
+    .income-actions {
+        grid-template-columns: repeat(2, max-content);
+        justify-content: end;
+        min-width: 5.75rem;
+    }
+
+    .super-item-actions,
+    .super-category-actions {
+        grid-template-columns: repeat(2, max-content);
+        justify-content: end;
+        min-width: 5.75rem;
+    }
+
+    .income-actions .icon-button,
+    .super-item-actions .icon-button,
+    .super-category-actions .icon-button,
+    .modal-header .icon-button {
+        width: 2.5rem;
     }
 
     button {
         width: 100%;
     }
 
+    .income-actions .icon-button {
+        width: 2.5rem;
+    }
+
+    .super-item-actions .icon-button,
+    .super-category-actions .icon-button {
+        width: 2.5rem;
+    }
+
     table {
         min-width: var(--mobile-table-min-width);
+    }
+
+    .responsive-card-table {
+        display: grid;
+        gap: 0.75rem;
+        overflow-x: visible;
+        border: 0;
+        background: transparent;
+    }
+
+    .responsive-card-table table,
+    .responsive-card-table tbody,
+    .responsive-card-table tr {
+        display: grid;
+        min-width: 0;
+        width: 100%;
+    }
+
+    .responsive-card-table thead {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border: 0;
+    }
+
+    .responsive-card-table tbody {
+        gap: 0.75rem;
+    }
+
+    .responsive-card-table tr {
+        gap: 0.35rem;
+        border: 1px solid var(--border);
+        border-radius: 18px;
+        padding: 0.85rem;
+        background: rgba(3, 7, 18, 0.34);
+    }
+
+    .responsive-card-table td {
+        display: grid;
+        grid-template-columns: minmax(6.5rem, var(--responsive-card-label-width)) minmax(0, 1fr);
+        gap: 0.35rem 0.75rem;
+        border-bottom: 0;
+        padding: 0.35rem 0;
+        text-align: left;
+        white-space: normal;
+        overflow-wrap: anywhere;
+    }
+
+    .responsive-card-table td::before {
+        content: attr(data-label);
+        color: var(--muted);
+        font-size: 0.72rem;
+        font-weight: 800;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+    }
+
+    .responsive-card-table td.amount {
+        text-align: left;
+        white-space: normal;
+    }
+
+    .responsive-card-table .super-category-group-row {
+        gap: 0;
+        padding: 0;
+        overflow: hidden;
+    }
+
+    .responsive-card-table .super-category-group-row th {
+        border-bottom: 0;
+        padding: 0.75rem 0.85rem;
+    }
+
+    .super-generated-list {
+        overflow-x: visible;
+    }
+
+    .responsive-card-table .simulator-results-table th,
+    .responsive-card-table .simulator-results-table td {
+        overflow: visible;
+        text-overflow: clip;
+    }
+
+    .responsive-edit-table td {
+        align-items: center;
+    }
+
+    .responsive-edit-table input,
+    .responsive-edit-table select,
+    .responsive-edit-table #draft-transactions-table [name="description"] {
+        min-width: 0;
+        width: 100%;
+    }
+
+    .responsive-edit-table .row-actions {
+        display: grid;
+        grid-template-columns: 1fr;
+        width: 100%;
+    }
+
+    .responsive-edit-table .row-actions button,
+    .responsive-edit-table .row-actions .secondary-button,
+    .responsive-edit-table .row-actions .danger-button,
+    .responsive-edit-table [data-save-transaction],
+    .responsive-edit-table [data-delete-transaction] {
+        width: 100%;
     }
 }
 
 @media (max-width: 520px) {
-    .summary-grid {
+    .income-edit-form {
+        grid-template-columns: 1fr;
+    }
+
+    .modal-actions {
+        display: grid;
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 520px) {
+    .topbar,
+    .app-shell {
+        width: min(100% - 0.75rem, 1240px);
+    }
+
+    .record-count-list {
+        grid-template-columns: 1fr;
+    }
+
+    .summary-grid,
+    .summary-block,
+    .summary-block-result,
+    .summary-block-income,
+    .summary-block-expenses {
         grid-template-columns: 1fr;
     }
 
@@ -850,8 +1465,11 @@ td {
 
     .primary-tabs,
     .month-tabs {
-        margin-inline: -0.5rem;
-        padding-inline: 0.5rem;
+        width: 100%;
+        max-width: 100%;
+        min-width: 0;
+        margin-inline: 0;
+        padding-inline: 0;
     }
 
     .section-heading {
@@ -861,5 +1479,11 @@ td {
     .section-note,
     .lede {
         line-height: 1.55;
+    }
+}
+
+@media (max-width: 420px) {
+    .responsive-card-table td {
+        grid-template-columns: 1fr;
     }
 }

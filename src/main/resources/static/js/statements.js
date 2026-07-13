@@ -305,16 +305,16 @@ function renderDraftTransactions(transactions) {
         const row = document.createElement("tr");
         row.dataset.transactionId = transaction.id;
         row.innerHTML = `
-            <td><input name="transactionDate" type="date" value="${escapeHtml(transaction.transactionDate || "")}"></td>
-            <td><input name="description" type="text" maxlength="240" required value="${escapeHtml(transaction.description || "")}"></td>
-            <td><select name="type">${options(transactionTypes, transaction.type, typeLabel)}</select></td>
-            <td><select name="categoryId"><option value="">Sin categoría</option>${categoryOptions(transaction.category?.id)}</select></td>
-            <td><input name="currentInstallment" type="number" min="1" step="1" value="${escapeHtml(transaction.currentInstallment || "")}"></td>
-            <td><input name="totalInstallments" type="number" min="1" step="1" value="${escapeHtml(transaction.totalInstallments || "")}"></td>
-            <td><input name="amountPesos" type="number" min="0" step="0.01" value="${decimalValue(transaction.amountPesos)}"></td>
-            <td><input name="amountUsd" type="number" min="0" step="0.01" value="${decimalValue(transaction.amountUsd)}"></td>
-            <td><input name="notes" type="text" maxlength="500" value="${escapeHtml(transaction.notes || "")}"></td>
-            <td class="row-actions">
+            <td data-label="Fecha"><input name="transactionDate" type="date" aria-label="Fecha" value="${escapeHtml(transaction.transactionDate || "")}"></td>
+            <td data-label="Descripción"><input name="description" type="text" maxlength="240" required aria-label="Descripción" value="${escapeHtml(transaction.description || "")}"></td>
+            <td data-label="Tipo"><select name="type" aria-label="Tipo">${options(transactionTypes, transaction.type, typeLabel)}</select></td>
+            <td data-label="Categoría"><select name="categoryId" aria-label="Categoría"><option value="">Sin categoría</option>${categoryOptions(transaction.category?.id)}</select></td>
+            <td data-label="Cuota"><input name="currentInstallment" type="number" min="1" step="1" aria-label="Cuota" value="${escapeHtml(transaction.currentInstallment || "")}"></td>
+            <td data-label="Total de cuotas"><input name="totalInstallments" type="number" min="1" step="1" aria-label="Total de cuotas" value="${escapeHtml(transaction.totalInstallments || "")}"></td>
+            <td data-label="Pesos"><input name="amountPesos" type="number" min="0" step="0.01" inputmode="decimal" aria-label="Pesos" value="${decimalValue(transaction.amountPesos)}"></td>
+            <td data-label="USD"><input name="amountUsd" type="number" min="0" step="0.01" inputmode="decimal" aria-label="USD" value="${decimalValue(transaction.amountUsd)}"></td>
+            <td data-label="Notas"><input name="notes" type="text" maxlength="500" aria-label="Notas" value="${escapeHtml(transaction.notes || "")}"></td>
+            <td class="row-actions" data-label="Acciones">
                 <button type="button" class="secondary-button" data-save-transaction>Guardar fila</button>
                 <button type="button" class="danger-button" data-delete-transaction>Eliminar fila</button>
             </td>
