@@ -172,20 +172,6 @@ public class DashboardService {
                 .toList();
     }
 
-    private BigDecimal sumPesos(List<StatementTransaction> transactions) {
-        return transactions.stream()
-                .map(StatementTransaction::getAmountPesos)
-                .filter(amount -> amount != null)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-    }
-
-    private BigDecimal sumUsd(List<StatementTransaction> transactions) {
-        return transactions.stream()
-                .map(StatementTransaction::getAmountUsd)
-                .filter(amount -> amount != null)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-    }
-
     private BigDecimal sumIncomePesos(List<Income> incomes) {
         return incomes.stream()
                 .map(Income::getAmountPesos)
@@ -224,49 +210,41 @@ public class DashboardService {
 
     private DashboardMonthDetailRowResponse actualRow(StatementTransaction transaction, LocalDate month) {
         CardStatement statement = transaction.getStatement();
-        return new DashboardMonthDetailRowResponse(
-                "ACTUAL",
-                statement.getId(),
-                statement.getPaymentMonth(),
-                transaction.getId(),
-                month,
-                transaction.getDescription(),
-                statement.getProvider(),
-                statement.getCardBrand(),
-                statement.getCardAlias(),
-                transaction.getType().name(),
-                transaction.getCategory() == null ? null : transaction.getCategory().getId(),
-                transaction.getCategory() == null ? null : transaction.getCategory().getName(),
-                transaction.getCurrentInstallment(),
-                transaction.getTotalInstallments(),
-                transaction.getAmountPesos(),
-                transaction.getAmountUsd(),
-                finishMonth(statement.getPaymentMonth(), transaction.getCurrentInstallment(), transaction.getTotalInstallments())
-        );
+        return rowFrom(new MonthDetailRowDraft()
+                .kind("ACTUAL")
+                .sourceStatement(statement.getId(), statement.getPaymentMonth())
+                .sourceTransaction(transaction.getId(), transaction.getTransactionDate())
+                .month(month)
+                .description(transaction.getDescription())
+                .medium(statement.getProvider(), statement.getCardBrand(), statement.getCardAlias())
+                .type(transaction.getType().name())
+                .category(transaction.getCategory() == null ? null : transaction.getCategory().getId(),
+                        transaction.getCategory() == null ? null : transaction.getCategory().getName())
+                .installments(transaction.getCurrentInstallment(), transaction.getTotalInstallments())
+                .amounts(transaction.getAmountPesos(), transaction.getAmountUsd())
+                .estimatedFinishMonth(finishMonth(statement.getPaymentMonth(), transaction.getCurrentInstallment(), transaction.getTotalInstallments()))
+                .notes(transaction.getNotes())
+                .source("STATEMENT"));
     }
 
     private DashboardMonthDetailRowResponse projectionRow(InstallmentProjection projection) {
         StatementTransaction transaction = projection.getSourceTransaction();
         CardStatement statement = transaction.getStatement();
-        return new DashboardMonthDetailRowResponse(
-                "PROJECTION",
-                statement.getId(),
-                statement.getPaymentMonth(),
-                transaction.getId(),
-                projection.getProjectedMonth(),
-                transaction.getDescription(),
-                statement.getProvider(),
-                statement.getCardBrand(),
-                statement.getCardAlias(),
-                transaction.getType().name(),
-                transaction.getCategory() == null ? null : transaction.getCategory().getId(),
-                transaction.getCategory() == null ? null : transaction.getCategory().getName(),
-                projection.getInstallmentNumber(),
-                projection.getTotalInstallments(),
-                projection.getAmountPesos(),
-                projection.getAmountUsd(),
-                finishMonth(projection.getProjectedMonth(), projection.getInstallmentNumber(), projection.getTotalInstallments())
-        );
+        return rowFrom(new MonthDetailRowDraft()
+                .kind("PROJECTION")
+                .sourceStatement(statement.getId(), statement.getPaymentMonth())
+                .sourceTransaction(transaction.getId(), transaction.getTransactionDate())
+                .month(projection.getProjectedMonth())
+                .description(transaction.getDescription())
+                .medium(statement.getProvider(), statement.getCardBrand(), statement.getCardAlias())
+                .type(transaction.getType().name())
+                .category(transaction.getCategory() == null ? null : transaction.getCategory().getId(),
+                        transaction.getCategory() == null ? null : transaction.getCategory().getName())
+                .installments(projection.getInstallmentNumber(), projection.getTotalInstallments())
+                .amounts(projection.getAmountPesos(), projection.getAmountUsd())
+                .estimatedFinishMonth(finishMonth(projection.getProjectedMonth(), projection.getInstallmentNumber(), projection.getTotalInstallments()))
+                .notes(transaction.getNotes())
+                .source("STATEMENT"));
     }
 
     private List<DashboardMonthDetailRowResponse> manualExpenseRows(LocalDate paymentMonth) {
@@ -279,24 +257,45 @@ public class DashboardService {
     private DashboardMonthDetailRowResponse manualExpenseRow(ManualExpense expense, LocalDate paymentMonth) {
         boolean projected = manualExpenseService.isProjectedForMonth(expense, paymentMonth);
         Integer installmentNumber = manualExpenseService.installmentNumberForMonth(expense, paymentMonth);
+        return rowFrom(new MonthDetailRowDraft()
+                .kind(projected ? "PROJECTION" : "ACTUAL")
+                .sourceStatement(null, expense.getStartMonth())
+                .sourceTransaction(expense.getId(), null)
+                .month(paymentMonth)
+                .description(expense.getDescription())
+                .medium(Provider.MANUAL, CardBrand.OTHER, manualSourceLabel(expense))
+                .type(expense.getType().name())
+                .category(expense.getCategory() == null ? null : expense.getCategory().getId(),
+                        expense.getCategory() == null ? null : expense.getCategory().getName())
+                .installments(installmentNumber, expense.getTotalInstallments())
+                .amounts(expense.getAmountPesos(), expense.getAmountUsd())
+                .estimatedFinishMonth(finishMonth(expense.getStartMonth(), manualExpenseService.effectiveCurrentInstallment(expense), expense.getTotalInstallments()))
+                .notes(expense.getNotes())
+                .source("MANUAL_EXPENSE"));
+    }
+
+    private DashboardMonthDetailRowResponse rowFrom(MonthDetailRowDraft row) {
         return new DashboardMonthDetailRowResponse(
-                projected ? "PROJECTION" : "ACTUAL",
-                null,
-                expense.getStartMonth(),
-                expense.getId(),
-                paymentMonth,
-                expense.getDescription(),
-                Provider.MANUAL,
-                CardBrand.OTHER,
-                manualSourceLabel(expense),
-                expense.getType().name(),
-                expense.getCategory() == null ? null : expense.getCategory().getId(),
-                expense.getCategory() == null ? null : expense.getCategory().getName(),
-                installmentNumber,
-                expense.getTotalInstallments(),
-                expense.getAmountPesos(),
-                expense.getAmountUsd(),
-                finishMonth(expense.getStartMonth(), manualExpenseService.effectiveCurrentInstallment(expense), expense.getTotalInstallments())
+                row.kind,
+                row.sourceStatementId,
+                row.sourceStatementMonth,
+                row.sourceTransactionId,
+                row.transactionDate,
+                row.month,
+                row.description,
+                row.provider,
+                row.cardBrand,
+                row.cardAlias,
+                row.type,
+                row.categoryId,
+                row.categoryName,
+                row.installmentNumber,
+                row.totalInstallments,
+                row.amountPesos,
+                row.amountUsd,
+                row.estimatedFinishMonth,
+                row.notes,
+                row.source
         );
     }
 
@@ -337,6 +336,101 @@ public class DashboardService {
         return totals.values().stream()
                 .map(MutableCardTotals::toResponse)
                 .toList();
+    }
+
+    private static class MonthDetailRowDraft {
+        private String kind;
+        private Long sourceStatementId;
+        private LocalDate sourceStatementMonth;
+        private Long sourceTransactionId;
+        private LocalDate transactionDate;
+        private LocalDate month;
+        private String description;
+        private Provider provider;
+        private CardBrand cardBrand;
+        private String cardAlias;
+        private String type;
+        private Long categoryId;
+        private String categoryName;
+        private Integer installmentNumber;
+        private Integer totalInstallments;
+        private BigDecimal amountPesos;
+        private BigDecimal amountUsd;
+        private LocalDate estimatedFinishMonth;
+        private String notes;
+        private String source;
+
+        MonthDetailRowDraft kind(String kind) {
+            this.kind = kind;
+            return this;
+        }
+
+        MonthDetailRowDraft sourceStatement(Long sourceStatementId, LocalDate sourceStatementMonth) {
+            this.sourceStatementId = sourceStatementId;
+            this.sourceStatementMonth = sourceStatementMonth;
+            return this;
+        }
+
+        MonthDetailRowDraft sourceTransaction(Long sourceTransactionId, LocalDate transactionDate) {
+            this.sourceTransactionId = sourceTransactionId;
+            this.transactionDate = transactionDate;
+            return this;
+        }
+
+        MonthDetailRowDraft month(LocalDate month) {
+            this.month = month;
+            return this;
+        }
+
+        MonthDetailRowDraft description(String description) {
+            this.description = description;
+            return this;
+        }
+
+        MonthDetailRowDraft medium(Provider provider, CardBrand cardBrand, String cardAlias) {
+            this.provider = provider;
+            this.cardBrand = cardBrand;
+            this.cardAlias = cardAlias;
+            return this;
+        }
+
+        MonthDetailRowDraft type(String type) {
+            this.type = type;
+            return this;
+        }
+
+        MonthDetailRowDraft category(Long categoryId, String categoryName) {
+            this.categoryId = categoryId;
+            this.categoryName = categoryName;
+            return this;
+        }
+
+        MonthDetailRowDraft installments(Integer installmentNumber, Integer totalInstallments) {
+            this.installmentNumber = installmentNumber;
+            this.totalInstallments = totalInstallments;
+            return this;
+        }
+
+        MonthDetailRowDraft amounts(BigDecimal amountPesos, BigDecimal amountUsd) {
+            this.amountPesos = amountPesos;
+            this.amountUsd = amountUsd;
+            return this;
+        }
+
+        MonthDetailRowDraft estimatedFinishMonth(LocalDate estimatedFinishMonth) {
+            this.estimatedFinishMonth = estimatedFinishMonth;
+            return this;
+        }
+
+        MonthDetailRowDraft notes(String notes) {
+            this.notes = notes;
+            return this;
+        }
+
+        MonthDetailRowDraft source(String source) {
+            this.source = source;
+            return this;
+        }
     }
 
     private static class MonthPresence {

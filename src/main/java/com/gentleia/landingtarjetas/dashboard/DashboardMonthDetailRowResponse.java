@@ -11,6 +11,7 @@ public record DashboardMonthDetailRowResponse(
         Long sourceStatementId,
         LocalDate sourceStatementMonth,
         Long sourceTransactionId,
+        LocalDate transactionDate,
         LocalDate month,
         String description,
         Provider provider,
@@ -23,6 +24,8 @@ public record DashboardMonthDetailRowResponse(
         Integer totalInstallments,
         BigDecimal amountPesos,
         BigDecimal amountUsd,
-        LocalDate estimatedFinishMonth
+        LocalDate estimatedFinishMonth,
+        String notes,
+        String source
 ) {
 }

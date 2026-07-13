@@ -67,10 +67,9 @@ async function loadAll() {
 async function loadDashboard() {
     try {
         setStatus("Cargando datos del panel...", false, true);
-        const [summary, statements, transactions, allStatements, months, monthDetail, manualExpenses] = await Promise.all([
+        const [summary, statements, allStatements, months, monthDetail, manualExpenses] = await Promise.all([
             api.summary(state.month),
             api.statements({ month: state.month }),
-            api.transactions({ month: state.month }),
             api.statements(),
             api.dashboardMonths(),
             api.dashboardMonthDetail(state.month),
@@ -82,17 +81,17 @@ async function loadDashboard() {
             month: state.month,
             summary,
             statements: confirmedStatements,
-            transactions,
+            transactions: monthDetail.rows || [],
             allStatements: confirmedAllStatements,
             months,
             monthDetail
         });
         renderDraftStatementList(allStatements);
-        renderTransactions(transactions, state.month);
+        renderTransactions(monthDetail, state.month);
         renderManualExpenses(manualExpenses, state.month);
         setStatus(monthDetail.projectionOnly
             ? "Datos proyectados de cuotas cargados para un mes futuro."
-            : confirmedStatements.length || transactions.length || summary.incomeCount
+            : confirmedStatements.length || (monthDetail.rows || []).length || summary.incomeCount
                 ? "Datos confirmados del panel cargados."
                 : statements.length
                 ? "Hay borradores pendientes de revisión; el panel público sigue vacío para este mes."
@@ -104,12 +103,13 @@ async function loadDashboard() {
 
 async function loadTransactions() {
     try {
-        setStatus("Cargando transacciones...", false, true);
-        const transactions = await api.transactions(transactionFilters(state.month));
-        renderTransactions(transactions, state.month);
-        setStatus(transactions.length ? "Transacciones cargadas con los filtros seleccionados." : "No hay transacciones confirmadas que coincidan con los filtros seleccionados.");
+        setStatus("Cargando gastos...", false, true);
+        const filters = transactionFilters(state.month);
+        const monthDetail = await api.dashboardMonthDetail(filters.month || state.month);
+        const result = renderTransactions(monthDetail, filters.month || state.month);
+        setStatus(result.visibleCount ? "Gastos reales y proyectados cargados con los filtros seleccionados." : "No hay gastos que coincidan con los filtros seleccionados.");
     } catch (error) {
-        setStatus(`No se pudieron cargar las transacciones: ${error.message}`, true);
+        setStatus(`No se pudieron cargar los gastos: ${error.message}`, true);
     }
 }
 

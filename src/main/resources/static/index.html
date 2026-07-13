@@ -283,61 +283,85 @@
     </section>
 
     <section class="summary-grid tab-section" aria-label="Resumen mensual" data-tab-panel="summary">
-        <article class="metric-card featured">
-            <span class="metric-label">Total ingresos</span>
-            <strong id="monthly-income-total">ARS 0.00</strong>
-            <small>Total de ingresos del mes seleccionado.</small>
-        </article>
-        <article class="metric-card secondary">
-            <span class="metric-label">Total sueldos</span>
-            <strong id="salary-income-total">ARS 0.00</strong>
-            <small>Ingresos registrados como sueldo para el mes.</small>
-        </article>
-        <article class="metric-card secondary">
-            <span class="metric-label">Total ingresos varios</span>
-            <strong id="variable-income-total">ARS 0.00</strong>
-            <small>Ingresos variables aplicables al mes seleccionado.</small>
-        </article>
-        <article class="metric-card secondary" id="projected-income-card" hidden>
-            <span class="metric-label">Ingresos proyectados</span>
-            <strong id="projected-income-total">ARS 0.00</strong>
-            <small>Ingresos recurrentes proyectados para este mes.</small>
-        </article>
-        <article class="metric-card featured">
-            <span class="metric-label">Gastos del mes</span>
-            <strong id="total-pesos">ARS 0.00</strong>
-            <small id="total-pesos-hint">No hay transacciones cargadas para este mes.</small>
-        </article>
-        <article class="metric-card featured">
-            <span class="metric-label">Saldo resultante <span class="summary-estimated-label" id="summary-estimated-label" hidden>Estimado</span></span>
-            <strong id="monthly-balance-pesos">ARS 0.00</strong>
-            <small id="monthly-balance-hint">Ingresos del mes menos gastos en pesos.</small>
-        </article>
-        <article class="metric-card featured">
-            <span class="metric-label">Total USD</span>
-            <strong id="total-usd">USD 0.00</strong>
-            <small>USD se muestra por separado. No se aplica conversión.</small>
-        </article>
-        <article class="metric-card secondary">
-            <span class="metric-label">Total en un pago</span>
-            <strong id="one-payment-total">ARS 0.00 / USD 0.00</strong>
-            <small>Derivado de transacciones de compra.</small>
-        </article>
-        <article class="metric-card secondary">
-            <span class="metric-label">Cuotas</span>
-            <strong id="installment-total">ARS 0.00 / USD 0.00</strong>
-            <small>Derivado de transacciones en cuotas.</small>
-        </article>
-        <article class="metric-card secondary">
-            <span class="metric-label">Cargos e impuestos</span>
-            <strong id="charges-total">ARS 0.00 / USD 0.00</strong>
-            <small>Derivado de cargos e impuestos.</small>
-        </article>
-        <article class="metric-card secondary">
-            <span class="metric-label">Resúmenes / transacciones</span>
-            <strong id="record-counts">0 / 0 / 0</strong>
-            <small>Resúmenes / filas / ingresos cargados desde la API REST local.</small>
-        </article>
+        <div class="summary-block summary-block-result">
+            <div class="summary-block-heading">
+                <p class="eyebrow">Resultado del mes</p>
+                <h2>Balance mensual</h2>
+            </div>
+            <article class="metric-card featured balance-card">
+                <span class="metric-label">Saldo resultante <span class="summary-estimated-label" id="summary-estimated-label" hidden>Estimado</span></span>
+                <strong id="monthly-balance-pesos">ARS 0.00</strong>
+                <small id="monthly-balance-hint">Ingresos del mes menos gastos en pesos.</small>
+            </article>
+            <article class="metric-card featured">
+                <span class="metric-label">Total ingresos</span>
+                <strong id="monthly-income-total">ARS 0.00</strong>
+                <small>Total de ingresos del mes seleccionado.</small>
+            </article>
+            <article class="metric-card featured">
+                <span class="metric-label">Gastos del mes</span>
+                <strong id="total-pesos">ARS 0.00</strong>
+                <small id="total-pesos-hint">No hay transacciones cargadas para este mes.</small>
+            </article>
+        </div>
+
+        <div class="summary-block summary-block-income">
+            <div class="summary-block-heading">
+                <p class="eyebrow">Ingresos</p>
+                <h2>Composición</h2>
+            </div>
+            <article class="metric-card secondary">
+                <span class="metric-label">Total sueldos</span>
+                <strong id="salary-income-total">ARS 0.00</strong>
+                <small>Ingresos registrados como sueldo para el mes.</small>
+            </article>
+            <article class="metric-card secondary">
+                <span class="metric-label">Total ingresos varios</span>
+                <strong id="variable-income-total">ARS 0.00</strong>
+                <small>Ingresos variables aplicables al mes seleccionado.</small>
+            </article>
+            <article class="metric-card secondary" id="projected-income-card" hidden>
+                <span class="metric-label">Ingresos proyectados</span>
+                <strong id="projected-income-total">ARS 0.00</strong>
+                <small>Ingresos recurrentes proyectados para este mes.</small>
+            </article>
+        </div>
+
+        <div class="summary-block summary-block-expenses">
+            <div class="summary-block-heading">
+                <p class="eyebrow">Gastos/deuda</p>
+                <h2>Detalle consolidado</h2>
+            </div>
+            <article class="metric-card secondary">
+                <span class="metric-label">Total en un pago</span>
+                <strong id="one-payment-total">ARS 0.00 / USD 0.00</strong>
+                <small>Derivado de transacciones de compra.</small>
+            </article>
+            <article class="metric-card secondary">
+                <span class="metric-label">Cuotas</span>
+                <strong id="installment-total">ARS 0.00 / USD 0.00</strong>
+                <small>Derivado de transacciones en cuotas.</small>
+            </article>
+            <article class="metric-card secondary">
+                <span class="metric-label">Cargos e impuestos</span>
+                <strong id="charges-total">ARS 0.00 / USD 0.00</strong>
+                <small>Derivado de cargos e impuestos.</small>
+            </article>
+            <article class="metric-card secondary">
+                <span class="metric-label">Total USD</span>
+                <strong id="total-usd">USD 0.00</strong>
+                <small>USD se muestra por separado. No se aplica conversión.</small>
+            </article>
+            <article class="metric-card secondary record-count-card">
+                <span class="metric-label">Resúmenes / Transacciones</span>
+                <div class="record-count-list" id="record-counts" aria-label="Conteo de registros del mes">
+                    <span><strong>0</strong><small>Resúmenes</small></span>
+                    <span><strong>0</strong><small>Transacciones</small></span>
+                    <span><strong>0</strong><small>Ingresos</small></span>
+                </div>
+                <small>Registros cargados desde la API REST local.</small>
+            </article>
+        </div>
     </section>
 
     <section class="panel tab-section" aria-labelledby="card-status-title" data-tab-panel="summary">
@@ -351,54 +375,31 @@
         <div class="card-detail-grid" id="card-detail-grid"></div>
     </section>
 
-    <section class="panel tab-section" aria-labelledby="month-detail-title" data-tab-panel="summary">
-        <div class="section-heading">
-            <div>
-                <p class="eyebrow">Meses futuros</p>
-                <h2 id="month-detail-title">Detalle de proyección de cuotas</h2>
-            </div>
-            <p class="section-note">Los meses proyectados estiman las cuotas pendientes de resúmenes confirmados. Pesos y USD se mantienen separados, sin conversión.</p>
-        </div>
-        <p><span class="status-chip" id="month-detail-label">Detalle actual / proyección</span></p>
-        <div class="table-wrap">
-            <table>
-                <thead>
-                <tr>
-                    <th>Tipo</th>
-                    <th>Descripción</th>
-                    <th>Tarjeta</th>
-                    <th>Cuota</th>
-                    <th>Pesos</th>
-                    <th>USD</th>
-                    <th>Categoría</th>
-                    <th>Finalización estimada</th>
-                    <th>Resumen origen</th>
-                </tr>
-                </thead>
-                <tbody id="month-detail-table"></tbody>
-            </table>
-        </div>
-        <p class="empty-state" id="month-detail-empty" hidden>No hay filas de cuotas reales o proyectadas disponibles para este mes.</p>
-    </section>
-
     <section class="panel tab-section" id="tab-expenses-table" data-tab-panel="expenses-table" role="tabpanel" aria-labelledby="primary-tab-expenses-table" hidden>
         <div class="section-heading">
             <div>
-                <p class="eyebrow">Transacciones</p>
-                <h2 id="transactions-title">Filas del resumen</h2>
+                <p class="eyebrow">Gastos</p>
+                <h2 id="transactions-title">Tabla de gastos reales y proyectados</h2>
             </div>
-            <p class="section-note">La búsqueda por texto se aplica en el navegador después de cargar los filtros del servidor.</p>
+            <p class="section-note">Detalle unificado de gastos reales y proyecciones que impactan el mes seleccionado. No incluye filas temporales del simulador.</p>
         </div>
 
         <form class="filters" id="transaction-filters" aria-describedby="filters-summary transactions-empty">
             <label>
-                Tarjeta
+                Mes
+                <input id="filter-month" type="month" autocomplete="off">
+            </label>
+            <label>
+                Tarjeta / Medio
                 <select id="filter-card">
-                    <option value="">Todas las tarjetas</option>
+                    <option value="">Todas las tarjetas y medios</option>
                     <option value="VISA">Visa</option>
                     <option value="AMERICAN_EXPRESS">American Express</option>
                     <option value="MASTERCARD">Mastercard</option>
                     <option value="OTHER">Otra</option>
+                    <option value="MANUAL">Manual</option>
+                    <option value="CASH">Efectivo</option>
+                    <option value="LOAN">Préstamo</option>
                 </select>
             </label>
             <label>
@@ -418,29 +419,46 @@
                     <option value="PAYMENT">Pago</option>
                     <option value="REFUND">Reintegro</option>
                     <option value="ADJUSTMENT">Ajuste</option>
+                    <option value="ONE_PAYMENT">Un pago manual</option>
+                    <option value="CASH">Efectivo</option>
+                    <option value="LOAN">Préstamo</option>
+                </select>
+            </label>
+            <label>
+                Origen
+                <select id="filter-origin">
+                    <option value="">Todos los orígenes</option>
+                    <option value="REAL">Real</option>
+                    <option value="PROJECTION">Proyección</option>
+                    <option value="MANUAL">Manual</option>
+                    <option value="STATEMENT">Resumen</option>
                 </select>
             </label>
             <label>
                 Búsqueda
-                <input id="filter-search" type="search" placeholder="Descripción, notas, categoría o tarjeta">
+                <input id="filter-search" type="search" placeholder="Descripción, notas, categoría o tarjeta/medio">
             </label>
             <button class="secondary-button" type="submit">Aplicar filtros</button>
             <button class="secondary-button" type="button" id="clear-transaction-filters">Limpiar filtros</button>
         </form>
         <p class="filter-summary" id="filters-summary" aria-live="polite">Se muestra el mes de pago seleccionado sin filtros adicionales.</p>
 
-        <div class="table-wrap">
+        <div class="table-wrap expenses-table-wrap responsive-card-table">
             <table>
                 <thead>
                 <tr>
+                    <th>Mes</th>
                     <th>Fecha</th>
-                    <th>Tarjeta</th>
+                    <th>Origen</th>
+                    <th>Tarjeta / Medio</th>
                     <th>Descripción</th>
                     <th>Tipo</th>
                     <th>Categoría</th>
                     <th>Cuota</th>
                     <th>Pesos</th>
                     <th>USD</th>
+                    <th>Finalización</th>
+                    <th>Resumen origen</th>
                     <th>Notas</th>
                     <th>Acciones</th>
                 </tr>
@@ -448,7 +466,7 @@
                 <tbody id="transactions-table"></tbody>
             </table>
         </div>
-        <p class="empty-state" id="transactions-empty" hidden>No hay transacciones confirmadas que coincidan con el mes actual, la tarjeta, la categoría, el tipo y la búsqueda.</p>
+        <p class="empty-state" id="transactions-empty" hidden>No hay gastos reales ni proyectados para este mes.</p>
     </section>
 
     <section class="panel tab-section" id="tab-income-table" data-tab-panel="income-table" role="tabpanel" aria-labelledby="primary-tab-income-table" hidden>

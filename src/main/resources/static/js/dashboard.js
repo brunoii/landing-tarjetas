@@ -29,7 +29,6 @@ export function renderDashboard({ month, summary, statements, transactions, allS
     renderMonthTabs(month, months, allStatements);
     renderSummary(summary, transactions, monthDetail);
     renderCardDetails(statements, month, monthDetail);
-    renderMonthDetail(monthDetail, month);
 }
 
 function renderMonthTabs(selectedMonth, months, allStatements) {
@@ -122,14 +121,18 @@ function renderSummary(summary, transactions, monthDetail) {
         : monthDetail?.currentReal
             ? "Datos reales de resúmenes confirmados. Las proyecciones de este mes se ocultan para evitar doble conteo."
             : detailRows.some((row) => row.kind === "PROJECTION")
-                ? "Detalle de proyección de cuotas pendientes."
+                ? "Gastos proyectados visibles en Tabla Gastos."
                 : transactions.length > 0
                     ? "Cargado desde las transacciones del mes actual."
                     : "No hay transacciones cargadas para este mes.";
     document.querySelector("#one-payment-total").textContent = formatMoneyPair(onePaymentTotals);
     document.querySelector("#installment-total").textContent = formatMoneyPair(installmentTotals);
     document.querySelector("#charges-total").textContent = formatMoneyPair(chargesTotals);
-    document.querySelector("#record-counts").textContent = `${summary?.statementCount || 0} / ${detailRows.length || summary?.transactionCount || 0} / ${summary?.incomeCount || 0}`;
+    renderRecordCounts({
+        statements: summary?.statementCount || 0,
+        transactions: detailRows.length || summary?.transactionCount || 0,
+        incomes: summary?.incomeCount || 0
+    });
 }
 
 export function renderCardDetails(statements, selectedMonth, monthDetail) {
@@ -177,52 +180,12 @@ function totalByType(transactions, types) {
         .reduce((current, transaction) => addAmounts(current, transaction), emptyTotals());
 }
 
-function renderMonthDetail(monthDetail, selectedMonth) {
-    const table = document.querySelector("#month-detail-table");
-    const empty = document.querySelector("#month-detail-empty");
-    const label = document.querySelector("#month-detail-label");
-    const rows = monthDetail?.rows || [];
-    table.innerHTML = "";
-    label.textContent = monthDetail?.projectionOnly ? "Mes solo proyectado" : monthDetail?.currentReal ? "Detalle del mes confirmado" : "Sin datos confirmados del mes";
-    label.classList.toggle("projection", Boolean(monthDetail?.projectionOnly));
-
-    rows.forEach((row) => {
-        const tr = document.createElement("tr");
-        tr.className = row.kind === "PROJECTION" ? "projection-row" : "actual-row";
-        tr.innerHTML = `
-            <td><span class="status-chip ${row.kind === "PROJECTION" ? "projection" : "loaded"}">${escapeHtml(row.kind === "PROJECTION" ? "Proyección" : "Real")}</span></td>
-            <td>${escapeHtml(row.description || "—")}</td>
-            <td>${escapeHtml(row.cardAlias || cardLabel(row.cardBrand))}</td>
-            <td>${installmentText(row)}</td>
-            <td class="amount">${formatPesos(row.amountPesos)}</td>
-            <td class="amount">${formatUsd(row.amountUsd)}</td>
-            <td>${escapeHtml(row.categoryName || "Sin categoría")}</td>
-            <td>${formatMonth(row.estimatedFinishMonth)}</td>
-            <td>${sourceText(row)}</td>
-        `;
-        table.append(tr);
-    });
-
-    empty.hidden = rows.length > 0;
-    empty.textContent = monthDetail?.projectionOnly
-        ? "Este mes futuro está marcado como solo proyectado, pero no hay cuotas pendientes disponibles."
-        : monthDetail?.currentReal
-            ? "Este mes confirmado no tiene filas de detalle de cuotas para mostrar."
-            : `No hay datos de resúmenes confirmados para ${formatMonth(selectedMonth)}. Cargue y confirme un borrador, o elija un mes con proyecciones.`;
-}
-
-function installmentText(row) {
-    if (!row.installmentNumber && !row.totalInstallments) {
-        return "—";
-    }
-    return `${row.installmentNumber || "?"}/${row.totalInstallments || "?"}`;
-}
-
-function sourceText(row) {
-    if (!row.sourceStatementId) {
-        return row.sourceStatementMonth ? `Manual · ${formatMonth(row.sourceStatementMonth)}` : "Manual";
-    }
-    return `Resumen #${row.sourceStatementId} · ${formatMonth(row.sourceStatementMonth)}`;
+function renderRecordCounts({ statements, transactions, incomes }) {
+    document.querySelector("#record-counts").innerHTML = `
+        <span><strong>${Number(statements || 0)}</strong><small>Resúmenes</small></span>
+        <span><strong>${Number(transactions || 0)}</strong><small>Transacciones</small></span>
+        <span><strong>${Number(incomes || 0)}</strong><small>Ingresos</small></span>
+    `;
 }
 
 function aliasIncludes(statement, text) {

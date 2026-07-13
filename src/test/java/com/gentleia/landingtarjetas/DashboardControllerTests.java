@@ -201,6 +201,7 @@ class DashboardControllerTests {
         StatementTransaction pesos = new StatementTransaction(statement, "Fixture local purchase", TransactionType.PURCHASE);
         pesos.setTransactionDate(LocalDate.of(2026, 6, 10));
         pesos.setAmountPesos(new BigDecimal("2012382.98"));
+        pesos.setNotes("Fixture note");
         StatementTransaction usd = new StatementTransaction(statement, "Fixture USD purchase", TransactionType.PURCHASE);
         usd.setTransactionDate(LocalDate.of(2026, 6, 11));
         usd.setAmountUsd(new BigDecimal("25.50"));
@@ -212,6 +213,7 @@ class DashboardControllerTests {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.totalPesos").value(2012382.98))
                 .andExpect(jsonPath("$.totalUsd").value(25.50))
+                .andExpect(jsonPath("$.rows[?(@.description == 'Fixture local purchase' && @.transactionDate == '2026-06-10' && @.notes == 'Fixture note' && @.source == 'STATEMENT')]").exists())
                 .andExpect(jsonPath("$.totalsByCard[?(@.provider == 'SANTANDER' && @.cardBrand == 'VISA' && @.cardAlias == 'Santander Visa' && @.totalPesos == 2012382.98 && @.totalUsd == 25.50)]").exists());
     }
 
