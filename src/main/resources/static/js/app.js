@@ -1,12 +1,13 @@
 import { api, appendCsrfField } from "./api.js?v=20260712-security-hardening";
 import { categoryFormPayload, renderCategories, resetCategoryForm, showCategoryFeedback } from "./categories.js";
 import { renderDashboard } from "./dashboard.js?v=20260709-stage-7-polish";
-import { loadIncomes, setupIncomes } from "./incomes.js";
-import { renderManualExpenses, setManualExpenseApi, setManualExpenseCategories, setupManualExpenses } from "./manual-expenses.js";
+import { loadIncomes, setupIncomes } from "./incomes.js?v=20260710-mobile-slice-2";
+import { renderManualExpenses, setManualExpenseApi, setManualExpenseCategories, setupManualExpenses } from "./manual-expenses.js?v=20260710-mobile-slice-2";
 import { setupPrimaryTabs } from "./navigation.js";
-import { setSimulatorApi, setSimulatorCategories, setupSimulator } from "./simulator.js?v=20260709-stage-7-polish";
-import { renderDraftStatementList, setStatementCategories, setupStatementUpload } from "./statements.js";
-import { renderTransactions, rerenderTransactionsAfterSearch, resetTransactionFilters, setTransactionCategories, transactionFilters } from "./transactions.js";
+import { setSimulatorApi, setSimulatorCategories, setupSimulator } from "./simulator.js?v=20260711-mobile-simulator";
+import { renderDraftStatementList, setStatementCategories, setupStatementUpload } from "./statements.js?v=20260711-mobile-draft-responsive";
+import { setupSupermarket } from "./supermarket.js?v=20260711-mobile-supermarket";
+import { renderTransactions, rerenderTransactionsAfterSearch, resetTransactionFilters, setTransactionCategories, syncTransactionMonth, transactionFilters } from "./transactions.js?v=20260710-mobile-slice-2";
 import { currentYearMonth, setButtonBusy } from "./utils.js";
 
 const state = {
@@ -22,11 +23,14 @@ document.addEventListener("DOMContentLoaded", () => {
     setupManualExpenses({ onChanged: loadDashboard });
     setupIncomes({ onChanged: loadDashboard });
     setupSimulator();
+    setupSupermarket({ apiClient: api });
 
     const monthInput = document.querySelector("#month-input");
     monthInput.value = state.month;
+    syncTransactionMonth(state.month);
     monthInput.addEventListener("change", () => {
         state.month = monthInput.value || currentYearMonth();
+        syncTransactionMonth(state.month);
         loadDashboard();
     });
 
@@ -36,7 +40,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
     document.querySelector("#filter-search").addEventListener("input", rerenderTransactionsAfterSearch);
     document.querySelector("#clear-transaction-filters").addEventListener("click", () => {
-        resetTransactionFilters();
+        resetTransactionFilters(state.month);
         loadTransactions();
     });
 
@@ -50,6 +54,7 @@ document.addEventListener("DOMContentLoaded", () => {
         onDraftConfirmed: async (statement) => {
             state.month = String(statement.paymentMonth || state.month).slice(0, 7);
             monthInput.value = state.month;
+            syncTransactionMonth(state.month);
             await loadDashboard();
         },
         setStatus

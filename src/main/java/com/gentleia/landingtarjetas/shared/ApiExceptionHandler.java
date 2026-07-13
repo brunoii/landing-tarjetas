@@ -22,6 +22,8 @@ public class ApiExceptionHandler {
             Map.entry("amountUsd", "Importe en USD"),
             Map.entry("cardAlias", "Alias de tarjeta"),
             Map.entry("cardBrand", "Tarjeta"),
+            Map.entry("categoryId", "Categoría"),
+            Map.entry("checked", "Marcado"),
             Map.entry("color", "Color"),
             Map.entry("currentInstallment", "Cuota actual"),
             Map.entry("description", "Descripción"),

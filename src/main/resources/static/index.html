@@ -35,6 +35,7 @@
         <button type="button" id="primary-tab-income-upload" role="tab" aria-controls="tab-income-upload" aria-selected="false" data-tab-target="income-upload">Cargar Ingresos</button>
         <button type="button" id="primary-tab-simulator" role="tab" aria-controls="tab-simulator" aria-selected="false" data-tab-target="simulator">Simulador</button>
         <button type="button" id="primary-tab-categories" role="tab" aria-controls="tab-categories" aria-selected="false" data-tab-target="categories">Categorías</button>
+        <button type="button" id="primary-tab-supermarket" role="tab" aria-controls="tab-supermarket" aria-selected="false" data-tab-target="supermarket">Lista del super</button>
     </nav>
 
     <nav class="month-tabs tab-section" aria-label="Meses disponibles" id="month-tabs" data-tab-panel="summary"></nav>
@@ -640,6 +641,106 @@
         </form>
         <p class="form-feedback" id="category-feedback" role="status" aria-live="polite"></p>
         <div class="category-list" id="category-list"></div>
+    </section>
+
+    <section class="panel tab-section" id="tab-supermarket" data-tab-panel="supermarket" role="tabpanel" aria-labelledby="primary-tab-supermarket" hidden>
+        <div class="section-heading">
+            <div>
+                <p class="eyebrow">Lista del super</p>
+                <h2>Productos habituales</h2>
+            </div>
+            <p class="section-note">Guarde productos habituales, marque los pendientes de compra y genere una lista para copiar, descargar o compartir.</p>
+        </div>
+
+        <div class="supermarket-list-actions">
+            <button type="button" id="super-generate-list">Generar lista</button>
+            <button type="button" class="secondary-button" id="super-uncheck-all">Desmarcar todos</button>
+        </div>
+        <p class="filter-summary" id="super-items-summary" aria-live="polite">No hay productos cargados.</p>
+        <div class="table-wrap super-items-table-wrap responsive-card-table">
+            <table>
+                <thead>
+                <tr>
+                    <th>Comprar</th>
+                    <th>Producto</th>
+                    <th>Categoría</th>
+                    <th>Notas</th>
+                    <th>Acciones</th>
+                </tr>
+                </thead>
+                <tbody id="super-items-table"></tbody>
+            </table>
+        </div>
+        <p class="empty-state" id="super-items-empty" hidden>Todavía no hay productos cargados en la lista del super.</p>
+
+        <section class="super-generated-card" aria-labelledby="super-generated-title">
+            <div class="section-heading">
+                <div>
+                    <p class="eyebrow">Lista final</p>
+                    <h3 id="super-generated-title">Productos marcados</h3>
+                </div>
+                <div class="super-generated-actions">
+                    <button type="button" class="secondary-button" id="super-copy-list" disabled>Copiar</button>
+                    <button type="button" class="secondary-button" id="super-download-list" disabled>Descargar TXT</button>
+                    <button type="button" class="secondary-button" id="super-whatsapp-list" disabled>Compartir por WhatsApp</button>
+                </div>
+            </div>
+            <pre id="super-generated-list" class="super-generated-list">No hay productos marcados para comprar.</pre>
+        </section>
+
+        <div class="supermarket-layout">
+            <section class="supermarket-card" aria-labelledby="super-product-title">
+                <h3 id="super-product-title">Administrar productos</h3>
+                <form class="super-item-form" id="super-item-form" aria-describedby="super-feedback">
+                    <label>
+                        Nombre del producto
+                        <input id="super-item-name" type="text" data-super-limit="itemName" required placeholder="Ejemplo: Leche">
+                    </label>
+                    <label>
+                        Categoría
+                        <select id="super-item-category" required><option value="">Seleccionar categoría</option></select>
+                    </label>
+                    <label>
+                        Notas
+                        <input id="super-item-notes" type="text" data-super-limit="itemNotes" placeholder="Nota opcional">
+                    </label>
+                    <div class="form-actions">
+                        <button type="submit" id="super-item-submit">Crear producto</button>
+                        <button class="secondary-button" type="button" id="super-item-cancel-edit" hidden>Cancelar edición</button>
+                    </div>
+                </form>
+                <p class="form-feedback" id="super-feedback" role="status" aria-live="polite"></p>
+            </section>
+        </div>
+
+        <section class="supermarket-card super-category-management" aria-labelledby="super-category-title">
+            <div class="super-category-heading">
+                <div>
+                    <h3 id="super-category-title">Categorías</h3>
+                    <p class="section-note">Administrá las categorías del super solo cuando necesitás organizar productos.</p>
+                </div>
+                <button type="button" class="secondary-button" id="super-category-toggle" aria-expanded="false" aria-controls="super-category-table-wrap">Mostrar categorías</button>
+            </div>
+            <form class="super-category-form" id="super-category-form" aria-describedby="super-category-feedback">
+                <label>
+                    Categoría
+                    <input id="super-category-name" type="text" data-super-limit="categoryName" required placeholder="Ejemplo: Verdulería">
+                </label>
+                <button type="submit">Crear categoría</button>
+            </form>
+            <p class="form-feedback" id="super-category-feedback" role="status" aria-live="polite"></p>
+            <div class="table-wrap super-category-table-wrap responsive-card-table" id="super-category-table-wrap" hidden>
+                <table class="super-category-table">
+                    <thead>
+                    <tr>
+                        <th>Categoría</th>
+                        <th>Acciones</th>
+                    </tr>
+                    </thead>
+                    <tbody id="super-category-list"></tbody>
+                </table>
+            </div>
+        </section>
     </section>
 </main>
 

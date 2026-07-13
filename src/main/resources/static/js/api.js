@@ -164,6 +164,51 @@ export const api = {
     },
     deleteCategory(id) {
         return request(`/api/categories/${id}`, { method: "DELETE" });
+    },
+    superCategories() {
+        return request("/api/super/categories");
+    },
+    createSuperCategory(payload) {
+        return request("/api/super/categories", {
+            method: "POST",
+            body: JSON.stringify(payload)
+        });
+    },
+    updateSuperCategory(id, payload) {
+        return request(`/api/super/categories/${id}`, {
+            method: "PUT",
+            body: JSON.stringify(payload)
+        });
+    },
+    deleteSuperCategory(id) {
+        return request(`/api/super/categories/${id}`, { method: "DELETE" });
+    },
+    superItems() {
+        return request("/api/super/items");
+    },
+    createSuperItem(payload) {
+        return request("/api/super/items", {
+            method: "POST",
+            body: JSON.stringify(payload)
+        });
+    },
+    updateSuperItem(id, payload) {
+        return request(`/api/super/items/${id}`, {
+            method: "PUT",
+            body: JSON.stringify(payload)
+        });
+    },
+    deleteSuperItem(id) {
+        return request(`/api/super/items/${id}`, { method: "DELETE" });
+    },
+    updateSuperItemChecked(id, checked) {
+        return request(`/api/super/items/${id}/checked`, {
+            method: "PATCH",
+            body: JSON.stringify({ checked })
+        });
+    },
+    uncheckAllSuperItems() {
+        return request("/api/super/items/uncheck-all", { method: "POST" });
     }
 };
 

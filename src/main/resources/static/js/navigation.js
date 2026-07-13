@@ -7,7 +7,8 @@ export const primaryTabs = [
     { id: "income-table", label: "Tabla Ingresos" },
     { id: "income-upload", label: "Cargar Ingresos" },
     { id: "simulator", label: "Simulador" },
-    { id: "categories", label: "Categorías" }
+    { id: "categories", label: "Categorías" },
+    { id: "supermarket", label: "Lista del super" }
 ];
 
 export function primaryTabViewState(activeTabId = DEFAULT_PRIMARY_TAB_ID) {
