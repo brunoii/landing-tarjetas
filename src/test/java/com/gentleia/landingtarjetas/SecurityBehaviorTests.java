@@ -81,14 +81,27 @@ class SecurityBehaviorTests {
 
     @Test
     void invalidCredentialsShowGenericLoginError() throws Exception {
-        mockMvc.perform(formLogin("/login").user(USERNAME).password("wrong-password"))
-                .andExpect(status().is3xxRedirection())
-                .andExpect(redirectedUrl("/login?error"));
+        mockMvc.perform(post("/login")
+                        .param("username", USERNAME)
+                        .param("password", "wrong-password")
+                        .with(csrf()))
+                .andExpect(status().isFound())
+                .andExpect(header().string("Location", "/login?error"));
 
         mockMvc.perform(get("/login?error"))
                 .andExpect(status().isOk())
                 .andExpect(content().string(containsString("login-feedback")))
                 .andExpect(content().string(containsString("/js/login.js?v=20260713-pending-main")));
+    }
+
+    @Test
+    void rawLoginPostWithValidCredentialsRedirectsToDashboard() throws Exception {
+        mockMvc.perform(post("/login")
+                        .param("username", USERNAME)
+                        .param("password", PASSWORD)
+                        .with(csrf()))
+                .andExpect(status().isFound())
+                .andExpect(header().string("Location", "/"));
     }
 
     @Test

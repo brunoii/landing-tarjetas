@@ -51,7 +51,8 @@ public class SecurityConfig {
                         .anyRequest().authenticated())
                 .formLogin(form -> form
                         .loginPage("/login")
-                        .defaultSuccessUrl("/", false)
+                        .loginProcessingUrl("/login")
+                        .defaultSuccessUrl("/", true)
                         .failureUrl("/login?error")
                         .permitAll())
                 .logout(logout -> logout
