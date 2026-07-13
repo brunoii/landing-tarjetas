@@ -1,8 +1,9 @@
 import { api } from "./api.js?v=20260712-security-hardening";
-import { escapeHtml, formatMonth, setButtonBusy } from "./utils.js";
+import { escapeHtml, formatMonth, formatPesos, setButtonBusy } from "./utils.js";
 
 let incomeApi = api;
 let notifyIncomeChanged = async () => {};
+let visibleIncomes = new Map();
 
 export function setupIncomes({ apiClient = api, onChanged = async () => {} } = {}) {
     incomeApi = apiClient;
@@ -34,24 +35,37 @@ export function setupIncomes({ apiClient = api, onChanged = async () => {} } = {
         }
         await handleIncomeAction(button, row);
     });
+
+    document.querySelector("#income-edit-form")?.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        await updateIncomeFromModal(event.submitter || document.querySelector("#income-edit-save"));
+    });
+
+    document.querySelector("#income-edit-save-from-month")?.addEventListener("click", async (event) => {
+        await updateIncomeFromMonthFromModal(event.currentTarget);
+    });
+
+    document.querySelector("#income-edit-recurring")?.addEventListener("change", updateIncomeEditRecurringState);
+    document.querySelector("#income-edit-cancel")?.addEventListener("click", closeIncomeEditModal);
+    document.querySelector("#income-edit-close")?.addEventListener("click", closeIncomeEditModal);
 }
 
 export async function loadIncomes() {
     const month = document.querySelector("#income-filter-month")?.value || "";
     try {
-        showIncomeFeedback("Cargando ingresos...", false, true);
+        showIncomeTableFeedback("Cargando ingresos...", false, true);
         const incomes = month ? await incomeApi.incomes({ month }) : await incomeApi.incomes();
         renderIncomes(incomes, month);
-        showIncomeFeedback(incomeListStatus(incomes.length, month));
+        showIncomeTableFeedback(incomeListStatus(incomes.length, month));
     } catch (error) {
-        showIncomeFeedback(`No se pudieron cargar los ingresos: ${error.message}`, true);
+        showIncomeTableFeedback(`No se pudieron cargar los ingresos: ${error.message}`, true);
     }
 }
 
 export function incomeTypeLabel(type) {
     const labels = {
         SALARY: "Sueldo",
-        VARIABLE: "Variable"
+        VARIABLE: "Ingreso vario"
     };
     return labels[type] || "Ingreso";
 }
@@ -100,10 +114,12 @@ function renderIncomes(incomes, selectedMonth) {
     const empty = document.querySelector("#incomes-empty");
     const summary = document.querySelector("#income-filters-summary");
     table.innerHTML = "";
+    visibleIncomes = new Map(incomes.map((income) => [String(income.id), income]));
 
     incomes.forEach((income) => {
         const row = document.createElement("tr");
-        row.dataset.incomeId = income.id;
+        row.dataset.incomeId = String(income.id);
+        row.dataset.effectiveMonth = suggestedEffectiveMonth(income, selectedMonth);
         row.className = income.projected ? "projection-row" : "actual-row";
         row.innerHTML = incomeRowHtml(income, selectedMonth);
         table.append(row);
@@ -117,52 +133,26 @@ function renderIncomes(incomes, selectedMonth) {
 }
 
 function incomeRowHtml(income, selectedMonth) {
-    const effectiveMonth = suggestedEffectiveMonth(income, selectedMonth);
     return `
-        <td>${escapeHtml(formatMonth(selectedMonth || income.startMonth))}</td>
-        <td><input name="description" type="text" maxlength="240" value="${escapeHtml(income.description)}" aria-label="Descripción del ingreso"></td>
-        <td>${incomeTypeSelect(income.incomeType)}</td>
-        <td><input name="amountPesos" type="number" min="0" step="0.01" inputmode="decimal" value="${escapeHtml(income.amountPesos)}" aria-label="Monto del ingreso"></td>
-        <td>${recurringSelect(income.recurringMonthly)}</td>
-        <td><input name="startMonth" type="month" value="${escapeHtml(income.startMonth)}" aria-label="Aplica desde"></td>
-        <td><input name="endMonth" type="month" value="${escapeHtml(income.endMonth || "")}" aria-label="Aplica hasta"></td>
-        <td><span class="status-chip ${income.projected ? "projection" : "loaded"}">${incomeProjectionLabel(income)}</span></td>
-        <td><input name="notes" type="text" maxlength="500" value="${escapeHtml(income.notes || "")}" aria-label="Notas del ingreso"></td>
-        <td>
+        <td data-label="Mes">${escapeHtml(formatMonth(selectedMonth || income.startMonth))}</td>
+        <td data-label="Descripción">${escapeHtml(income.description)}</td>
+        <td data-label="Tipo">${escapeHtml(incomeTypeLabel(income.incomeType))}</td>
+        <td class="amount" data-label="Monto">${escapeHtml(formatPesos(income.amountPesos))}</td>
+        <td data-label="Recurrente">${recurringLabel(income.recurringMonthly)}</td>
+        <td data-label="Aplica desde">${escapeHtml(formatMonth(income.startMonth))}</td>
+        <td data-label="Aplica hasta">${income.endMonth ? escapeHtml(formatMonth(income.endMonth)) : "—"}</td>
+        <td data-label="Estado"><span class="status-chip ${income.projected ? "projection" : "loaded"}">${incomeProjectionLabel(income)}</span></td>
+        <td data-label="Notas">${income.notes ? escapeHtml(income.notes) : "—"}</td>
+        <td data-label="Acciones">
             <div class="row-actions income-actions">
-                <button type="button" class="secondary-button" data-income-action="save">Guardar</button>
-                ${income.recurringMonthly ? futureVersionControls(effectiveMonth) : ""}
-                <button type="button" class="danger-button" data-income-action="delete">Eliminar</button>
+                <button type="button" class="secondary-button icon-button" data-income-action="edit" aria-label="Editar ingreso ${escapeHtml(income.description)}" title="Editar">
+                    <span aria-hidden="true">✎</span><span class="sr-only">Editar</span>
+                </button>
+                <button type="button" class="danger-button icon-button" data-income-action="delete" aria-label="Eliminar ingreso ${escapeHtml(income.description)}" title="Eliminar">
+                    <span aria-hidden="true">🗑</span><span class="sr-only">Eliminar</span>
+                </button>
             </div>
         </td>
-    `;
-}
-
-function incomeTypeSelect(currentType) {
-    return `
-        <select name="incomeType" aria-label="Tipo de ingreso">
-            <option value="SALARY" ${currentType === "SALARY" ? "selected" : ""}>Sueldo</option>
-            <option value="VARIABLE" ${currentType === "VARIABLE" ? "selected" : ""}>Variable</option>
-        </select>
-    `;
-}
-
-function recurringSelect(isRecurring) {
-    return `
-        <select name="recurringMonthly" aria-label="Ingreso recurrente mensual">
-            <option value="true" ${isRecurring ? "selected" : ""}>Sí</option>
-            <option value="false" ${!isRecurring ? "selected" : ""}>No</option>
-        </select>
-    `;
-}
-
-function futureVersionControls(effectiveMonth) {
-    return `
-        <label class="inline-edit-field">
-            Mes efectivo
-            <input name="effectiveMonth" type="month" value="${escapeHtml(effectiveMonth)}" aria-label="Mes efectivo para editar ingreso recurrente">
-        </label>
-        <button type="button" class="secondary-button" data-income-action="save-from-month">Guardar desde mes</button>
     `;
 }
 
@@ -206,60 +196,133 @@ async function createIncome() {
 
 async function handleIncomeAction(button, row) {
     const action = button.dataset.incomeAction;
+    if (action === "edit") {
+        openIncomeEditModal(row.dataset.incomeId, row.dataset.effectiveMonth);
+        return;
+    }
+
     if (action === "delete") {
         await deleteIncome(button, row.dataset.incomeId);
         return;
     }
-
-    const payload = incomePayloadFromRow(row);
-    const validationMessage = validateIncomePayload(payload);
-    if (validationMessage) {
-        showIncomeFeedback(validationMessage, true);
-        return;
-    }
-
-    if (action === "save-from-month") {
-        await updateIncomeFromMonth(button, row.dataset.incomeId, row, payload);
-        return;
-    }
-
-    await updateIncome(button, row.dataset.incomeId, payload);
 }
 
-function incomePayloadFromRow(row) {
+function openIncomeEditModal(id, effectiveMonth) {
+    const income = visibleIncomes.get(String(id));
+    if (!income) {
+        showIncomeTableFeedback("No se encontró el ingreso seleccionado para editar.", true);
+        return;
+    }
+
+    setIncomeEditValue("#income-edit-id", id);
+    setIncomeEditValue("#income-edit-description", income.description);
+    setIncomeEditValue("#income-edit-type", income.incomeType || "SALARY");
+    setIncomeEditValue("#income-edit-amount", income.amountPesos);
+    setIncomeEditValue("#income-edit-recurring", String(Boolean(income.recurringMonthly)));
+    setIncomeEditValue("#income-edit-start-month", income.startMonth);
+    setIncomeEditValue("#income-edit-end-month", income.endMonth || "");
+    setIncomeEditValue("#income-edit-effective-month", effectiveMonth || suggestedEffectiveMonth(income, document.querySelector("#income-filter-month")?.value || ""));
+    setIncomeEditValue("#income-edit-notes", income.notes || "");
+    showIncomeEditFeedback("");
+    updateIncomeEditRecurringState();
+
+    const modal = document.querySelector("#income-edit-modal");
+    modal.hidden = false;
+    document.querySelector("#income-edit-description")?.focus?.();
+}
+
+function closeIncomeEditModal() {
+    const modal = document.querySelector("#income-edit-modal");
+    if (modal) {
+        modal.hidden = true;
+    }
+    showIncomeEditFeedback("");
+}
+
+function setIncomeEditValue(selector, value) {
+    const field = document.querySelector(selector);
+    if (field) {
+        field.value = value ?? "";
+    }
+}
+
+function incomePayloadFromModal() {
     return incomePayloadFromValues({
-        description: row.querySelector("[name='description']").value,
-        incomeType: row.querySelector("[name='incomeType']").value,
-        amountPesos: row.querySelector("[name='amountPesos']").value,
-        startMonth: row.querySelector("[name='startMonth']").value,
-        endMonth: row.querySelector("[name='endMonth']").value,
-        recurringMonthly: row.querySelector("[name='recurringMonthly']").value,
-        notes: row.querySelector("[name='notes']").value
+        description: document.querySelector("#income-edit-description")?.value,
+        incomeType: document.querySelector("#income-edit-type")?.value,
+        amountPesos: document.querySelector("#income-edit-amount")?.value,
+        startMonth: document.querySelector("#income-edit-start-month")?.value,
+        endMonth: document.querySelector("#income-edit-end-month")?.value,
+        recurringMonthly: document.querySelector("#income-edit-recurring")?.value,
+        notes: document.querySelector("#income-edit-notes")?.value
     });
+}
+
+function updateIncomeEditRecurringState() {
+    const isRecurring = document.querySelector("#income-edit-recurring")?.value === "true";
+    const effectiveMonthGroup = document.querySelector("#income-edit-effective-month-group");
+    const saveFromMonthButton = document.querySelector("#income-edit-save-from-month");
+    if (effectiveMonthGroup) {
+        effectiveMonthGroup.hidden = !isRecurring;
+    }
+    if (saveFromMonthButton) {
+        saveFromMonthButton.hidden = !isRecurring;
+    }
+}
+
+async function updateIncomeFromModal(button) {
+    const id = document.querySelector("#income-edit-id")?.value || "";
+    const payload = incomePayloadFromModal();
+    const validationMessage = validateIncomePayload(payload);
+    if (validationMessage) {
+        showIncomeEditFeedback(validationMessage, true);
+        return;
+    }
+
+    await updateIncome(button, id, payload);
+}
+
+async function updateIncomeFromMonthFromModal(button) {
+    const id = document.querySelector("#income-edit-id")?.value || "";
+    const payload = incomePayloadFromModal();
+    const validationMessage = validateIncomePayload(payload);
+    if (validationMessage) {
+        showIncomeEditFeedback(validationMessage, true);
+        return;
+    }
+    if (!payload.recurringMonthly) {
+        showIncomeEditFeedback("Guardar cambios desde el mes seleccionado está disponible solo para ingresos recurrentes.", true);
+        return;
+    }
+
+    await updateIncomeFromMonth(button, id, payload);
 }
 
 async function updateIncome(button, id, payload) {
     try {
         setButtonBusy(button, true, "Guardando...");
+        showIncomeEditFeedback("Guardando cambios...", false, true);
         await incomeApi.updateIncome(id, payload);
         await loadIncomes();
         await notifyIncomeChanged();
-        showIncomeFeedback("Ingreso actualizado correctamente. Tabla actualizada.");
+        closeIncomeEditModal();
+        showIncomeTableFeedback("Ingreso actualizado correctamente. Tabla actualizada.");
     } catch (error) {
-        showIncomeFeedback(`No se pudo actualizar el ingreso: ${error.message}`, true);
+        showIncomeEditFeedback(`No se pudo actualizar el ingreso: ${error.message}`, true);
     } finally {
         setButtonBusy(button, false);
     }
 }
 
-async function updateIncomeFromMonth(button, id, row, payload) {
-    const effectiveMonth = row.querySelector("[name='effectiveMonth']")?.value || "";
+async function updateIncomeFromMonth(button, id, payload) {
+    const effectiveMonth = document.querySelector("#income-edit-effective-month")?.value || "";
     if (!effectiveMonth) {
-        showIncomeFeedback("El mes efectivo es obligatorio para versionar un ingreso recurrente.", true);
+        showIncomeEditFeedback("El mes desde el que se aplican los cambios es obligatorio para versionar un ingreso recurrente.", true);
         return;
     }
     try {
         setButtonBusy(button, true, "Versionando...");
+        showIncomeEditFeedback("Guardando cambios desde el mes seleccionado...", false, true);
         await incomeApi.updateIncomeFromMonth(id, effectiveMonth, {
             ...payload,
             startMonth: effectiveMonth,
@@ -267,16 +330,21 @@ async function updateIncomeFromMonth(button, id, row, payload) {
         });
         await loadIncomes();
         await notifyIncomeChanged();
-        showIncomeFeedback("Ingreso recurrente actualizado desde el mes efectivo. Tabla actualizada.");
+        closeIncomeEditModal();
+        showIncomeTableFeedback("Ingreso recurrente actualizado desde el mes seleccionado. Tabla actualizada.");
     } catch (error) {
-        showIncomeFeedback(`No se pudo versionar el ingreso recurrente: ${error.message}`, true);
+        showIncomeEditFeedback(`No se pudo versionar el ingreso recurrente: ${error.message}`, true);
     } finally {
         setButtonBusy(button, false);
     }
 }
 
 async function deleteIncome(button, id) {
-    if (globalThis.confirm && !globalThis.confirm("¿Eliminar este ingreso? Esta acción también actualizará el resumen del panel.")) {
+    const income = visibleIncomes.get(String(id));
+    const confirmationText = income?.recurringMonthly
+        ? "¿Seguro que desea eliminar este ingreso? Si es recurrente, se eliminará el registro completo."
+        : "¿Seguro que desea eliminar este ingreso?";
+    if (globalThis.confirm && !globalThis.confirm(confirmationText)) {
         return;
     }
     try {
@@ -284,9 +352,9 @@ async function deleteIncome(button, id) {
         await incomeApi.deleteIncome(id);
         await loadIncomes();
         await notifyIncomeChanged();
-        showIncomeFeedback("Ingreso eliminado correctamente. Tabla actualizada.");
+        showIncomeTableFeedback("Ingreso eliminado correctamente. Tabla actualizada.");
     } catch (error) {
-        showIncomeFeedback(`No se pudo eliminar el ingreso: ${error.message}`, true);
+        showIncomeTableFeedback(`No se pudo eliminar el ingreso: ${error.message}`, true);
     } finally {
         setButtonBusy(button, false);
     }
@@ -298,7 +366,19 @@ function incomeListStatus(count, month) {
 }
 
 function showIncomeFeedback(message, isError = false, isLoading = false) {
-    const feedback = document.querySelector("#income-feedback");
+    showFeedback("#income-feedback", message, isError, isLoading);
+}
+
+function showIncomeTableFeedback(message, isError = false, isLoading = false) {
+    showFeedback("#income-table-feedback", message, isError, isLoading);
+}
+
+function showIncomeEditFeedback(message, isError = false, isLoading = false) {
+    showFeedback("#income-edit-feedback", message, isError, isLoading);
+}
+
+function showFeedback(selector, message, isError = false, isLoading = false) {
+    const feedback = document.querySelector(selector);
     if (!feedback) {
         return;
     }

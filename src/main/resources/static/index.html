@@ -488,7 +488,7 @@
         </form>
         <p class="filter-summary" id="income-filters-summary" aria-live="polite">Se muestran todos los ingresos. Filtre por mes si necesita una proyección mensual.</p>
 
-        <div class="table-wrap income-table-wrap">
+        <div class="table-wrap income-table-wrap responsive-card-table">
             <table>
                 <thead>
                 <tr>
@@ -499,7 +499,7 @@
                     <th>Recurrente</th>
                     <th>Aplica desde</th>
                     <th>Aplica hasta</th>
-                    <th>Estado real/proyectado</th>
+                    <th>Estado</th>
                     <th>Notas</th>
                     <th>Acciones</th>
                 </tr>
@@ -508,6 +508,67 @@
             </table>
         </div>
         <p class="empty-state" id="incomes-empty" hidden>No hay ingresos cargados para el filtro seleccionado.</p>
+        <p class="form-feedback" id="income-table-feedback" role="status" aria-live="polite"></p>
+
+        <div class="modal-overlay" id="income-edit-modal" hidden>
+            <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="income-edit-title">
+                <div class="modal-header">
+                    <div>
+                        <p class="eyebrow">Ingresos</p>
+                        <h3 id="income-edit-title">Editar ingreso</h3>
+                    </div>
+                    <button type="button" class="secondary-button icon-button" id="income-edit-close" aria-label="Cerrar edición">×</button>
+                </div>
+                <form class="income-edit-form" id="income-edit-form" aria-describedby="income-edit-help income-edit-feedback">
+                    <input id="income-edit-id" type="hidden">
+                    <label>
+                        Descripción
+                        <input id="income-edit-description" type="text" maxlength="240" required>
+                    </label>
+                    <label>
+                        Tipo
+                        <select id="income-edit-type" required>
+                            <option value="SALARY">Sueldo</option>
+                            <option value="VARIABLE">Ingreso vario</option>
+                        </select>
+                    </label>
+                    <label>
+                        Monto
+                        <input id="income-edit-amount" type="number" min="0" step="0.01" inputmode="decimal" required>
+                    </label>
+                    <label>
+                        Recurrente
+                        <select id="income-edit-recurring">
+                            <option value="true">Sí</option>
+                            <option value="false">No</option>
+                        </select>
+                    </label>
+                    <label>
+                        Aplica desde
+                        <input id="income-edit-start-month" type="month" required autocomplete="off">
+                    </label>
+                    <label>
+                        Aplica hasta
+                        <input id="income-edit-end-month" type="month" autocomplete="off">
+                    </label>
+                    <label id="income-edit-effective-month-group">
+                        Aplicar cambios desde
+                        <input id="income-edit-effective-month" type="month" autocomplete="off">
+                    </label>
+                    <p class="income-edit-help" id="income-edit-help">Use “Guardar cambios desde el mes seleccionado” para aplicar la edición desde ese mes y conservar sin cambios los meses anteriores.</p>
+                    <label class="income-edit-notes-field">
+                        Notas
+                        <input id="income-edit-notes" type="text" maxlength="500">
+                    </label>
+                    <p class="form-feedback income-edit-feedback" id="income-edit-feedback" role="status" aria-live="polite"></p>
+                    <div class="modal-actions">
+                        <button type="button" class="secondary-button" id="income-edit-cancel">Cancelar</button>
+                        <button type="submit" id="income-edit-save">Guardar cambios</button>
+                        <button type="button" class="secondary-button" id="income-edit-save-from-month">Guardar cambios desde el mes seleccionado</button>
+                    </div>
+                </form>
+            </div>
+        </div>
     </section>
 
     <section class="panel tab-section" id="tab-income-upload" data-tab-panel="income-upload" role="tabpanel" aria-labelledby="primary-tab-income-upload" hidden>
@@ -527,7 +588,7 @@
                 Tipo
                 <select id="income-type" required>
                     <option value="SALARY">Sueldo</option>
-                    <option value="VARIABLE">Variable</option>
+                    <option value="VARIABLE">Ingreso vario</option>
                 </select>
             </label>
             <label>
