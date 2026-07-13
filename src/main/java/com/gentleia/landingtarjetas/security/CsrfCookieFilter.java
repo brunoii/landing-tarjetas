@@ -7,8 +7,6 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.ResponseCookie;
 import org.springframework.security.web.csrf.CsrfToken;
 import org.springframework.web.filter.OncePerRequestFilter;
 
@@ -22,14 +20,7 @@ final class CsrfCookieFilter extends OncePerRequestFilter {
             csrfToken = (CsrfToken) request.getAttribute("_csrf");
         }
         if (csrfToken != null) {
-            String token = csrfToken.getToken();
-            ResponseCookie cookie = ResponseCookie.from("XSRF-TOKEN", token)
-                    .path("/")
-                    .httpOnly(false)
-                    .secure(request.isSecure())
-                    .sameSite("Lax")
-                    .build();
-            response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
+            csrfToken.getToken();
         }
         filterChain.doFilter(request, response);
     }

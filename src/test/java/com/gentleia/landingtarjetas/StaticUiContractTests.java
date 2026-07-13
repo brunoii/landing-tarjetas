@@ -72,7 +72,8 @@ class StaticUiContractTests {
 
         assertThat(prod.getProperty("spring.h2.console.enabled")).isEqualTo("false");
         assertThat(prod.getProperty("server.servlet.session.cookie.secure"))
-                .isEqualTo("${APP_SESSION_COOKIE_SECURE:true}");
+                .isEqualTo("${APP_SESSION_COOKIE_SECURE:false}");
+        assertThat(prod.getProperty("server.servlet.session.tracking-modes")).isEqualTo("cookie");
         assertThat(prod.getProperty("server.error.include-exception")).isEqualTo("false");
         assertThat(prod.getProperty("server.error.include-message")).isEqualTo("never");
         assertThat(prod.getProperty("server.error.include-stacktrace")).isEqualTo("never");

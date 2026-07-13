@@ -7,7 +7,6 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.cookie;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl;
@@ -17,6 +16,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockHttpSession;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
@@ -43,9 +43,13 @@ class SecurityBehaviorTests {
 
     @Test
     void unauthenticatedDashboardRedirectsToLogin() throws Exception {
-        mockMvc.perform(get("/"))
+        MvcResult result = mockMvc.perform(get("/"))
                 .andExpect(status().is3xxRedirection())
-                .andExpect(redirectedUrl("http://localhost/login"));
+                .andExpect(redirectedUrl("http://localhost/login"))
+                .andReturn();
+
+        assertThat(result.getResponse().getHeader(HttpHeaders.LOCATION))
+                .doesNotContain(";jsessionid=");
     }
 
     @Test
@@ -67,11 +71,10 @@ class SecurityBehaviorTests {
     }
 
     @Test
-    void loginAndStaticAssetsArePublicAndIssueCsrfCookie() throws Exception {
+    void loginAndStaticAssetsArePublic() throws Exception {
         mockMvc.perform(get("/login"))
                 .andExpect(status().isOk())
-                .andExpect(content().string(containsString("Ingresar al panel")))
-                .andExpect(cookie().exists("XSRF-TOKEN"));
+                .andExpect(content().string(containsString("Ingresar al panel")));
 
         mockMvc.perform(get("/css/styles.css"))
                 .andExpect(status().isOk());
@@ -151,4 +154,5 @@ class SecurityBehaviorTests {
                 .andReturn();
         return (MockHttpSession) login.getRequest().getSession(false);
     }
+
 }
