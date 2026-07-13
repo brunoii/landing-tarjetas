@@ -1,4 +1,4 @@
-import { appendCsrfField } from "./api.js?v=20260712-security-hardening";
+import { appendCsrfField } from "./api.js?v=20260713-pending-main";
 
 if (typeof document !== "undefined") {
     document.addEventListener("DOMContentLoaded", () => {

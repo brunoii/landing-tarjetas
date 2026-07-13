@@ -1,4 +1,4 @@
-import { api } from "./api.js?v=20260712-security-hardening";
+import { api } from "./api.js?v=20260713-pending-main";
 import { escapeHtml, formatMonth, formatPesos, setButtonBusy } from "./utils.js";
 
 let incomeApi = api;

@@ -1,4 +1,4 @@
-import { api, appendCsrfField } from "./api.js?v=20260712-security-hardening";
+import { api, appendCsrfField } from "./api.js?v=20260713-pending-main";
 import { categoryFormPayload, renderCategories, resetCategoryForm, showCategoryFeedback } from "./categories.js";
 import { renderDashboard } from "./dashboard.js?v=20260713-pending-main";
 import { loadIncomes, setupIncomes } from "./incomes.js?v=20260713-pending-main";

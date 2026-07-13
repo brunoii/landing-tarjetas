@@ -88,7 +88,7 @@ class SecurityBehaviorTests {
         mockMvc.perform(get("/login?error"))
                 .andExpect(status().isOk())
                 .andExpect(content().string(containsString("login-feedback")))
-                .andExpect(content().string(containsString("/js/login.js?v=20260711-security-login")));
+                .andExpect(content().string(containsString("/js/login.js?v=20260713-pending-main")));
     }
 
     @Test
