@@ -147,6 +147,10 @@ final class SpaCsrfTokenRequestHandler implements CsrfTokenRequestHandler {
         if (StringUtils.hasText(headerValue)) {
             return plain.resolveCsrfTokenValue(request, csrfToken);
         }
+        String parameterValue = request.getParameter(csrfToken.getParameterName());
+        if (StringUtils.hasText(parameterValue) && parameterValue.equals(csrfToken.getToken())) {
+            return plain.resolveCsrfTokenValue(request, csrfToken);
+        }
         return xor.resolveCsrfTokenValue(request, csrfToken);
     }
 }

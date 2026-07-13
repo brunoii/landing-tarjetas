@@ -48,13 +48,15 @@ class SecuritySessionCookieIntegrationTests {
     }
 
     @Test
-    void loginPageIssuesSingleNormalCsrfCookie() throws Exception {
+    void loginPageIssuesSingleNormalReadableCsrfCookie() throws Exception {
         HttpResponse<String> response = sendGet("/login", Map.of());
 
         assertThat(response.statusCode()).isEqualTo(200);
         List<String> xsrfCookies = setCookiesNamed(response, "XSRF-TOKEN");
         assertThat(xsrfCookies).hasSize(1);
-        assertThat(cookieValue(xsrfCookies.get(0))).hasSizeBetween(20, 128);
+        String xsrfCookie = xsrfCookies.get(0);
+        assertThat(cookieValue(xsrfCookie)).hasSizeBetween(20, 128);
+        assertThat(xsrfCookie).doesNotContain("HttpOnly");
     }
 
     @Test
@@ -75,9 +77,7 @@ class SecuritySessionCookieIntegrationTests {
         HttpResponse<String> loginPage = sendGet("/login", cookies);
         mergeSetCookies(cookies, loginPage);
 
-        HttpResponse<String> login = sendFormPost("/login", cookies, Map.of(
-                "username", USERNAME,
-                "password", PASSWORD));
+        HttpResponse<String> login = sendFormPost("/login", cookies, browserLoginForm(cookies, PASSWORD));
         mergeSetCookies(cookies, login);
 
         assertThat(login.statusCode()).isEqualTo(302);
@@ -95,9 +95,7 @@ class SecuritySessionCookieIntegrationTests {
         HttpResponse<String> loginPage = sendGet("/login", cookies);
         mergeSetCookies(cookies, loginPage);
 
-        HttpResponse<String> login = sendFormPost("/login", cookies, Map.of(
-                "username", USERNAME,
-                "password", "wrong-password"));
+        HttpResponse<String> login = sendFormPost("/login", cookies, browserLoginForm(cookies, "wrong-password"));
 
         assertThat(login.statusCode()).isEqualTo(302);
         assertThat(locationPathAndQuery(login)).isEqualTo("/login?error");
@@ -136,9 +134,7 @@ class SecuritySessionCookieIntegrationTests {
         HttpResponse<String> loginPage = sendGet("/login", cookies);
         mergeSetCookies(cookies, loginPage);
 
-        HttpResponse<String> login = sendFormPost("/login", cookies, Map.of(
-                "username", USERNAME,
-                "password", PASSWORD));
+        HttpResponse<String> login = sendFormPost("/login", cookies, browserLoginForm(cookies, PASSWORD));
         mergeSetCookies(cookies, login);
         assertThat(login.statusCode()).isEqualTo(302);
         assertThat(cookies).containsKey("JSESSIONID");
@@ -161,10 +157,15 @@ class SecuritySessionCookieIntegrationTests {
         HttpRequest.Builder builder = HttpRequest.newBuilder(uri(path))
                 .header("Content-Type", "application/x-www-form-urlencoded")
                 .POST(HttpRequest.BodyPublishers.ofString(formBody(form)));
-        if (cookies.containsKey("XSRF-TOKEN")) {
-            builder.header("X-XSRF-TOKEN", cookies.get("XSRF-TOKEN"));
-        }
         return send(builder, cookies);
+    }
+
+    private Map<String, String> browserLoginForm(Map<String, String> cookies, String password) {
+        assertThat(cookies).containsKey("XSRF-TOKEN");
+        return Map.of(
+                "username", USERNAME,
+                "password", password,
+                "_csrf", cookies.get("XSRF-TOKEN"));
     }
 
     private HttpResponse<String> send(HttpRequest.Builder builder, Map<String, String> cookies)
