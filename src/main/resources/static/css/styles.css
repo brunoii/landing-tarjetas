@@ -976,6 +976,15 @@ td {
     color: var(--warning);
 }
 
+.super-stock-value {
+    font-weight: 800;
+}
+
+.super-stock-value.unknown {
+    color: var(--muted);
+    font-weight: 700;
+}
+
 .super-category-group-row th {
     background: rgba(148, 163, 184, 0.12);
     color: var(--accent);

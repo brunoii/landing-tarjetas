@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Panel de tarjetas</title>
-    <link rel="stylesheet" href="/css/styles.css?v=20260714-super-inventory-stage1-ui">
+    <link rel="stylesheet" href="/css/styles.css?v=20260714-super-inventory-stage2-ui">
 </head>
 <body>
 <header class="topbar tab-section" id="tab-summary" data-tab-panel="summary" role="tabpanel" aria-labelledby="primary-tab-summary">
@@ -726,6 +726,8 @@
                     <th>Producto</th>
                     <th>Categoría</th>
                     <th>Configuración</th>
+                    <th>Stock</th>
+                    <th>Cantidad rápida</th>
                     <th>Notas</th>
                     <th>Acciones</th>
                 </tr>
@@ -771,6 +773,14 @@
                         <input id="super-item-objective" type="number" min="0.001" step="0.001" inputmode="decimal" placeholder="Ejemplo: 2">
                     </label>
                     <label>
+                        Cantidad rápida opcional
+                        <input id="super-item-quick-quantity" type="number" min="0.001" step="0.001" inputmode="decimal" placeholder="Ejemplo: 1">
+                    </label>
+                    <label>
+                        Stock actual
+                        <input id="super-item-current-stock" type="number" min="0" step="0.001" inputmode="decimal" placeholder="Sin cargar">
+                    </label>
+                    <label>
                         Notas
                         <input id="super-item-notes" type="text" data-super-limit="itemNotes" placeholder="Nota opcional">
                     </label>
@@ -814,6 +824,6 @@
     </section>
 </main>
 
-<script type="module" src="/js/app.js?v=20260714-super-inventory-stage1-ui"></script>
+<script type="module" src="/js/app.js?v=20260714-super-inventory-stage2-ui"></script>
 </body>
 </html>

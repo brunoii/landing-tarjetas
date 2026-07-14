@@ -8,8 +8,8 @@ const sourceRoot = path.resolve("src/main/resources/static/js");
 const moduleRoot = path.join(tmpdir(), `landing-tarjetas-static-ui-${process.pid}`);
 const staticModuleFileNames = ["api.js", "app.js", "categories.js", "dashboard.js", "incomes.js", "login.js", "manual-expenses.js", "navigation.js", "simulator.js", "statements.js", "supermarket.js", "transactions.js", "utils.js"];
 const freshStaticToken = "20260713-pending-main";
-const stage1ApiToken = "20260714-super-inventory-stage1-api";
-const stage1UiToken = "20260714-super-inventory-stage1-ui";
+const stage2ApiToken = "20260714-super-inventory-stage2-api";
+const stage2UiToken = "20260714-super-inventory-stage2-ui";
 const staleApiToken = "20260712-security-hardening";
 
 await rm(moduleRoot, { force: true, recursive: true });
@@ -61,7 +61,9 @@ try {
         groupSuperItems,
         setupSupermarket,
         superItemConfigurationLabel,
+        superItemQuickQuantityLabel,
         superItemPayloadFromValues,
+        superItemStockLabel,
         validateSuperItemPayload
     } = await import(pathToFileURL(path.join(moduleRoot, "supermarket.js")));
     const {
@@ -103,21 +105,25 @@ try {
     assert.doesNotMatch(indexHtml, /id="super-(?:item-name|item-notes|category-name)"[^>]+maxlength=/);
     assert.match(indexHtml, /id="super-category-toggle"[^>]+aria-expanded="false"[^>]+aria-controls="super-category-table-wrap"/);
     assert.match(indexHtml, /<table class="super-category-table">[\s\S]*<th>Categoría<\/th>[\s\S]*<tbody id="super-category-list">/);
-    assert.ok(indexHtml.includes(`/css/styles.css?v=${stage1UiToken}`));
-    assert.ok(indexHtml.includes(`/js/app.js?v=${stage1UiToken}`));
+    assert.match(indexHtml, /id="super-item-quick-quantity"[^>]+type="number"[^>]+min="0\.001"[^>]+step="0\.001"/);
+    assert.match(indexHtml, /id="super-item-current-stock"[^>]+type="number"[^>]+min="0"[^>]+step="0\.001"/);
+    assert.match(indexHtml, /<th>Stock<\/th>/);
+    assert.match(indexHtml, /<th>Cantidad rápida<\/th>/);
+    assert.ok(indexHtml.includes(`/css/styles.css?v=${stage2UiToken}`));
+    assert.ok(indexHtml.includes(`/js/app.js?v=${stage2UiToken}`));
     assert.ok(loginHtml.includes(`/css/styles.css?v=${freshStaticToken}`));
     assert.ok(loginHtml.includes(`/js/login.js?v=${freshStaticToken}`));
     assert.doesNotMatch(indexHtml, /\/css\/styles\.css\?v=20260711-security-login|\/js\/app\.js\?v=20260711-security-login/);
     assert.doesNotMatch(loginHtml, /\/css\/styles\.css\?v=20260711-security-login|\/js\/login\.js\?v=20260711-security-login/);
-    assert.ok(appSource.includes(`from "./api.js?v=${stage1ApiToken}"`));
+    assert.ok(appSource.includes(`from "./api.js?v=${stage2ApiToken}"`));
     assert.doesNotMatch(appSource, new RegExp(staleApiToken));
     assert.doesNotMatch(appSource, /from "\.\/api\.js"/);
     assert.ok(loginSource.includes(`from "./api.js?v=${freshStaticToken}"`));
     assert.doesNotMatch(loginSource, new RegExp(staleApiToken));
     assert.doesNotMatch(loginSource, /from "\.\/api\.js"/);
     const expectedApiImports = new Map([
-        ["app.js", `./api.js?v=${stage1ApiToken}`],
-        ["supermarket.js", `./api.js?v=${stage1ApiToken}`],
+        ["app.js", `./api.js?v=${stage2ApiToken}`],
+        ["supermarket.js", `./api.js?v=${stage2ApiToken}`],
         ["incomes.js", `./api.js?v=${freshStaticToken}`],
         ["login.js", `./api.js?v=${freshStaticToken}`],
         ["statements.js", `./api.js?v=${freshStaticToken}`]
@@ -140,7 +146,7 @@ try {
     for (const moduleName of ["dashboard", "incomes", "manual-expenses", "navigation", "simulator", "statements", "transactions"]) {
         assert.ok(appSource.includes(`./${moduleName}.js?v=${freshStaticToken}`), `${moduleName}.js should preserve origin/main cache token`);
     }
-    assert.ok(appSource.includes(`./supermarket.js?v=${stage1UiToken}`));
+    assert.ok(appSource.includes(`./supermarket.js?v=${stage2UiToken}`));
     assert.doesNotMatch(appSource, /20260709-stage-7-polish|20260710-mobile-slice-2|20260711-mobile-simulator|20260711-mobile-draft-responsive|20260711-mobile-supermarket/);
     assert.doesNotMatch(appSource, /from "\.\/statements\.js";/);
     const primaryTabButtons = extractPrimaryTabButtons(indexHtml);
@@ -293,6 +299,7 @@ try {
         await api.superItems();
         await api.createSuperItem({ name: "Leche", categoryId: 4, unit: "litro", habitualObjective: "2.000" });
         await api.updateSuperItem(9, { name: "Leche", categoryId: 4, checked: true });
+        await api.adjustSuperItemStock(9, "4.000");
         await api.updateSuperItemChecked(9, true);
         await api.uncheckAllSuperItems();
         await api.deleteSuperItem(9);
@@ -322,6 +329,7 @@ try {
         ["/api/super/items", "GET"],
         ["/api/super/items", "POST"],
         ["/api/super/items/9", "PUT"],
+        ["/api/super/items/9/stock-adjustments", "POST"],
         ["/api/super/items/9/checked", "PATCH"],
         ["/api/super/items/uncheck-all", "POST"],
         ["/api/super/items/9", "DELETE"],
@@ -330,7 +338,8 @@ try {
     assert.deepEqual(JSON.parse(apiCalls[2].options.body), { description: "Sueldo", amountPesos: "100", startMonth: "2026-07" });
     assert.deepEqual(JSON.parse(apiCalls[7].options.body), { description: "Préstamo", amountPesos: "100", startMonth: "2026-07" });
     assert.deepEqual(JSON.parse(apiCalls[15].options.body), { name: "Leche", categoryId: 4, unit: "litro", habitualObjective: "2.000" });
-    assert.deepEqual(JSON.parse(apiCalls[17].options.body), { checked: true });
+    assert.deepEqual(JSON.parse(apiCalls[17].options.body), { currentStock: "4.000" });
+    assert.deepEqual(JSON.parse(apiCalls[18].options.body), { checked: true });
 
     assert.equal(manualExpenseTypeLabel("ONE_PAYMENT"), "Un pago");
     assert.equal(manualExpenseTypeLabel("LOAN"), "Préstamo");
@@ -368,14 +377,17 @@ try {
         checked: "true",
         notes: "  Sin lactosa ",
         unit: "  litro ",
-        habitualObjective: "2.500"
+        habitualObjective: "2.500",
+        quickQuantity: "1.000",
+        currentStock: "9.000"
     }), {
         name: "Leche",
         categoryId: 4,
         checked: true,
         notes: "Sin lactosa",
         unit: "litro",
-        habitualObjective: "2.500"
+        habitualObjective: "2.500",
+        quickQuantity: "1.000"
     });
     assert.deepEqual(superItemPayloadFromValues({
         name: "  Leche ",
@@ -383,7 +395,8 @@ try {
         checked: false,
         notes: "  Sin lactosa ",
         unit: " ",
-        habitualObjective: ""
+        habitualObjective: "",
+        quickQuantity: ""
     }), {
         name: "Leche",
         categoryId: 4,
@@ -394,9 +407,15 @@ try {
     assert.equal(validateSuperItemPayload(superItemPayloadFromValues({ name: "Leche", categoryId: "" })), "La categoría del producto es obligatoria.");
     assert.equal(validateSuperItemPayload(superItemPayloadFromValues({ name: "Leche", categoryId: "4", habitualObjective: "0" })), "El objetivo habitual debe ser mayor que cero.");
     assert.equal(validateSuperItemPayload(superItemPayloadFromValues({ name: "Leche", categoryId: "4", habitualObjective: "-1" })), "El objetivo habitual debe ser mayor que cero.");
+    assert.equal(validateSuperItemPayload(superItemPayloadFromValues({ name: "Leche", categoryId: "4", quickQuantity: "0" })), "La cantidad rápida debe ser mayor que cero.");
     assert.equal(validateSuperItemPayload(superItemPayloadFromValues({ name: "Leche", categoryId: "4" })), "");
     assert.equal(superItemConfigurationLabel(superItemFixture({ unit: "kg", habitualObjective: "2.000", configured: true })), "Configurado");
     assert.equal(superItemConfigurationLabel(superItemFixture({ unit: "kg", habitualObjective: null, configured: false })), "Pendiente");
+    assert.equal(superItemStockLabel(superItemFixture({ currentStock: null, unit: "kg" })), "Sin cargar");
+    assert.equal(superItemStockLabel(superItemFixture({ currentStock: "0", unit: "kg" })), "0 kg");
+    assert.equal(superItemStockLabel(superItemFixture({ currentStock: "2.500", unit: "kg" })), "2.500 kg");
+    assert.equal(superItemQuickQuantityLabel(superItemFixture({ quickQuantity: "1.000", unit: "kg" })), "1.000 kg");
+    assert.equal(superItemQuickQuantityLabel(superItemFixture({ quickQuantity: "1.000", unit: null })), "—");
     assert.deepEqual([...groupSuperItems([
         superItemFixture({ name: "Zanahoria", categoryName: "Verdulería" }),
         superItemFixture({ name: "Arroz", categoryName: "Almacén" }),
@@ -408,9 +427,9 @@ try {
     assert.equal(generatedSuperListText([]), "No hay productos marcados para comprar.");
     assert.equal(generatedSuperListText([
         superItemFixture({ name: "Zanahoria", categoryName: "Verdulería", checked: true }),
-        superItemFixture({ name: "Arroz", categoryName: "Almacén", checked: true, notes: "Doble carolina" }),
+        superItemFixture({ name: "Arroz", categoryName: "Almacén", checked: true, notes: "Doble carolina", unit: "kg", quickQuantity: "1.000" }),
         superItemFixture({ name: "Leche", categoryName: "Lácteos", checked: false, unit: "litro", habitualObjective: "2.000", configured: true })
-    ]), "Lista del super\n\nAlmacén\n- Arroz — Doble carolina\n\nVerdulería\n- Zanahoria");
+    ]), "Lista del super\n\nAlmacén\n- Arroz (1.000 kg) — Doble carolina\n\nVerdulería\n- Zanahoria");
     assert.equal(generatedSuperListText([
         superItemFixture({ name: "Arroz", categoryName: "Almacén", checked: true, unit: "kg", habitualObjective: "3.000", configured: true, stock: "12", price: "99", barcode: "779", ocr: true, suggestedList: true }),
         superItemFixture({ name: "Leche", categoryName: "Lácteos", checked: true, movements: [{ quantity: 1 }], suggestedQuantity: 2 })
@@ -458,8 +477,11 @@ try {
         assert.match(supermarketDom.elements.get("#super-items-table").children[0].innerHTML, /Almacén/);
         assert.match(supermarketDom.elements.get("#super-items-table").children[2].innerHTML, /Verdulería/);
         assert.match(supermarketDom.elements.get("#super-items-table").children[1].innerHTML, /Configurado/);
+        assert.match(supermarketDom.elements.get("#super-items-table").children[1].innerHTML, /Sin cargar/);
+        assert.match(supermarketDom.elements.get("#super-items-table").children[1].innerHTML, /1\.000 kg/);
         assert.match(supermarketDom.elements.get("#super-items-table").children[3].innerHTML, /Pendiente/);
-        assertResponsiveCardLabels(supermarketDom.elements.get("#super-items-table").children[1].innerHTML, ["Estado", "Producto", "Categoría", "Configuración", "Notas", "Acciones"]);
+        assert.match(supermarketDom.elements.get("#super-items-table").children[3].innerHTML, />0</);
+        assertResponsiveCardLabels(supermarketDom.elements.get("#super-items-table").children[1].innerHTML, ["Estado", "Producto", "Categoría", "Configuración", "Stock", "Cantidad rápida", "Notas", "Acciones"]);
         assertResponsiveCardLabels(supermarketDom.elements.get("#super-category-list").children[0].innerHTML, ["Categoría", "Acciones"]);
 
         supermarketDom.elements.get("#super-category-name").value = "  Limpieza ";
@@ -497,17 +519,83 @@ try {
         supermarketDom.elements.get("#super-item-category").value = "4";
         supermarketDom.elements.get("#super-item-unit").value = "  unidad ";
         supermarketDom.elements.get("#super-item-objective").value = "12";
+        supermarketDom.elements.get("#super-item-quick-quantity").value = "6";
+        supermarketDom.elements.get("#super-item-current-stock").value = "9";
         supermarketDom.elements.get("#super-item-notes").value = " Maples ";
         const createItemCallStart = supermarketDom.api.calls.length;
         await supermarketDom.elements.get("#super-item-form").submit();
-        assertSupermarketMutationAfter(supermarketDom, createItemCallStart, {
-            method: "createSuperItem",
-            payload: { name: "Huevos", categoryId: 4, checked: false, notes: "Maples", unit: "unidad", habitualObjective: "12" }
-        });
+        assertSupermarketMutationsAfter(supermarketDom, createItemCallStart, [
+            {
+                method: "createSuperItem",
+                payload: { name: "Huevos", categoryId: 4, checked: false, notes: "Maples", unit: "unidad", habitualObjective: "12", quickQuantity: "6" }
+            },
+            { method: "adjustSuperItemStock", id: 99, currentStock: "9" }
+        ]);
         assert.equal(supermarketDom.elements.get("#super-item-form").resetCount, 1);
 
+        const originalAdjustSuperItemStock = supermarketDom.api.adjustSuperItemStock;
+        supermarketDom.api.adjustSuperItemStock = async (id, currentStock) => {
+            supermarketDom.api.calls.push({ method: "adjustSuperItemStock", id, currentStock });
+            throw new Error("Stock API no disponible");
+        };
+        supermarketDom.elements.get("#super-item-name").value = "  Café ";
+        supermarketDom.elements.get("#super-item-category").value = "4";
+        supermarketDom.elements.get("#super-item-unit").value = "  paquete ";
+        supermarketDom.elements.get("#super-item-objective").value = "2";
+        supermarketDom.elements.get("#super-item-quick-quantity").value = "1";
+        supermarketDom.elements.get("#super-item-current-stock").value = "5";
+        supermarketDom.elements.get("#super-item-notes").value = "  Molido ";
+        const partialCreateCallStart = supermarketDom.api.calls.length;
+        await supermarketDom.elements.get("#super-item-form").submit();
+        assert.deepEqual(supermarketDom.api.calls.slice(partialCreateCallStart).map((call) => call.method), [
+            "createSuperItem",
+            "adjustSuperItemStock",
+            "superCategories",
+            "superItems"
+        ]);
+        assert.deepEqual(supermarketDom.api.calls.slice(partialCreateCallStart, partialCreateCallStart + 2), [
+            {
+                method: "createSuperItem",
+                payload: { name: "Café", categoryId: 4, checked: false, notes: "Molido", unit: "paquete", habitualObjective: "2", quickQuantity: "1" }
+            },
+            { method: "adjustSuperItemStock", id: 99, currentStock: "5" }
+        ]);
+        assert.equal(supermarketDom.elements.get("#super-feedback").textContent, "Producto guardado, pero no se pudo ajustar el stock: Stock API no disponible");
+        assert.equal(supermarketDom.elements.get("#super-feedback").classList.contains("error-text"), true);
+        supermarketDom.api.adjustSuperItemStock = originalAdjustSuperItemStock;
+
+        const originalSuperItems = supermarketDom.api.superItems;
+        supermarketDom.api.adjustSuperItemStock = async (id, currentStock) => {
+            supermarketDom.api.calls.push({ method: "adjustSuperItemStock", id, currentStock });
+            throw new Error("Stock API no disponible");
+        };
+        supermarketDom.api.superItems = async () => {
+            supermarketDom.api.calls.push({ method: "superItems" });
+            throw new Error("Refresh API caída");
+        };
+        supermarketDom.elements.get("#super-item-name").value = "  Yerba ";
+        supermarketDom.elements.get("#super-item-category").value = "4";
+        supermarketDom.elements.get("#super-item-unit").value = "  paquete ";
+        supermarketDom.elements.get("#super-item-objective").value = "2";
+        supermarketDom.elements.get("#super-item-quick-quantity").value = "1";
+        supermarketDom.elements.get("#super-item-current-stock").value = "7";
+        supermarketDom.elements.get("#super-item-notes").value = "  Suave ";
+        const partialCreateRefreshFailureCallStart = supermarketDom.api.calls.length;
+        await supermarketDom.elements.get("#super-item-form").submit();
+        assert.deepEqual(supermarketDom.api.calls.slice(partialCreateRefreshFailureCallStart).map((call) => call.method), [
+            "createSuperItem",
+            "adjustSuperItemStock",
+            "superCategories",
+            "superItems"
+        ]);
+        assert.equal(supermarketDom.elements.get("#super-feedback").textContent, "Producto guardado, pero no se pudo ajustar el stock: Stock API no disponible. Además, no se pudo refrescar la lista: Refresh API caída");
+        assert.doesNotMatch(supermarketDom.elements.get("#super-feedback").textContent, /No se pudo guardar el producto/);
+        assert.equal(supermarketDom.elements.get("#super-feedback").classList.contains("error-text"), true);
+        supermarketDom.api.adjustSuperItemStock = originalAdjustSuperItemStock;
+        supermarketDom.api.superItems = originalSuperItems;
+
         await supermarketDom.elements.get("#super-generate-list").click();
-        assert.equal(supermarketDom.elements.get("#super-generated-list").textContent, "Lista del super\n\nAlmacén\n- Arroz — Doble carolina\n\nVerdulería\n- Banana");
+        assert.equal(supermarketDom.elements.get("#super-generated-list").textContent, "Lista del super\n\nAlmacén\n- Arroz (1.000 kg) — Doble carolina\n\nVerdulería\n- Banana");
         assert.equal(supermarketDom.elements.get("#super-copy-list").disabled, false);
 
         const checkedItemCallStart = supermarketDom.api.calls.length;
@@ -531,18 +619,83 @@ try {
         assert.equal(supermarketDom.elements.get("#super-item-name").value, "Arroz");
         assert.equal(supermarketDom.elements.get("#super-item-unit").value, "kg");
         assert.equal(supermarketDom.elements.get("#super-item-objective").value, "2.000");
+        assert.equal(supermarketDom.elements.get("#super-item-quick-quantity").value, "1.000");
+        assert.equal(supermarketDom.elements.get("#super-item-current-stock").value, "");
         assert.equal(supermarketDom.elements.get("#super-item-submit").textContent, "Guardar producto");
 
         supermarketDom.elements.get("#super-item-name").value = "Arroz integral";
         supermarketDom.elements.get("#super-item-unit").value = "kg";
         supermarketDom.elements.get("#super-item-objective").value = "3.000";
+        supermarketDom.elements.get("#super-item-quick-quantity").value = "2.000";
+        supermarketDom.elements.get("#super-item-current-stock").value = "4.000";
         const updateItemCallStart = supermarketDom.api.calls.length;
         await supermarketDom.elements.get("#super-item-form").submit();
-        assertSupermarketMutationAfter(supermarketDom, updateItemCallStart, {
-            method: "updateSuperItem",
-            id: 10,
-            payload: { name: "Arroz integral", categoryId: 4, checked: true, notes: "Doble carolina", unit: "kg", habitualObjective: "3.000" }
-        });
+        assertSupermarketMutationsAfter(supermarketDom, updateItemCallStart, [
+            {
+                method: "updateSuperItem",
+                id: 10,
+                payload: { name: "Arroz integral", categoryId: 4, checked: true, notes: "Doble carolina", unit: "kg", habitualObjective: "3.000", quickQuantity: "2.000" }
+            },
+            { method: "adjustSuperItemStock", id: 10, currentStock: "4.000" }
+        ]);
+
+        await supermarketDom.elements.get("#super-items-table").clickTarget(fakeSuperItemActionButton("edit", row, "10"));
+        supermarketDom.api.adjustSuperItemStock = async (id, currentStock) => {
+            supermarketDom.api.calls.push({ method: "adjustSuperItemStock", id, currentStock });
+            throw new Error("Timeout de stock");
+        };
+        supermarketDom.elements.get("#super-item-name").value = "Arroz doble";
+        supermarketDom.elements.get("#super-item-unit").value = "kg";
+        supermarketDom.elements.get("#super-item-objective").value = "4.000";
+        supermarketDom.elements.get("#super-item-quick-quantity").value = "2.500";
+        supermarketDom.elements.get("#super-item-current-stock").value = "6.000";
+        const partialUpdateCallStart = supermarketDom.api.calls.length;
+        await supermarketDom.elements.get("#super-item-form").submit();
+        assert.deepEqual(supermarketDom.api.calls.slice(partialUpdateCallStart).map((call) => call.method), [
+            "updateSuperItem",
+            "adjustSuperItemStock",
+            "superCategories",
+            "superItems"
+        ]);
+        assert.deepEqual(supermarketDom.api.calls.slice(partialUpdateCallStart, partialUpdateCallStart + 2), [
+            {
+                method: "updateSuperItem",
+                id: 10,
+                payload: { name: "Arroz doble", categoryId: 4, checked: true, notes: "Doble carolina", unit: "kg", habitualObjective: "4.000", quickQuantity: "2.500" }
+            },
+            { method: "adjustSuperItemStock", id: 10, currentStock: "6.000" }
+        ]);
+        assert.equal(supermarketDom.elements.get("#super-feedback").textContent, "Producto guardado, pero no se pudo ajustar el stock: Timeout de stock");
+        assert.equal(supermarketDom.elements.get("#super-feedback").classList.contains("error-text"), true);
+        supermarketDom.api.adjustSuperItemStock = originalAdjustSuperItemStock;
+
+        await supermarketDom.elements.get("#super-items-table").clickTarget(fakeSuperItemActionButton("edit", row, "10"));
+        supermarketDom.api.adjustSuperItemStock = async (id, currentStock) => {
+            supermarketDom.api.calls.push({ method: "adjustSuperItemStock", id, currentStock });
+            throw new Error("Timeout de stock");
+        };
+        supermarketDom.api.superItems = async () => {
+            supermarketDom.api.calls.push({ method: "superItems" });
+            throw new Error("Refresh API caída");
+        };
+        supermarketDom.elements.get("#super-item-name").value = "Arroz triple";
+        supermarketDom.elements.get("#super-item-unit").value = "kg";
+        supermarketDom.elements.get("#super-item-objective").value = "5.000";
+        supermarketDom.elements.get("#super-item-quick-quantity").value = "3.000";
+        supermarketDom.elements.get("#super-item-current-stock").value = "8.000";
+        const partialUpdateRefreshFailureCallStart = supermarketDom.api.calls.length;
+        await supermarketDom.elements.get("#super-item-form").submit();
+        assert.deepEqual(supermarketDom.api.calls.slice(partialUpdateRefreshFailureCallStart).map((call) => call.method), [
+            "updateSuperItem",
+            "adjustSuperItemStock",
+            "superCategories",
+            "superItems"
+        ]);
+        assert.equal(supermarketDom.elements.get("#super-feedback").textContent, "Producto guardado, pero no se pudo ajustar el stock: Timeout de stock. Además, no se pudo refrescar la lista: Refresh API caída");
+        assert.doesNotMatch(supermarketDom.elements.get("#super-feedback").textContent, /No se pudo guardar el producto/);
+        assert.equal(supermarketDom.elements.get("#super-feedback").classList.contains("error-text"), true);
+        supermarketDom.api.adjustSuperItemStock = originalAdjustSuperItemStock;
+        supermarketDom.api.superItems = originalSuperItems;
 
         const deleteItemCallStart = supermarketDom.api.calls.length;
         await supermarketDom.elements.get("#super-items-table").clickTarget(fakeSuperItemActionButton("delete", row, "10"));
@@ -1513,6 +1666,8 @@ function fakeAppDom() {
         "#super-item-category",
         "#super-item-unit",
         "#super-item-objective",
+        "#super-item-quick-quantity",
+        "#super-item-current-stock",
         "#super-item-notes",
         "#super-item-submit",
         "#super-item-cancel-edit",
@@ -1944,6 +2099,7 @@ function unifiedExpenseFixtures() {
 }
 
 function fakeElement() {
+    const classes = new Set();
     return {
         attributes: new Map(),
         children: [],
@@ -1953,7 +2109,18 @@ function fakeElement() {
         innerHTML: "",
         textContent: "",
         classList: {
-            toggle() {}
+            contains(className) {
+                return classes.has(className);
+            },
+            toggle(className, force) {
+                const shouldAdd = force ?? !classes.has(className);
+                if (shouldAdd) {
+                    classes.add(className);
+                } else {
+                    classes.delete(className);
+                }
+                return shouldAdd;
+            }
         },
         addEventListener() {},
         append(child) {
@@ -2164,7 +2331,9 @@ function fakeSupermarketDom() {
         "#super-item-name",
         "#super-item-unit",
         "#super-item-objective",
-        "#super-item-notes"
+        "#super-item-notes",
+        "#super-item-quick-quantity",
+        "#super-item-current-stock"
     ]) {
         elements.set(selector, fakeInput());
     }
@@ -2200,8 +2369,8 @@ function fakeSupermarketDom() {
         { id: 5, name: "Verdulería", active: true }
     ];
     const items = [
-        superItemFixture({ id: 10, name: "Arroz", categoryId: 4, categoryName: "Almacén", checked: true, notes: "Doble carolina", unit: "kg", habitualObjective: "2.000", configured: true }),
-        superItemFixture({ id: 11, name: "Banana", categoryId: 5, categoryName: "Verdulería", checked: true, unit: null, habitualObjective: null, configured: false }),
+        superItemFixture({ id: 10, name: "Arroz", categoryId: 4, categoryName: "Almacén", checked: true, notes: "Doble carolina", unit: "kg", habitualObjective: "2.000", quickQuantity: "1.000", currentStock: null, configured: true }),
+        superItemFixture({ id: 11, name: "Banana", categoryId: 5, categoryName: "Verdulería", checked: true, unit: null, habitualObjective: null, currentStock: "0", configured: false }),
         superItemFixture({ id: 12, name: "Zanahoria", categoryId: 5, categoryName: "Verdulería", checked: false })
     ];
     const api = {
@@ -2225,9 +2394,13 @@ function fakeSupermarketDom() {
         },
         async createSuperItem(payload) {
             calls.push({ method: "createSuperItem", payload });
+            return { id: 99, ...payload };
         },
         async updateSuperItem(id, payload) {
             calls.push({ method: "updateSuperItem", id, payload });
+        },
+        async adjustSuperItemStock(id, currentStock) {
+            calls.push({ method: "adjustSuperItemStock", id, currentStock });
         },
         async deleteSuperItem(id) {
             calls.push({ method: "deleteSuperItem", id });
@@ -2282,6 +2455,8 @@ function superItemFixture(overrides = {}) {
         notes: "",
         unit: null,
         habitualObjective: null,
+        currentStock: null,
+        quickQuantity: null,
         configured: false,
         active: true,
         ...overrides
@@ -2313,7 +2488,7 @@ function fakeSuperItemForm(elements) {
     };
     form.reset = function resetSuperItemForm() {
         this.resetCount += 1;
-        for (const selector of ["#super-item-name", "#super-item-category", "#super-item-unit", "#super-item-objective", "#super-item-notes"]) {
+        for (const selector of ["#super-item-name", "#super-item-category", "#super-item-unit", "#super-item-objective", "#super-item-notes", "#super-item-quick-quantity", "#super-item-current-stock"]) {
             elements.get(selector).value = "";
         }
     };
@@ -2545,7 +2720,6 @@ function assertNoUnsupportedSuperInventorySemantics(source) {
         "price",
         "prices",
         "history",
-        "stock",
         "movement",
         "movements",
         "barcode",
@@ -2560,9 +2734,13 @@ function assertNoUnsupportedSuperInventorySemantics(source) {
 }
 
 function assertSupermarketMutationAfter(supermarketDom, startIndex, expected) {
+    assertSupermarketMutationsAfter(supermarketDom, startIndex, [expected]);
+}
+
+function assertSupermarketMutationsAfter(supermarketDom, startIndex, expected) {
     const callsAfterAction = supermarketDom.api.calls.slice(startIndex);
     const mutationCalls = callsAfterAction.filter((call) => !["superCategories", "superItems"].includes(call.method));
-    assert.deepEqual(mutationCalls, [expected]);
+    assert.deepEqual(mutationCalls, expected);
 }
 
 function fakeClickableInput(value = "") {

@@ -198,6 +198,12 @@ export const api = {
             body: JSON.stringify(payload)
         });
     },
+    adjustSuperItemStock(id, currentStock) {
+        return request(`/api/super/items/${id}/stock-adjustments`, {
+            method: "POST",
+            body: JSON.stringify({ currentStock })
+        });
+    },
     deleteSuperItem(id) {
         return request(`/api/super/items/${id}`, { method: "DELETE" });
     },
