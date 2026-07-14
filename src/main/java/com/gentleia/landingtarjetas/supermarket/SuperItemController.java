@@ -53,6 +53,11 @@ public class SuperItemController {
         return supermarketService.updateItemChecked(id, request.checked());
     }
 
+    @PostMapping("/{id}/stock-adjustments")
+    public SuperItemResponse adjustStock(@PathVariable Long id, @Valid @RequestBody SuperItemStockAdjustmentRequest request) {
+        return supermarketService.adjustItemStock(id, request);
+    }
+
     @PostMapping("/uncheck-all")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void uncheckAll() {

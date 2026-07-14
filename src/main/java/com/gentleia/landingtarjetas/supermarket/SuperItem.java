@@ -42,6 +42,12 @@ public class SuperItem {
     @Column(precision = 10, scale = 3)
     private BigDecimal habitualObjective;
 
+    @Column(precision = 10, scale = 3)
+    private BigDecimal currentStock;
+
+    @Column(precision = 10, scale = 3)
+    private BigDecimal quickQuantity;
+
     @Column(nullable = false)
     private boolean active = true;
 
@@ -123,6 +129,22 @@ public class SuperItem {
 
     public void setHabitualObjective(BigDecimal habitualObjective) {
         this.habitualObjective = habitualObjective;
+    }
+
+    public BigDecimal getCurrentStock() {
+        return currentStock;
+    }
+
+    public void setCurrentStock(BigDecimal currentStock) {
+        this.currentStock = currentStock;
+    }
+
+    public BigDecimal getQuickQuantity() {
+        return quickQuantity;
+    }
+
+    public void setQuickQuantity(BigDecimal quickQuantity) {
+        this.quickQuantity = quickQuantity;
     }
 
     public boolean isConfigured() {

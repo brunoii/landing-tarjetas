@@ -13,10 +13,13 @@ public class SupermarketService {
 
     private final SuperCategoryRepository categoryRepository;
     private final SuperItemRepository itemRepository;
+    private final SuperItemStockMovementRepository stockMovementRepository;
 
-    public SupermarketService(SuperCategoryRepository categoryRepository, SuperItemRepository itemRepository) {
+    public SupermarketService(SuperCategoryRepository categoryRepository, SuperItemRepository itemRepository,
+            SuperItemStockMovementRepository stockMovementRepository) {
         this.categoryRepository = categoryRepository;
         this.itemRepository = itemRepository;
+        this.stockMovementRepository = stockMovementRepository;
     }
 
     @Transactional(readOnly = true)
@@ -65,6 +68,7 @@ public class SupermarketService {
 
     @Transactional
     public SuperItemResponse createItem(SuperItemRequest request) {
+        ensureNoGenericStockMutation(request);
         SuperCategory category = getActiveCategory(request.categoryId());
         SuperItem item = new SuperItem(request.name().trim(), category);
         item.setChecked(Boolean.TRUE.equals(request.checked()));
@@ -75,6 +79,7 @@ public class SupermarketService {
 
     @Transactional
     public SuperItemResponse updateItem(Long id, SuperItemRequest request) {
+        ensureNoGenericStockMutation(request);
         SuperItem item = getActiveItem(id);
         item.setName(request.name().trim());
         item.setCategory(getActiveCategory(request.categoryId()));
@@ -95,6 +100,15 @@ public class SupermarketService {
     public SuperItemResponse updateItemChecked(Long id, Boolean checked) {
         SuperItem item = getActiveItem(id);
         item.setChecked(Boolean.TRUE.equals(checked));
+        return SuperItemResponse.from(item);
+    }
+
+    @Transactional
+    public SuperItemResponse adjustItemStock(Long id, SuperItemStockAdjustmentRequest request) {
+        SuperItem item = getActiveItem(id);
+        BigDecimal previousStock = item.getCurrentStock();
+        item.setCurrentStock(request.currentStock());
+        stockMovementRepository.save(new SuperItemStockMovement(item, previousStock, request.currentStock()));
         return SuperItemResponse.from(item);
     }
 
@@ -141,6 +155,13 @@ public class SupermarketService {
         validateHabitualObjective(request.habitualObjective());
         item.setUnit(trimToNull(request.unit()));
         item.setHabitualObjective(request.habitualObjective());
+        item.setQuickQuantity(request.quickQuantity());
+    }
+
+    private void ensureNoGenericStockMutation(SuperItemRequest request) {
+        if (request.currentStock() != null) {
+            throw new IllegalArgumentException("No se puede modificar el stock desde el contrato genérico del producto");
+        }
     }
 
     private void validateHabitualObjective(BigDecimal habitualObjective) {

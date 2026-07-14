@@ -17,6 +17,8 @@ import com.gentleia.landingtarjetas.supermarket.SuperCategory;
 import com.gentleia.landingtarjetas.supermarket.SuperCategoryRepository;
 import com.gentleia.landingtarjetas.supermarket.SuperItem;
 import com.gentleia.landingtarjetas.supermarket.SuperItemRepository;
+import com.gentleia.landingtarjetas.supermarket.SuperItemStockMovement;
+import com.gentleia.landingtarjetas.supermarket.SuperItemStockMovementRepository;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -37,10 +39,13 @@ class SupermarketControllerTests {
     @Autowired
     private SuperItemRepository superItemRepository;
     @Autowired
+    private SuperItemStockMovementRepository superItemStockMovementRepository;
+    @Autowired
     private CategoryRepository categoryRepository;
 
     @BeforeEach
     void cleanDatabase() {
+        superItemStockMovementRepository.deleteAll();
         superItemRepository.deleteAll();
         superCategoryRepository.deleteAll();
     }
@@ -211,6 +216,258 @@ class SupermarketControllerTests {
     }
 
     @Test
+    void itemWithoutStockRespondsWithUnknownCurrentStock() throws Exception {
+        SuperCategory almacen = superCategoryRepository.save(new SuperCategory("Almacén"));
+
+        mockMvc.perform(post("/api/super/items")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(configuredItemPayload("Yerba", almacen.getId(), true, "Suave", "kg", "1.500")))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.currentStock").isEmpty())
+                .andExpect(jsonPath("$.quickQuantity").isEmpty());
+
+        mockMvc.perform(get("/api/super/items"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].currentStock").isEmpty())
+                .andExpect(jsonPath("$[0].quickQuantity").isEmpty());
+    }
+
+    @Test
+    void validQuickQuantityIsPersistedAndExposed() throws Exception {
+        SuperCategory almacen = superCategoryRepository.save(new SuperCategory("Almacén"));
+
+        mockMvc.perform(post("/api/super/items")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(itemPayloadWithQuickQuantity("Yerba", almacen.getId(), false, "Suave", "kg", "1.500", "2.250")))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.quickQuantity").value(2.25));
+
+        assertThat(superItemRepository.findAll()).singleElement()
+                .satisfies(item -> assertThat(item.getQuickQuantity()).isEqualByComparingTo("2.250"));
+    }
+
+    @Test
+    void successfulItemUpdateCanChangeQuickQuantity() throws Exception {
+        SuperCategory almacen = superCategoryRepository.save(new SuperCategory("Almacén"));
+        SuperItem item = new SuperItem("Yerba", almacen);
+        item.setCurrentStock(new BigDecimal("4.000"));
+        item.setQuickQuantity(new BigDecimal("1.000"));
+        SuperItem savedItem = superItemRepository.save(item);
+
+        mockMvc.perform(put("/api/super/items/{id}", savedItem.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(itemPayloadWithQuickQuantity("Yerba", almacen.getId(), false, "Suave", "kg", "1.500", "3.250")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.currentStock").value(4.0))
+                .andExpect(jsonPath("$.quickQuantity").value(3.25));
+
+        assertThat(superItemRepository.findById(savedItem.getId())).isPresent()
+                .get()
+                .satisfies(persisted -> {
+                    assertThat(persisted.getCurrentStock()).isEqualByComparingTo("4.000");
+                    assertThat(persisted.getQuickQuantity()).isEqualByComparingTo("3.250");
+                });
+    }
+
+    @Test
+    void invalidQuickQuantityIsRejectedAndDoesNotModifyTheItem() throws Exception {
+        SuperCategory almacen = superCategoryRepository.save(new SuperCategory("Almacén"));
+        SuperItem item = new SuperItem("Yerba", almacen);
+        item.setQuickQuantity(new BigDecimal("2.000"));
+        SuperItem savedItem = superItemRepository.save(item);
+
+        mockMvc.perform(put("/api/super/items/{id}", savedItem.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(itemPayloadWithQuickQuantity("Yerba", almacen.getId(), false, "Suave", "kg", "1.500", "0")))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("La validación de la solicitud falló"))
+                .andExpect(jsonPath("$.details[?(@ == 'Cantidad rápida: debe ser mayor a 0')]").exists());
+
+        assertThat(superItemRepository.findById(savedItem.getId())).isPresent()
+                .get()
+                .satisfies(persisted -> assertThat(persisted.getQuickQuantity()).isEqualByComparingTo("2.000"));
+    }
+
+    @Test
+    void decimalPrecisionBeyondThreeFractionDigitsIsRejected() throws Exception {
+        SuperCategory almacen = superCategoryRepository.save(new SuperCategory("Almacén"));
+        SuperItem item = new SuperItem("Aceite", almacen);
+        item.setCurrentStock(new BigDecimal("4.000"));
+        SuperItem savedItem = superItemRepository.save(item);
+
+        mockMvc.perform(post("/api/super/items")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(itemPayloadWithQuickQuantity("Yerba", almacen.getId(), false, "Suave", "kg", "1.500", "1.2345")))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.details[?(@ == 'Cantidad rápida: debe tener hasta 7 enteros y 3 decimales')]").exists());
+
+        mockMvc.perform(post("/api/super/items/{id}/stock-adjustments", savedItem.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "currentStock": 1.2345
+                                }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.details[?(@ == 'Stock actual: debe tener hasta 7 enteros y 3 decimales')]").exists());
+
+        assertThat(superItemRepository.findById(savedItem.getId())).isPresent()
+                .get()
+                .satisfies(persisted -> assertThat(persisted.getCurrentStock()).isEqualByComparingTo("4.000"));
+        assertThat(superItemStockMovementRepository.findAll()).isEmpty();
+    }
+
+    @Test
+    void genericCreateAndUpdateRejectCurrentStockAndPreservePersistedStock() throws Exception {
+        SuperCategory almacen = superCategoryRepository.save(new SuperCategory("Almacén"));
+        SuperItem item = new SuperItem("Aceite", almacen);
+        item.setCurrentStock(new BigDecimal("4.000"));
+        SuperItem savedItem = superItemRepository.save(item);
+
+        mockMvc.perform(post("/api/super/items")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(itemPayloadWithCurrentStock("Yerba", almacen.getId(), false, "Suave", "kg", "1.500", "3.000")))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("No se puede modificar el stock desde el contrato genérico del producto"));
+
+        mockMvc.perform(put("/api/super/items/{id}", savedItem.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(itemPayloadWithCurrentStock("Aceite", almacen.getId(), false, "Extra", "litro", "2.000", "9.000")))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("No se puede modificar el stock desde el contrato genérico del producto"));
+
+        assertThat(superItemRepository.findById(savedItem.getId())).isPresent()
+                .get()
+                .satisfies(persisted -> {
+                    assertThat(persisted.getCurrentStock()).isEqualByComparingTo("4.000");
+                    assertThat(persisted.getName()).isEqualTo("Aceite");
+                });
+    }
+
+    @Test
+    void focusedStockAdjustmentSetsAbsoluteStockAndPersistsInternalMovementAtomically() throws Exception {
+        SuperCategory almacen = superCategoryRepository.save(new SuperCategory("Almacén"));
+        SuperItem item = new SuperItem("Aceite", almacen);
+        item.setCurrentStock(new BigDecimal("4.000"));
+        SuperItem savedItem = superItemRepository.save(item);
+
+        mockMvc.perform(post("/api/super/items/{id}/stock-adjustments", savedItem.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "currentStock": 7.500
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.currentStock").value(7.5));
+
+        assertThat(superItemRepository.findById(savedItem.getId())).isPresent()
+                .get()
+                .satisfies(persisted -> assertThat(persisted.getCurrentStock()).isEqualByComparingTo("7.500"));
+        assertThat(superItemStockMovementRepository.findAll()).singleElement()
+                .satisfies(movement -> {
+                    assertThat(movement.getItem().getId()).isEqualTo(savedItem.getId());
+                    assertThat(movement.getMovementType()).isEqualTo(SuperItemStockMovement.MovementType.ADJUSTMENT);
+                    assertThat(movement.getPreviousStock()).isEqualByComparingTo("4.000");
+                    assertThat(movement.getResultingStock()).isEqualByComparingTo("7.500");
+                });
+
+        mockMvc.perform(post("/api/super/items/{id}/stock-adjustments", savedItem.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "currentStock": -1
+                                }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.details[?(@ == 'Stock actual: debe ser mayor o igual a 0')]").exists());
+
+        assertThat(superItemRepository.findById(savedItem.getId())).isPresent()
+                .get()
+                .satisfies(persisted -> assertThat(persisted.getCurrentStock()).isEqualByComparingTo("7.500"));
+        assertThat(superItemStockMovementRepository.findAll()).hasSize(1);
+    }
+
+    @Test
+    void focusedStockAdjustmentAcceptsZeroAsAValidAbsoluteStock() throws Exception {
+        SuperCategory almacen = superCategoryRepository.save(new SuperCategory("Almacén"));
+        SuperItem item = new SuperItem("Aceite", almacen);
+        item.setCurrentStock(new BigDecimal("4.000"));
+        SuperItem savedItem = superItemRepository.save(item);
+
+        mockMvc.perform(post("/api/super/items/{id}/stock-adjustments", savedItem.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "currentStock": 0
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.currentStock").value(0));
+
+        assertThat(superItemRepository.findById(savedItem.getId())).isPresent()
+                .get()
+                .satisfies(persisted -> assertThat(persisted.getCurrentStock()).isEqualByComparingTo("0.000"));
+        assertThat(superItemStockMovementRepository.findAll()).singleElement()
+                .satisfies(movement -> {
+                    assertThat(movement.getPreviousStock()).isEqualByComparingTo("4.000");
+                    assertThat(movement.getResultingStock()).isEqualByComparingTo("0.000");
+                });
+    }
+
+    @Test
+    void focusedStockAdjustmentFromUnknownStockRecordsNullPreviousStock() throws Exception {
+        SuperCategory almacen = superCategoryRepository.save(new SuperCategory("Almacén"));
+        SuperItem savedItem = superItemRepository.save(new SuperItem("Yerba", almacen));
+
+        mockMvc.perform(post("/api/super/items/{id}/stock-adjustments", savedItem.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "currentStock": 1.250
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.currentStock").value(1.25));
+
+        assertThat(superItemRepository.findById(savedItem.getId())).isPresent()
+                .get()
+                .satisfies(persisted -> assertThat(persisted.getCurrentStock()).isEqualByComparingTo("1.250"));
+        assertThat(superItemStockMovementRepository.findAll()).singleElement()
+                .satisfies(movement -> {
+                    assertThat(movement.getPreviousStock()).isNull();
+                    assertThat(movement.getResultingStock()).isEqualByComparingTo("1.250");
+                });
+    }
+
+    @Test
+    void checkedEndpointPreservesCurrentStockAndDoesNotCreateMovement() throws Exception {
+        SuperCategory almacen = superCategoryRepository.save(new SuperCategory("Almacén"));
+        SuperItem item = new SuperItem("Aceite", almacen);
+        item.setCurrentStock(new BigDecimal("4.000"));
+        SuperItem savedItem = superItemRepository.save(item);
+
+        mockMvc.perform(patch("/api/super/items/{id}/checked", savedItem.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "checked": true
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.checked").value(true))
+                .andExpect(jsonPath("$.currentStock").value(4.0));
+
+        assertThat(superItemRepository.findById(savedItem.getId())).isPresent()
+                .get()
+                .satisfies(persisted -> {
+                    assertThat(persisted.isChecked()).isTrue();
+                    assertThat(persisted.getCurrentStock()).isEqualByComparingTo("4.000");
+                });
+        assertThat(superItemStockMovementRepository.findAll()).isEmpty();
+    }
+
+    @Test
     void itemWithOnlyUnitRemainsPendingInventoryConfiguration() throws Exception {
         SuperCategory almacen = superCategoryRepository.save(new SuperCategory("Almacén"));
 
@@ -291,6 +548,8 @@ class SupermarketControllerTests {
         SuperItem item = checkedItem("Azúcar", almacen, true);
         item.setUnit("kg");
         item.setHabitualObjective(new BigDecimal("2.000"));
+        item.setQuickQuantity(new BigDecimal("1.000"));
+        item.setCurrentStock(new BigDecimal("3.000"));
         SuperItem savedItem = superItemRepository.save(item);
 
         mockMvc.perform(post("/api/super/items/uncheck-all"))
@@ -302,8 +561,11 @@ class SupermarketControllerTests {
                     assertThat(persisted.isChecked()).isFalse();
                     assertThat(persisted.getUnit()).isEqualTo("kg");
                     assertThat(persisted.getHabitualObjective()).isEqualByComparingTo("2.000");
+                    assertThat(persisted.getQuickQuantity()).isEqualByComparingTo("1.000");
+                    assertThat(persisted.getCurrentStock()).isEqualByComparingTo("3.000");
                     assertThat(persisted.isConfigured()).isTrue();
                 });
+        assertThat(superItemStockMovementRepository.findAll()).isEmpty();
     }
 
     @Test
@@ -386,6 +648,36 @@ class SupermarketControllerTests {
                   "habitualObjective": %s
                 }
                 """.formatted(name, categoryId, checked, notes, unit, habitualObjective);
+    }
+
+    private String itemPayloadWithQuickQuantity(String name, Long categoryId, boolean checked, String notes, String unit,
+            String habitualObjective, String quickQuantity) {
+        return """
+                {
+                  "name": "%s",
+                  "categoryId": %d,
+                  "checked": %s,
+                  "notes": "%s",
+                  "unit": "%s",
+                  "habitualObjective": %s,
+                  "quickQuantity": %s
+                }
+                """.formatted(name, categoryId, checked, notes, unit, habitualObjective, quickQuantity);
+    }
+
+    private String itemPayloadWithCurrentStock(String name, Long categoryId, boolean checked, String notes, String unit,
+            String habitualObjective, String currentStock) {
+        return """
+                {
+                  "name": "%s",
+                  "categoryId": %d,
+                  "checked": %s,
+                  "notes": "%s",
+                  "unit": "%s",
+                  "habitualObjective": %s,
+                  "currentStock": %s
+                }
+                """.formatted(name, categoryId, checked, notes, unit, habitualObjective, currentStock);
     }
 
     private String unitOnlyItemPayload(String name, Long categoryId, boolean checked, String notes, String unit) {
