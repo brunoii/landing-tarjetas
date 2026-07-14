@@ -22,6 +22,8 @@ class StaticUiContractTests {
 
     private static final Path STATIC_ROOT = Path.of("src/main/resources/static");
     private static final String FRESH_STATIC_TOKEN = "20260713-pending-main";
+    private static final String STAGE1_API_TOKEN = "20260714-super-inventory-stage1-api";
+    private static final String STAGE1_UI_TOKEN = "20260714-super-inventory-stage1-ui";
     private static final String STALE_API_TOKEN = "20260712-security-hardening";
 
     @Test
@@ -30,15 +32,15 @@ class StaticUiContractTests {
         String login = readStatic("login.html");
         String app = readStatic("js/app.js");
 
-        assertThat(index).contains("<link rel=\"stylesheet\" href=\"/css/styles.css?v=" + FRESH_STATIC_TOKEN + "\">");
+        assertThat(index).contains("<link rel=\"stylesheet\" href=\"/css/styles.css?v=" + STAGE1_UI_TOKEN + "\">");
         assertThat(index).doesNotContain("<link rel=\"stylesheet\" href=\"/css/styles.css\">");
-        assertThat(index).contains("<script type=\"module\" src=\"/js/app.js?v=" + FRESH_STATIC_TOKEN + "\"></script>");
+        assertThat(index).contains("<script type=\"module\" src=\"/js/app.js?v=" + STAGE1_UI_TOKEN + "\"></script>");
         assertThat(index).doesNotContain("/css/styles.css?v=20260711-security-login", "/js/app.js?v=20260711-security-login");
         assertThat(login).contains("<link rel=\"stylesheet\" href=\"/css/styles.css?v=" + FRESH_STATIC_TOKEN + "\">")
                 .contains("/js/login.js?v=" + FRESH_STATIC_TOKEN)
                 .doesNotContain("/css/styles.css?v=20260711-security-login", "/js/login.js?v=20260711-security-login");
         assertThat(app)
-                .contains("./api.js?v=" + FRESH_STATIC_TOKEN, "./categories.js", "./dashboard.js?v=" + FRESH_STATIC_TOKEN, "./incomes.js?v=" + FRESH_STATIC_TOKEN, "./manual-expenses.js?v=" + FRESH_STATIC_TOKEN, "./navigation.js?v=" + FRESH_STATIC_TOKEN, "./simulator.js?v=" + FRESH_STATIC_TOKEN, "./statements.js?v=" + FRESH_STATIC_TOKEN, "./supermarket.js?v=" + FRESH_STATIC_TOKEN, "./transactions.js?v=" + FRESH_STATIC_TOKEN, "./utils.js")
+                .contains("./api.js?v=" + STAGE1_API_TOKEN, "./categories.js", "./dashboard.js?v=" + FRESH_STATIC_TOKEN, "./incomes.js?v=" + FRESH_STATIC_TOKEN, "./manual-expenses.js?v=" + FRESH_STATIC_TOKEN, "./navigation.js?v=" + FRESH_STATIC_TOKEN, "./simulator.js?v=" + FRESH_STATIC_TOKEN, "./statements.js?v=" + FRESH_STATIC_TOKEN, "./supermarket.js?v=" + STAGE1_UI_TOKEN, "./transactions.js?v=" + FRESH_STATIC_TOKEN, "./utils.js")
                 .doesNotContain("./api.js\";")
                 .doesNotContain("./statements.js\";", "20260709-stage-7-polish", "20260710-mobile-slice-2", "20260711-mobile-simulator", "20260711-mobile-draft-responsive", "20260711-mobile-supermarket");
     }
@@ -82,8 +84,14 @@ class StaticUiContractTests {
     }
 
     @Test
-    void directApiImportsUseFreshApiVersion() throws IOException {
-        String approvedApiImport = "./api.js?v=" + FRESH_STATIC_TOKEN;
+    void directApiImportsUseExpectedCacheVersions() throws IOException {
+        Map<String, String> expectedApiImports = Map.of(
+                "js/app.js", "./api.js?v=" + STAGE1_API_TOKEN,
+                "js/supermarket.js", "./api.js?v=" + STAGE1_API_TOKEN,
+                "js/incomes.js", "./api.js?v=" + FRESH_STATIC_TOKEN,
+                "js/login.js", "./api.js?v=" + FRESH_STATIC_TOKEN,
+                "js/statements.js", "./api.js?v=" + FRESH_STATIC_TOKEN
+        );
         Pattern directApiImport = Pattern.compile("(?:from\\s+|import\\(\\s*)[\"'](\\./api\\.js(?:\\?[^\"']*)?)[\"']");
         var imports = new java.util.ArrayList<String>();
         var offenders = new java.util.ArrayList<String>();
@@ -94,14 +102,15 @@ class StaticUiContractTests {
                 directApiImport.matcher(source).results().forEach(result -> {
                     String importPath = result.group(1);
                     imports.add(STATIC_ROOT.relativize(file) + " -> " + importPath);
-                    if (!approvedApiImport.equals(importPath)) {
+                    String fileName = STATIC_ROOT.relativize(file).toString().replace('\\', '/');
+                    if (!expectedApiImports.getOrDefault(fileName, "").equals(importPath)) {
                         offenders.add(STATIC_ROOT.relativize(file) + " -> " + importPath);
                     }
                 });
             }
         }
 
-        assertThat(imports).isNotEmpty();
+        assertThat(imports).hasSize(expectedApiImports.size());
         assertThat(offenders).isEmpty();
         assertThat(imports).noneMatch(importPath -> importPath.contains(STALE_API_TOKEN));
     }
@@ -272,7 +281,7 @@ class StaticUiContractTests {
                 "name=\"password\"",
                 "/js/login.js?v=" + FRESH_STATIC_TOKEN
         );
-        assertThat(app).contains("from \"./api.js?v=" + FRESH_STATIC_TOKEN + "\"")
+        assertThat(app).contains("from \"./api.js?v=" + STAGE1_API_TOKEN + "\"")
                 .doesNotContain(STALE_API_TOKEN)
                 .doesNotContain("from \"./api.js\"");
         assertThat(loginJs).contains("from \"./api.js?v=" + FRESH_STATIC_TOKEN + "\"")
@@ -469,6 +478,10 @@ class StaticUiContractTests {
                 "id=\"super-item-form\"",
                 "Nombre del producto",
                 "id=\"super-item-name\" type=\"text\" data-super-limit=\"itemName\"",
+                "Unidad opcional",
+                "id=\"super-item-unit\" type=\"text\" data-super-limit=\"itemUnit\"",
+                "Objetivo habitual opcional",
+                "id=\"super-item-objective\" type=\"number\" min=\"0.001\" step=\"0.001\" inputmode=\"decimal\"",
                 "id=\"super-item-notes\" type=\"text\" data-super-limit=\"itemNotes\"",
                 "id=\"super-category-form\"",
                 "id=\"super-category-name\" type=\"text\" data-super-limit=\"categoryName\"",
@@ -477,6 +490,7 @@ class StaticUiContractTests {
                 "aria-controls=\"super-category-table-wrap\"",
                 "id=\"super-category-table-wrap\" hidden",
                 "class=\"super-category-table\"",
+                "<th>Configuración</th>",
                 "<th>Categoría</th>"
         );
         assertThat(index.indexOf("id=\"super-items-table\"")).isLessThan(index.indexOf("id=\"super-category-form\""));
@@ -503,8 +517,11 @@ class StaticUiContractTests {
         assertThat(supermarket).contains(
                 "generatedSuperListText",
                 "groupSuperItems",
+                "superItemConfigurationLabel",
                 "SUPER_FIELD_LIMITS",
                 "applySupermarketFieldLimits",
+                "habitualObjective",
+                "super-configuration-badge",
                 "https://wa.me/?text=${encodeURIComponent(text)}",
                 "lista-super-${date}.txt",
                 "¿Seguro que querés eliminar este producto de la lista del super?",
@@ -517,7 +534,8 @@ class StaticUiContractTests {
                 "Ocultar categorías",
                 "No hay productos marcados para comprar."
         );
-        assertThat(styles).contains(".supermarket-layout", ".super-item-form", ".super-items-table-wrap table", ".super-generated-list", ".super-category-table", ".super-category-actions");
+        assertThat(styles).contains(".supermarket-layout", ".super-item-form", ".super-items-table-wrap table", ".super-generated-list", ".super-category-table", ".super-category-actions", ".super-configuration-badge", ".super-configuration-badge.configured", ".super-configuration-badge.pending");
+        assertCssRuleHasDeclarations(styles, ".super-configuration-badge", Map.of("display", "inline-flex", "white-space", "normal"));
         assertThat(index).contains(
                 "class=\"table-wrap super-items-table-wrap responsive-card-table\"",
                 "class=\"table-wrap super-category-table-wrap responsive-card-table\""
@@ -529,8 +547,12 @@ class StaticUiContractTests {
                 "overflow-wrap", "anywhere"
         ));
         assertResponsiveCardTableMobileCssContract(styles);
-        assertDataLabels(supermarket, List.of("Estado", "Producto", "Categoría", "Notas", "Acciones"));
-        assertThat(supermarket).doesNotContain("amount", "price", "history");
+        assertDataLabels(supermarket, List.of("Estado", "Producto", "Categoría", "Configuración", "Notas", "Acciones"));
+        assertThat(supermarket).doesNotContain(
+                "amount", "price", "prices", "history",
+                "stock", "movement", "movements",
+                "barcode", "ocr", "suggested", "suggested-list", "suggestedList"
+        );
     }
 
     @Test
@@ -695,7 +717,7 @@ class StaticUiContractTests {
         assertDataLabels(statements, List.of("Fecha", "Descripción", "Tipo", "Categoría", "Cuota", "Total de cuotas", "Pesos", "USD", "Notas", "Acciones"));
         assertThat(statements).contains("aria-label=\"Fecha\"", "aria-label=\"Descripción\"", "aria-label=\"Pesos\"", "aria-label=\"USD\"");
         assertDataLabels(simulator, List.of("Mes", "Ingresos del mes", "Deuda/gastos actuales del mes", "Nueva cuota simulada", "Saldo actual sin simulación", "Saldo final con simulación"));
-        assertDataLabels(supermarket, List.of("Estado", "Producto", "Categoría", "Notas", "Acciones"));
+        assertDataLabels(supermarket, List.of("Estado", "Producto", "Categoría", "Configuración", "Notas", "Acciones"));
     }
 
     @Test
@@ -871,7 +893,8 @@ class StaticUiContractTests {
         return Map.of(
                 "categoryName", javaIntConstant(source, "CATEGORY_NAME_MAX_LENGTH"),
                 "itemName", javaIntConstant(source, "ITEM_NAME_MAX_LENGTH"),
-                "itemNotes", javaIntConstant(source, "ITEM_NOTES_MAX_LENGTH")
+                "itemNotes", javaIntConstant(source, "ITEM_NOTES_MAX_LENGTH"),
+                "itemUnit", javaIntConstant(source, "ITEM_UNIT_MAX_LENGTH")
         );
     }
 

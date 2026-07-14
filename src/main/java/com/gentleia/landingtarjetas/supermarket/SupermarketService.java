@@ -1,5 +1,6 @@
 package com.gentleia.landingtarjetas.supermarket;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 import org.springframework.http.HttpStatus;
@@ -68,6 +69,7 @@ public class SupermarketService {
         SuperItem item = new SuperItem(request.name().trim(), category);
         item.setChecked(Boolean.TRUE.equals(request.checked()));
         item.setNotes(trimToNull(request.notes()));
+        applyInventoryConfiguration(item, request);
         return SuperItemResponse.from(itemRepository.save(item));
     }
 
@@ -80,12 +82,13 @@ public class SupermarketService {
             item.setChecked(request.checked());
         }
         item.setNotes(trimToNull(request.notes()));
+        applyInventoryConfiguration(item, request);
         return SuperItemResponse.from(item);
     }
 
     @Transactional
     public void deleteItem(Long id) {
-        itemRepository.delete(getActiveItem(id));
+        getActiveItem(id).setActive(false);
     }
 
     @Transactional
@@ -132,5 +135,17 @@ public class SupermarketService {
             return null;
         }
         return value.trim();
+    }
+
+    private void applyInventoryConfiguration(SuperItem item, SuperItemRequest request) {
+        validateHabitualObjective(request.habitualObjective());
+        item.setUnit(trimToNull(request.unit()));
+        item.setHabitualObjective(request.habitualObjective());
+    }
+
+    private void validateHabitualObjective(BigDecimal habitualObjective) {
+        if (habitualObjective != null && habitualObjective.signum() <= 0) {
+            throw new IllegalArgumentException("Objetivo habitual: debe ser mayor a 0");
+        }
     }
 }

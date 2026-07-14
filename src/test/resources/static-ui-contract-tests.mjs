@@ -8,6 +8,8 @@ const sourceRoot = path.resolve("src/main/resources/static/js");
 const moduleRoot = path.join(tmpdir(), `landing-tarjetas-static-ui-${process.pid}`);
 const staticModuleFileNames = ["api.js", "app.js", "categories.js", "dashboard.js", "incomes.js", "login.js", "manual-expenses.js", "navigation.js", "simulator.js", "statements.js", "supermarket.js", "transactions.js", "utils.js"];
 const freshStaticToken = "20260713-pending-main";
+const stage1ApiToken = "20260714-super-inventory-stage1-api";
+const stage1UiToken = "20260714-super-inventory-stage1-ui";
 const staleApiToken = "20260712-security-hardening";
 
 await rm(moduleRoot, { force: true, recursive: true });
@@ -58,6 +60,7 @@ try {
         generatedSuperListText,
         groupSuperItems,
         setupSupermarket,
+        superItemConfigurationLabel,
         superItemPayloadFromValues,
         validateSuperItemPayload
     } = await import(pathToFileURL(path.join(moduleRoot, "supermarket.js")));
@@ -79,36 +82,46 @@ try {
     const loginHtml = await readFile(path.resolve("src/main/resources/static/login.html"), "utf8");
     const stylesCss = await readFile(path.resolve("src/main/resources/static/css/styles.css"), "utf8");
     const appSource = await readFile(path.resolve("src/main/resources/static/js/app.js"), "utf8");
+    const supermarketSource = await readFile(path.resolve("src/main/resources/static/js/supermarket.js"), "utf8");
     const loginSource = await readFile(path.resolve("src/main/resources/static/js/login.js"), "utf8");
     const statementsSource = await readFile(path.resolve("src/main/resources/static/js/statements.js"), "utf8");
     const supermarketLimitConstants = await readSupermarketLimitConstants();
     const expectedSuperFieldLimits = {
         categoryName: supermarketLimitConstants.CATEGORY_NAME_MAX_LENGTH,
         itemName: supermarketLimitConstants.ITEM_NAME_MAX_LENGTH,
-        itemNotes: supermarketLimitConstants.ITEM_NOTES_MAX_LENGTH
+        itemNotes: supermarketLimitConstants.ITEM_NOTES_MAX_LENGTH,
+        itemUnit: supermarketLimitConstants.ITEM_UNIT_MAX_LENGTH
     };
     assert.ok(indexHtml.indexOf('id="super-items-table"') < indexHtml.indexOf('id="super-category-form"'));
     assert.ok(indexHtml.indexOf('id="super-generated-list"') < indexHtml.indexOf('id="super-category-form"'));
     assert.deepEqual(SUPER_FIELD_LIMITS, expectedSuperFieldLimits);
     assert.match(indexHtml, /id="super-item-name"[^>]+data-super-limit="itemName"/);
+    assert.match(indexHtml, /id="super-item-unit"[^>]+data-super-limit="itemUnit"/);
+    assert.match(indexHtml, /id="super-item-objective"[^>]+type="number"[^>]+min="0\.001"[^>]+step="0\.001"/);
     assert.match(indexHtml, /id="super-item-notes"[^>]+data-super-limit="itemNotes"/);
     assert.match(indexHtml, /id="super-category-name"[^>]+data-super-limit="categoryName"/);
     assert.doesNotMatch(indexHtml, /id="super-(?:item-name|item-notes|category-name)"[^>]+maxlength=/);
     assert.match(indexHtml, /id="super-category-toggle"[^>]+aria-expanded="false"[^>]+aria-controls="super-category-table-wrap"/);
     assert.match(indexHtml, /<table class="super-category-table">[\s\S]*<th>Categoría<\/th>[\s\S]*<tbody id="super-category-list">/);
-    assert.ok(indexHtml.includes(`/css/styles.css?v=${freshStaticToken}`));
-    assert.ok(indexHtml.includes(`/js/app.js?v=${freshStaticToken}`));
+    assert.ok(indexHtml.includes(`/css/styles.css?v=${stage1UiToken}`));
+    assert.ok(indexHtml.includes(`/js/app.js?v=${stage1UiToken}`));
     assert.ok(loginHtml.includes(`/css/styles.css?v=${freshStaticToken}`));
     assert.ok(loginHtml.includes(`/js/login.js?v=${freshStaticToken}`));
     assert.doesNotMatch(indexHtml, /\/css\/styles\.css\?v=20260711-security-login|\/js\/app\.js\?v=20260711-security-login/);
     assert.doesNotMatch(loginHtml, /\/css\/styles\.css\?v=20260711-security-login|\/js\/login\.js\?v=20260711-security-login/);
-    assert.ok(appSource.includes(`from "./api.js?v=${freshStaticToken}"`));
+    assert.ok(appSource.includes(`from "./api.js?v=${stage1ApiToken}"`));
     assert.doesNotMatch(appSource, new RegExp(staleApiToken));
     assert.doesNotMatch(appSource, /from "\.\/api\.js"/);
     assert.ok(loginSource.includes(`from "./api.js?v=${freshStaticToken}"`));
     assert.doesNotMatch(loginSource, new RegExp(staleApiToken));
     assert.doesNotMatch(loginSource, /from "\.\/api\.js"/);
-    const approvedApiImport = `./api.js?v=${freshStaticToken}`;
+    const expectedApiImports = new Map([
+        ["app.js", `./api.js?v=${stage1ApiToken}`],
+        ["supermarket.js", `./api.js?v=${stage1ApiToken}`],
+        ["incomes.js", `./api.js?v=${freshStaticToken}`],
+        ["login.js", `./api.js?v=${freshStaticToken}`],
+        ["statements.js", `./api.js?v=${freshStaticToken}`]
+    ]);
     const directApiImportPattern = /(?:from\s+|import\(\s*)["'](\.\/api\.js(?:\?[^"']*)?)["']/g;
     const apiImportOffenders = [];
     let apiImportCount = 0;
@@ -116,17 +129,18 @@ try {
         const source = await readFile(path.join(sourceRoot, fileName), "utf8");
         for (const match of source.matchAll(directApiImportPattern)) {
             apiImportCount += 1;
-            if (match[1] !== approvedApiImport) {
+            if (match[1] !== expectedApiImports.get(fileName)) {
                 apiImportOffenders.push(`${fileName} -> ${match[1]}`);
             }
         }
     }
-    assert.ok(apiImportCount > 0);
+    assert.equal(apiImportCount, expectedApiImports.size);
     assert.deepEqual(apiImportOffenders, []);
     assert.deepEqual(apiImportOffenders.filter((offender) => offender.includes(staleApiToken)), []);
-    for (const moduleName of ["dashboard", "incomes", "manual-expenses", "navigation", "simulator", "statements", "supermarket", "transactions"]) {
-        assert.ok(appSource.includes(`./${moduleName}.js?v=${freshStaticToken}`), `${moduleName}.js should use fresh cache token`);
+    for (const moduleName of ["dashboard", "incomes", "manual-expenses", "navigation", "simulator", "statements", "transactions"]) {
+        assert.ok(appSource.includes(`./${moduleName}.js?v=${freshStaticToken}`), `${moduleName}.js should preserve origin/main cache token`);
     }
+    assert.ok(appSource.includes(`./supermarket.js?v=${stage1UiToken}`));
     assert.doesNotMatch(appSource, /20260709-stage-7-polish|20260710-mobile-slice-2|20260711-mobile-simulator|20260711-mobile-draft-responsive|20260711-mobile-supermarket/);
     assert.doesNotMatch(appSource, /from "\.\/statements\.js";/);
     const primaryTabButtons = extractPrimaryTabButtons(indexHtml);
@@ -158,6 +172,7 @@ try {
     assertCssRuleHasDeclarations(stylesCss, ".super-items-table-wrap.responsive-card-table", { "--responsive-card-label-width": "7.75rem" });
     assertCssRuleHasDeclarations(stylesCss, ".super-category-table-wrap.responsive-card-table", { "--responsive-card-label-width": "7.75rem" });
     assertCssRuleHasDeclarations(stylesCss, ".super-generated-list", { "white-space": "pre-wrap", "overflow-wrap": "anywhere" });
+    assertCssRuleHasDeclarations(stylesCss, ".super-configuration-badge", { display: "inline-flex", "white-space": "normal" });
     assertSimulatorResultsCellMobileOverflowContract(stylesCss);
     assertDraftEditTableMobileCssContract(stylesCss);
     assertCssMediaRuleHasDeclarations(stylesCss, "@media (max-width: 420px)", ".responsive-card-table td", { "grid-template-columns": "1fr" });
@@ -276,7 +291,7 @@ try {
         await api.updateSuperCategory(4, { name: "Verdulería" });
         await api.deleteSuperCategory(4);
         await api.superItems();
-        await api.createSuperItem({ name: "Leche", categoryId: 4 });
+        await api.createSuperItem({ name: "Leche", categoryId: 4, unit: "litro", habitualObjective: "2.000" });
         await api.updateSuperItem(9, { name: "Leche", categoryId: 4, checked: true });
         await api.updateSuperItemChecked(9, true);
         await api.uncheckAllSuperItems();
@@ -314,6 +329,7 @@ try {
     ]);
     assert.deepEqual(JSON.parse(apiCalls[2].options.body), { description: "Sueldo", amountPesos: "100", startMonth: "2026-07" });
     assert.deepEqual(JSON.parse(apiCalls[7].options.body), { description: "Préstamo", amountPesos: "100", startMonth: "2026-07" });
+    assert.deepEqual(JSON.parse(apiCalls[15].options.body), { name: "Leche", categoryId: 4, unit: "litro", habitualObjective: "2.000" });
     assert.deepEqual(JSON.parse(apiCalls[17].options.body), { checked: true });
 
     assert.equal(manualExpenseTypeLabel("ONE_PAYMENT"), "Un pago");
@@ -350,16 +366,37 @@ try {
         name: "  Leche ",
         categoryId: "4",
         checked: "true",
-        notes: "  Sin lactosa "
+        notes: "  Sin lactosa ",
+        unit: "  litro ",
+        habitualObjective: "2.500"
     }), {
         name: "Leche",
         categoryId: 4,
         checked: true,
+        notes: "Sin lactosa",
+        unit: "litro",
+        habitualObjective: "2.500"
+    });
+    assert.deepEqual(superItemPayloadFromValues({
+        name: "  Leche ",
+        categoryId: "4",
+        checked: false,
+        notes: "  Sin lactosa ",
+        unit: " ",
+        habitualObjective: ""
+    }), {
+        name: "Leche",
+        categoryId: 4,
+        checked: false,
         notes: "Sin lactosa"
     });
     assert.equal(validateSuperItemPayload(superItemPayloadFromValues({ name: " ", categoryId: "4" })), "El nombre del producto es obligatorio.");
     assert.equal(validateSuperItemPayload(superItemPayloadFromValues({ name: "Leche", categoryId: "" })), "La categoría del producto es obligatoria.");
+    assert.equal(validateSuperItemPayload(superItemPayloadFromValues({ name: "Leche", categoryId: "4", habitualObjective: "0" })), "El objetivo habitual debe ser mayor que cero.");
+    assert.equal(validateSuperItemPayload(superItemPayloadFromValues({ name: "Leche", categoryId: "4", habitualObjective: "-1" })), "El objetivo habitual debe ser mayor que cero.");
     assert.equal(validateSuperItemPayload(superItemPayloadFromValues({ name: "Leche", categoryId: "4" })), "");
+    assert.equal(superItemConfigurationLabel(superItemFixture({ unit: "kg", habitualObjective: "2.000", configured: true })), "Configurado");
+    assert.equal(superItemConfigurationLabel(superItemFixture({ unit: "kg", habitualObjective: null, configured: false })), "Pendiente");
     assert.deepEqual([...groupSuperItems([
         superItemFixture({ name: "Zanahoria", categoryName: "Verdulería" }),
         superItemFixture({ name: "Arroz", categoryName: "Almacén" }),
@@ -372,8 +409,13 @@ try {
     assert.equal(generatedSuperListText([
         superItemFixture({ name: "Zanahoria", categoryName: "Verdulería", checked: true }),
         superItemFixture({ name: "Arroz", categoryName: "Almacén", checked: true, notes: "Doble carolina" }),
-        superItemFixture({ name: "Leche", categoryName: "Lácteos", checked: false })
+        superItemFixture({ name: "Leche", categoryName: "Lácteos", checked: false, unit: "litro", habitualObjective: "2.000", configured: true })
     ]), "Lista del super\n\nAlmacén\n- Arroz — Doble carolina\n\nVerdulería\n- Zanahoria");
+    assert.equal(generatedSuperListText([
+        superItemFixture({ name: "Arroz", categoryName: "Almacén", checked: true, unit: "kg", habitualObjective: "3.000", configured: true, stock: "12", price: "99", barcode: "779", ocr: true, suggestedList: true }),
+        superItemFixture({ name: "Leche", categoryName: "Lácteos", checked: true, movements: [{ quantity: 1 }], suggestedQuantity: 2 })
+    ]), "Lista del super\n\nAlmacén\n- Arroz\n\nLácteos\n- Leche");
+    assertNoUnsupportedSuperInventorySemantics(supermarketSource);
 
     const supermarketDom = fakeSupermarketDom();
     const previousSupermarketDocument = globalThis.document;
@@ -400,6 +442,7 @@ try {
         assert.equal(supermarketDom.elements.get("#super-category-name").maxLength, SUPER_FIELD_LIMITS.categoryName);
         assert.equal(supermarketDom.elements.get("#super-item-name").maxLength, SUPER_FIELD_LIMITS.itemName);
         assert.equal(supermarketDom.elements.get("#super-item-notes").maxLength, SUPER_FIELD_LIMITS.itemNotes);
+        assert.equal(supermarketDom.elements.get("#super-item-unit").maxLength, SUPER_FIELD_LIMITS.itemUnit);
         assert.match(supermarketDom.elements.get("#super-item-category").innerHTML, /Almacén/);
         assert.equal(supermarketDom.elements.get("#super-category-table-wrap").hidden, true);
         assert.equal(supermarketDom.elements.get("#super-category-toggle").textContent, "Mostrar categorías (2)");
@@ -414,7 +457,9 @@ try {
         assert.equal(supermarketDom.elements.get("#super-items-table").children.length, 5);
         assert.match(supermarketDom.elements.get("#super-items-table").children[0].innerHTML, /Almacén/);
         assert.match(supermarketDom.elements.get("#super-items-table").children[2].innerHTML, /Verdulería/);
-        assertResponsiveCardLabels(supermarketDom.elements.get("#super-items-table").children[1].innerHTML, ["Estado", "Producto", "Categoría", "Notas", "Acciones"]);
+        assert.match(supermarketDom.elements.get("#super-items-table").children[1].innerHTML, /Configurado/);
+        assert.match(supermarketDom.elements.get("#super-items-table").children[3].innerHTML, /Pendiente/);
+        assertResponsiveCardLabels(supermarketDom.elements.get("#super-items-table").children[1].innerHTML, ["Estado", "Producto", "Categoría", "Configuración", "Notas", "Acciones"]);
         assertResponsiveCardLabels(supermarketDom.elements.get("#super-category-list").children[0].innerHTML, ["Categoría", "Acciones"]);
 
         supermarketDom.elements.get("#super-category-name").value = "  Limpieza ";
@@ -450,12 +495,14 @@ try {
 
         supermarketDom.elements.get("#super-item-name").value = "  Huevos ";
         supermarketDom.elements.get("#super-item-category").value = "4";
+        supermarketDom.elements.get("#super-item-unit").value = "  unidad ";
+        supermarketDom.elements.get("#super-item-objective").value = "12";
         supermarketDom.elements.get("#super-item-notes").value = " Maples ";
         const createItemCallStart = supermarketDom.api.calls.length;
         await supermarketDom.elements.get("#super-item-form").submit();
         assertSupermarketMutationAfter(supermarketDom, createItemCallStart, {
             method: "createSuperItem",
-            payload: { name: "Huevos", categoryId: 4, checked: false, notes: "Maples" }
+            payload: { name: "Huevos", categoryId: 4, checked: false, notes: "Maples", unit: "unidad", habitualObjective: "12" }
         });
         assert.equal(supermarketDom.elements.get("#super-item-form").resetCount, 1);
 
@@ -482,15 +529,19 @@ try {
         const row = supermarketDom.elements.get("#super-items-table").children[1];
         await supermarketDom.elements.get("#super-items-table").clickTarget(fakeSuperItemActionButton("edit", row, "10"));
         assert.equal(supermarketDom.elements.get("#super-item-name").value, "Arroz");
+        assert.equal(supermarketDom.elements.get("#super-item-unit").value, "kg");
+        assert.equal(supermarketDom.elements.get("#super-item-objective").value, "2.000");
         assert.equal(supermarketDom.elements.get("#super-item-submit").textContent, "Guardar producto");
 
         supermarketDom.elements.get("#super-item-name").value = "Arroz integral";
+        supermarketDom.elements.get("#super-item-unit").value = "kg";
+        supermarketDom.elements.get("#super-item-objective").value = "3.000";
         const updateItemCallStart = supermarketDom.api.calls.length;
         await supermarketDom.elements.get("#super-item-form").submit();
         assertSupermarketMutationAfter(supermarketDom, updateItemCallStart, {
             method: "updateSuperItem",
             id: 10,
-            payload: { name: "Arroz integral", categoryId: 4, checked: true, notes: "Doble carolina" }
+            payload: { name: "Arroz integral", categoryId: 4, checked: true, notes: "Doble carolina", unit: "kg", habitualObjective: "3.000" }
         });
 
         const deleteItemCallStart = supermarketDom.api.calls.length;
@@ -1460,6 +1511,8 @@ function fakeAppDom() {
         "#super-item-form button[type='submit']",
         "#super-item-name",
         "#super-item-category",
+        "#super-item-unit",
+        "#super-item-objective",
         "#super-item-notes",
         "#super-item-submit",
         "#super-item-cancel-edit",
@@ -1485,6 +1538,7 @@ function fakeAppDom() {
     elements.set("#filter-origin", fakeInput());
     elements.get("#super-category-name").dataset.superLimit = "categoryName";
     elements.get("#super-item-name").dataset.superLimit = "itemName";
+    elements.get("#super-item-unit").dataset.superLimit = "itemUnit";
     elements.get("#super-item-notes").dataset.superLimit = "itemNotes";
     elements.get("#statement-files").files = [];
     for (const selector of ["#category-form", "#missing-transaction-form", "#income-form", "#manual-expense-form", "#simulator-form", "#super-category-form", "#super-item-form"]) {
@@ -2108,12 +2162,15 @@ function fakeSupermarketDom() {
     for (const selector of [
         "#super-category-name",
         "#super-item-name",
+        "#super-item-unit",
+        "#super-item-objective",
         "#super-item-notes"
     ]) {
         elements.set(selector, fakeInput());
     }
     elements.get("#super-category-name").dataset.superLimit = "categoryName";
     elements.get("#super-item-name").dataset.superLimit = "itemName";
+    elements.get("#super-item-unit").dataset.superLimit = "itemUnit";
     elements.get("#super-item-notes").dataset.superLimit = "itemNotes";
     elements.set("#super-item-category", fakeSelect());
     elements.set("#super-category-form", superCategoryForm);
@@ -2143,8 +2200,8 @@ function fakeSupermarketDom() {
         { id: 5, name: "Verdulería", active: true }
     ];
     const items = [
-        superItemFixture({ id: 10, name: "Arroz", categoryId: 4, categoryName: "Almacén", checked: true, notes: "Doble carolina" }),
-        superItemFixture({ id: 11, name: "Banana", categoryId: 5, categoryName: "Verdulería", checked: true }),
+        superItemFixture({ id: 10, name: "Arroz", categoryId: 4, categoryName: "Almacén", checked: true, notes: "Doble carolina", unit: "kg", habitualObjective: "2.000", configured: true }),
+        superItemFixture({ id: 11, name: "Banana", categoryId: 5, categoryName: "Verdulería", checked: true, unit: null, habitualObjective: null, configured: false }),
         superItemFixture({ id: 12, name: "Zanahoria", categoryId: 5, categoryName: "Verdulería", checked: false })
     ];
     const api = {
@@ -2223,6 +2280,9 @@ function superItemFixture(overrides = {}) {
         categoryName: "Almacén",
         checked: false,
         notes: "",
+        unit: null,
+        habitualObjective: null,
+        configured: false,
         active: true,
         ...overrides
     };
@@ -2233,7 +2293,8 @@ async function readSupermarketLimitConstants() {
     return {
         CATEGORY_NAME_MAX_LENGTH: javaIntConstant(source, "CATEGORY_NAME_MAX_LENGTH"),
         ITEM_NAME_MAX_LENGTH: javaIntConstant(source, "ITEM_NAME_MAX_LENGTH"),
-        ITEM_NOTES_MAX_LENGTH: javaIntConstant(source, "ITEM_NOTES_MAX_LENGTH")
+        ITEM_NOTES_MAX_LENGTH: javaIntConstant(source, "ITEM_NOTES_MAX_LENGTH"),
+        ITEM_UNIT_MAX_LENGTH: javaIntConstant(source, "ITEM_UNIT_MAX_LENGTH")
     };
 }
 
@@ -2252,7 +2313,7 @@ function fakeSuperItemForm(elements) {
     };
     form.reset = function resetSuperItemForm() {
         this.resetCount += 1;
-        for (const selector of ["#super-item-name", "#super-item-category", "#super-item-notes"]) {
+        for (const selector of ["#super-item-name", "#super-item-category", "#super-item-unit", "#super-item-objective", "#super-item-notes"]) {
             elements.get(selector).value = "";
         }
     };
@@ -2475,7 +2536,27 @@ function fakeInput(value = "") {
 }
 
 function supermarketLimitFields(elements) {
-    return ["#super-category-name", "#super-item-name", "#super-item-notes"].map((selector) => elements.get(selector));
+    return ["#super-category-name", "#super-item-name", "#super-item-unit", "#super-item-notes"].map((selector) => elements.get(selector));
+}
+
+function assertNoUnsupportedSuperInventorySemantics(source) {
+    const unsupportedTerms = [
+        "amount",
+        "price",
+        "prices",
+        "history",
+        "stock",
+        "movement",
+        "movements",
+        "barcode",
+        "ocr",
+        "suggested",
+        "suggested-list",
+        "suggestedList"
+    ];
+    for (const term of unsupportedTerms) {
+        assert.equal(source.includes(term), false, `Unexpected unsupported super inventory term: ${term}`);
+    }
 }
 
 function assertSupermarketMutationAfter(supermarketDom, startIndex, expected) {

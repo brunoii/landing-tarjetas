@@ -1,5 +1,6 @@
 package com.gentleia.landingtarjetas.supermarket;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 
 import jakarta.persistence.Column;
@@ -34,6 +35,12 @@ public class SuperItem {
 
     @Column(length = SupermarketLimits.ITEM_NOTES_MAX_LENGTH)
     private String notes;
+
+    @Column(length = SupermarketLimits.ITEM_UNIT_MAX_LENGTH)
+    private String unit;
+
+    @Column(precision = 10, scale = 3)
+    private BigDecimal habitualObjective;
 
     @Column(nullable = false)
     private boolean active = true;
@@ -100,6 +107,26 @@ public class SuperItem {
 
     public void setNotes(String notes) {
         this.notes = notes;
+    }
+
+    public String getUnit() {
+        return unit;
+    }
+
+    public void setUnit(String unit) {
+        this.unit = unit;
+    }
+
+    public BigDecimal getHabitualObjective() {
+        return habitualObjective;
+    }
+
+    public void setHabitualObjective(BigDecimal habitualObjective) {
+        this.habitualObjective = habitualObjective;
+    }
+
+    public boolean isConfigured() {
+        return unit != null && habitualObjective != null;
     }
 
     public boolean isActive() {

@@ -1,5 +1,6 @@
 package com.gentleia.landingtarjetas.supermarket;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 
 public record SuperItemResponse(
@@ -9,6 +10,9 @@ public record SuperItemResponse(
         String categoryName,
         boolean checked,
         String notes,
+        String unit,
+        BigDecimal habitualObjective,
+        boolean configured,
         Instant createdAt,
         Instant updatedAt,
         boolean active
@@ -21,6 +25,9 @@ public record SuperItemResponse(
                 item.getCategory().getName(),
                 item.isChecked(),
                 item.getNotes(),
+                item.getUnit(),
+                item.getHabitualObjective(),
+                item.isConfigured(),
                 item.getCreatedAt(),
                 item.getUpdatedAt(),
                 item.isActive()
