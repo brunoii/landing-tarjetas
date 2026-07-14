@@ -29,6 +29,7 @@ public class ApiExceptionHandler {
             Map.entry("description", "Descripción"),
             Map.entry("endMonth", "Mes de fin"),
             Map.entry("incomeType", "Tipo de ingreso"),
+            Map.entry("habitualObjective", "Objetivo habitual"),
             Map.entry("minimumPaymentPesos", "Pago mínimo en pesos"),
             Map.entry("name", "Nombre"),
             Map.entry("notes", "Notas"),
@@ -38,7 +39,8 @@ public class ApiExceptionHandler {
             Map.entry("totalInstallments", "Total de cuotas"),
             Map.entry("totalPesos", "Total en pesos"),
             Map.entry("totalUsd", "Total en USD"),
-            Map.entry("type", "Tipo")
+            Map.entry("type", "Tipo"),
+            Map.entry("unit", "Unidad")
     );
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
