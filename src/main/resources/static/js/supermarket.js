@@ -1,4 +1,4 @@
-import { api } from "./api.js?v=20260713-pending-main";
+import { api } from "./api.js?v=20260714-super-inventory-stage1-api";
 import { escapeHtml, setButtonBusy } from "./utils.js";
 
 let supermarketApi = api;
@@ -11,7 +11,8 @@ let superCategoryCount = 0;
 export const SUPER_FIELD_LIMITS = Object.freeze({
     categoryName: 80,
     itemName: 160,
-    itemNotes: 500
+    itemNotes: 500,
+    itemUnit: 40
 });
 
 export function setupSupermarket({ apiClient = api } = {}) {
@@ -82,12 +83,21 @@ function superFieldLimitAttribute(fieldName) {
 
 export function superItemPayloadFromValues(values) {
     const categoryId = Number(values.categoryId || 0);
-    return {
+    const unit = String(values.unit || "").trim();
+    const habitualObjective = String(values.habitualObjective || "").trim();
+    const payload = {
         name: String(values.name || "").trim(),
         categoryId: categoryId > 0 ? categoryId : null,
         checked: values.checked === true || values.checked === "true" || values.checked === "on",
         notes: String(values.notes || "").trim()
     };
+    if (unit) {
+        payload.unit = unit;
+    }
+    if (habitualObjective) {
+        payload.habitualObjective = habitualObjective;
+    }
+    return payload;
 }
 
 export function validateSuperItemPayload(payload) {
@@ -97,7 +107,14 @@ export function validateSuperItemPayload(payload) {
     if (!payload.categoryId) {
         return "La categoría del producto es obligatoria.";
     }
+    if (payload.habitualObjective && (!Number.isFinite(Number(payload.habitualObjective)) || Number(payload.habitualObjective) <= 0)) {
+        return "El objetivo habitual debe ser mayor que cero.";
+    }
     return "";
+}
+
+export function superItemConfigurationLabel(item) {
+    return item.configured ? "Configurado" : "Pendiente";
 }
 
 export function groupSuperItems(items) {
@@ -339,7 +356,7 @@ function renderSuperItems(items) {
     for (const [categoryName, categoryItems] of groupSuperItems(items)) {
         const groupRow = document.createElement("tr");
         groupRow.className = "super-category-group-row";
-        groupRow.innerHTML = `<th scope="rowgroup" colspan="5">${escapeHtml(categoryName)}</th>`;
+        groupRow.innerHTML = `<th scope="rowgroup" colspan="6">${escapeHtml(categoryName)}</th>`;
         table.append(groupRow);
         categoryItems.forEach((item) => {
             const row = document.createElement("tr");
@@ -365,6 +382,7 @@ function superItemRowHtml(item) {
         </td>
         <td data-label="Producto">${escapeHtml(item.name)}</td>
         <td data-label="Categoría">${escapeHtml(item.categoryName)}</td>
+        <td data-label="Configuración">${superItemConfigurationBadgeHtml(item)}</td>
         <td data-label="Notas">${item.notes ? escapeHtml(item.notes) : "—"}</td>
         <td data-label="Acciones">
             <div class="row-actions super-item-actions">
@@ -379,6 +397,14 @@ function superItemRowHtml(item) {
     `;
 }
 
+function superItemConfigurationBadgeHtml(item) {
+    const label = superItemConfigurationLabel(item);
+    const stateClass = item.configured ? "configured" : "pending";
+    const unit = item.unit ? escapeHtml(item.unit) : "sin unidad";
+    const objective = item.habitualObjective ? escapeHtml(String(item.habitualObjective)) : "sin objetivo";
+    return `<span class="super-configuration-badge ${stateClass}" title="${unit} · ${objective}">${label}</span>`;
+}
+
 async function saveSuperItem() {
     const form = document.querySelector("#super-item-form");
     const button = form?.querySelector("button[type='submit']");
@@ -386,6 +412,8 @@ async function saveSuperItem() {
         name: document.querySelector("#super-item-name")?.value,
         categoryId: document.querySelector("#super-item-category")?.value,
         checked: editingItemId ? currentEditingItem()?.checked : false,
+        unit: document.querySelector("#super-item-unit")?.value,
+        habitualObjective: document.querySelector("#super-item-objective")?.value,
         notes: document.querySelector("#super-item-notes")?.value
     });
     const validationMessage = validateSuperItemPayload(payload);
@@ -431,6 +459,8 @@ function openSuperItemEdit(id) {
     editingItemId = item.id;
     document.querySelector("#super-item-name").value = item.name;
     document.querySelector("#super-item-category").value = String(item.categoryId);
+    document.querySelector("#super-item-unit").value = item.unit || "";
+    document.querySelector("#super-item-objective").value = item.habitualObjective || "";
     document.querySelector("#super-item-notes").value = item.notes || "";
     document.querySelector("#super-item-submit").textContent = "Guardar producto";
     document.querySelector("#super-item-cancel-edit").hidden = false;

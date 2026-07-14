@@ -952,6 +952,30 @@ td {
     background: rgba(134, 239, 172, 0.06);
 }
 
+.super-configuration-badge {
+    display: inline-flex;
+    align-items: center;
+    max-width: 100%;
+    border: 1px solid rgba(156, 163, 175, 0.32);
+    border-radius: 999px;
+    padding: 0.25rem 0.55rem;
+    color: var(--muted);
+    font-size: 0.78rem;
+    font-weight: 800;
+    line-height: 1.25;
+    white-space: normal;
+}
+
+.super-configuration-badge.configured {
+    border-color: rgba(134, 239, 172, 0.42);
+    color: var(--success);
+}
+
+.super-configuration-badge.pending {
+    border-color: rgba(250, 204, 21, 0.42);
+    color: var(--warning);
+}
+
 .super-category-group-row th {
     background: rgba(148, 163, 184, 0.12);
     color: var(--accent);
@@ -1312,6 +1336,12 @@ td {
     .super-item-actions .icon-button,
     .super-category-actions .icon-button {
         width: 2.5rem;
+    }
+
+    .super-configuration-badge {
+        justify-content: center;
+        width: max-content;
+        max-width: 100%;
     }
 
     table {

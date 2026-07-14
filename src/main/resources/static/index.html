@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Panel de tarjetas</title>
-    <link rel="stylesheet" href="/css/styles.css?v=20260713-pending-main">
+    <link rel="stylesheet" href="/css/styles.css?v=20260714-super-inventory-stage1-ui">
 </head>
 <body>
 <header class="topbar tab-section" id="tab-summary" data-tab-panel="summary" role="tabpanel" aria-labelledby="primary-tab-summary">
@@ -725,6 +725,7 @@
                     <th>Comprar</th>
                     <th>Producto</th>
                     <th>Categoría</th>
+                    <th>Configuración</th>
                     <th>Notas</th>
                     <th>Acciones</th>
                 </tr>
@@ -760,6 +761,14 @@
                     <label>
                         Categoría
                         <select id="super-item-category" required><option value="">Seleccionar categoría</option></select>
+                    </label>
+                    <label>
+                        Unidad opcional
+                        <input id="super-item-unit" type="text" data-super-limit="itemUnit" placeholder="Ejemplo: litro, kg, unidad">
+                    </label>
+                    <label>
+                        Objetivo habitual opcional
+                        <input id="super-item-objective" type="number" min="0.001" step="0.001" inputmode="decimal" placeholder="Ejemplo: 2">
                     </label>
                     <label>
                         Notas
@@ -805,6 +814,6 @@
     </section>
 </main>
 
-<script type="module" src="/js/app.js?v=20260713-pending-main"></script>
+<script type="module" src="/js/app.js?v=20260714-super-inventory-stage1-ui"></script>
 </body>
 </html>
