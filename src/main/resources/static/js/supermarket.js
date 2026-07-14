@@ -1,4 +1,4 @@
-import { api } from "./api.js?v=20260714-super-inventory-stage1-api";
+import { api } from "./api.js?v=20260714-super-inventory-stage2-api";
 import { escapeHtml, setButtonBusy } from "./utils.js";
 
 let supermarketApi = api;
@@ -85,6 +85,7 @@ export function superItemPayloadFromValues(values) {
     const categoryId = Number(values.categoryId || 0);
     const unit = String(values.unit || "").trim();
     const habitualObjective = String(values.habitualObjective || "").trim();
+    const quickQuantity = String(values.quickQuantity || "").trim();
     const payload = {
         name: String(values.name || "").trim(),
         categoryId: categoryId > 0 ? categoryId : null,
@@ -96,6 +97,9 @@ export function superItemPayloadFromValues(values) {
     }
     if (habitualObjective) {
         payload.habitualObjective = habitualObjective;
+    }
+    if (quickQuantity) {
+        payload.quickQuantity = quickQuantity;
     }
     return payload;
 }
@@ -110,11 +114,28 @@ export function validateSuperItemPayload(payload) {
     if (payload.habitualObjective && (!Number.isFinite(Number(payload.habitualObjective)) || Number(payload.habitualObjective) <= 0)) {
         return "El objetivo habitual debe ser mayor que cero.";
     }
+    if (payload.quickQuantity && (!Number.isFinite(Number(payload.quickQuantity)) || Number(payload.quickQuantity) <= 0)) {
+        return "La cantidad rápida debe ser mayor que cero.";
+    }
     return "";
 }
 
 export function superItemConfigurationLabel(item) {
     return item.configured ? "Configurado" : "Pendiente";
+}
+
+export function superItemStockLabel(item) {
+    if (item.currentStock === null || item.currentStock === undefined || item.currentStock === "") {
+        return "Sin cargar";
+    }
+    return quantityWithUnit(item.currentStock, item.unit);
+}
+
+export function superItemQuickQuantityLabel(item) {
+    if (!item.quickQuantity || !item.unit) {
+        return "—";
+    }
+    return quantityWithUnit(item.quickQuantity, item.unit);
 }
 
 export function groupSuperItems(items) {
@@ -139,8 +160,9 @@ export function generatedSuperListText(items) {
     for (const [categoryName, categoryItems] of groupSuperItems(checkedItems)) {
         lines.push("", categoryName);
         categoryItems.forEach((item) => {
+            const quantityHint = item.quickQuantity && item.unit ? ` (${quantityWithUnit(item.quickQuantity, item.unit)})` : "";
             const notes = item.notes ? ` — ${item.notes}` : "";
-            lines.push(`- ${item.name}${notes}`);
+            lines.push(`- ${item.name}${quantityHint}${notes}`);
         });
     }
     return lines.join("\n").trim();
@@ -159,8 +181,10 @@ async function loadSupermarket() {
         renderSuperItems(items);
         clearGeneratedSuperList();
         showSuperFeedback(items.length ? "Lista del super cargada." : "Todavía no hay productos cargados.");
+        return null;
     } catch (error) {
         showSuperFeedback(`No se pudo cargar la lista del super: ${error.message}`, true);
+        return error;
     }
 }
 
@@ -356,7 +380,7 @@ function renderSuperItems(items) {
     for (const [categoryName, categoryItems] of groupSuperItems(items)) {
         const groupRow = document.createElement("tr");
         groupRow.className = "super-category-group-row";
-        groupRow.innerHTML = `<th scope="rowgroup" colspan="6">${escapeHtml(categoryName)}</th>`;
+        groupRow.innerHTML = `<th scope="rowgroup" colspan="8">${escapeHtml(categoryName)}</th>`;
         table.append(groupRow);
         categoryItems.forEach((item) => {
             const row = document.createElement("tr");
@@ -383,6 +407,8 @@ function superItemRowHtml(item) {
         <td data-label="Producto">${escapeHtml(item.name)}</td>
         <td data-label="Categoría">${escapeHtml(item.categoryName)}</td>
         <td data-label="Configuración">${superItemConfigurationBadgeHtml(item)}</td>
+        <td data-label="Stock">${superItemStockHtml(item)}</td>
+        <td data-label="Cantidad rápida">${escapeHtml(superItemQuickQuantityLabel(item))}</td>
         <td data-label="Notas">${item.notes ? escapeHtml(item.notes) : "—"}</td>
         <td data-label="Acciones">
             <div class="row-actions super-item-actions">
@@ -405,6 +431,12 @@ function superItemConfigurationBadgeHtml(item) {
     return `<span class="super-configuration-badge ${stateClass}" title="${unit} · ${objective}">${label}</span>`;
 }
 
+function superItemStockHtml(item) {
+    const unknown = item.currentStock === null || item.currentStock === undefined || item.currentStock === "";
+    const stateClass = unknown ? " unknown" : "";
+    return `<span class="super-stock-value${stateClass}">${escapeHtml(superItemStockLabel(item))}</span>`;
+}
+
 async function saveSuperItem() {
     const form = document.querySelector("#super-item-form");
     const button = form?.querySelector("button[type='submit']");
@@ -414,28 +446,65 @@ async function saveSuperItem() {
         checked: editingItemId ? currentEditingItem()?.checked : false,
         unit: document.querySelector("#super-item-unit")?.value,
         habitualObjective: document.querySelector("#super-item-objective")?.value,
+        quickQuantity: document.querySelector("#super-item-quick-quantity")?.value,
         notes: document.querySelector("#super-item-notes")?.value
     });
+    const currentStock = String(document.querySelector("#super-item-current-stock")?.value || "").trim();
     const validationMessage = validateSuperItemPayload(payload);
     if (validationMessage) {
         showSuperFeedback(validationMessage, true);
         return;
     }
+    if (currentStock && (!Number.isFinite(Number(currentStock)) || Number(currentStock) < 0)) {
+        showSuperFeedback("El stock actual no puede ser negativo.", true);
+        return;
+    }
     try {
         setButtonBusy(button, true, editingItemId ? "Guardando..." : "Creando...");
+        let stockAdjustmentError = null;
         if (editingItemId) {
             await supermarketApi.updateSuperItem(editingItemId, payload);
-            showSuperFeedback("Producto actualizado.");
+            if (currentStock) {
+                stockAdjustmentError = await adjustSuperItemStockSafely(editingItemId, currentStock);
+            }
+            if (!stockAdjustmentError) {
+                showSuperFeedback("Producto actualizado.");
+            }
         } else {
-            await supermarketApi.createSuperItem(payload);
-            showSuperFeedback("Producto creado.");
+            const createdItem = await supermarketApi.createSuperItem(payload);
+            if (currentStock && createdItem?.id) {
+                stockAdjustmentError = await adjustSuperItemStockSafely(createdItem.id, currentStock);
+            }
+            if (!stockAdjustmentError) {
+                showSuperFeedback("Producto creado.");
+            }
         }
         resetSuperItemForm();
-        await loadSupermarket();
+        const refreshError = await loadSupermarket();
+        if (stockAdjustmentError) {
+            showSuperFeedback(stockAdjustmentFailureMessage(stockAdjustmentError, refreshError), true);
+        }
     } catch (error) {
         showSuperFeedback(`No se pudo guardar el producto: ${error.message}`, true);
     } finally {
         setButtonBusy(button, false);
+    }
+}
+
+function stockAdjustmentFailureMessage(stockAdjustmentError, refreshError) {
+    let message = `Producto guardado, pero no se pudo ajustar el stock: ${stockAdjustmentError.message}`;
+    if (refreshError) {
+        message += `. Además, no se pudo refrescar la lista: ${refreshError.message}`;
+    }
+    return message;
+}
+
+async function adjustSuperItemStockSafely(itemId, currentStock) {
+    try {
+        await supermarketApi.adjustSuperItemStock(itemId, currentStock);
+        return null;
+    } catch (error) {
+        return error;
     }
 }
 
@@ -461,6 +530,8 @@ function openSuperItemEdit(id) {
     document.querySelector("#super-item-category").value = String(item.categoryId);
     document.querySelector("#super-item-unit").value = item.unit || "";
     document.querySelector("#super-item-objective").value = item.habitualObjective || "";
+    document.querySelector("#super-item-quick-quantity").value = item.quickQuantity || "";
+    document.querySelector("#super-item-current-stock").value = item.currentStock ?? "";
     document.querySelector("#super-item-notes").value = item.notes || "";
     document.querySelector("#super-item-submit").textContent = "Guardar producto";
     document.querySelector("#super-item-cancel-edit").hidden = false;
@@ -591,6 +662,11 @@ function compareSuperItems(left, right) {
         return categoryComparison;
     }
     return String(left.name || "").localeCompare(String(right.name || ""), "es-AR", { sensitivity: "base" });
+}
+
+function quantityWithUnit(value, unit) {
+    const text = String(value);
+    return unit ? `${text} ${unit}` : text;
 }
 
 function showSuperFeedback(message, isError = false, isLoading = false) {

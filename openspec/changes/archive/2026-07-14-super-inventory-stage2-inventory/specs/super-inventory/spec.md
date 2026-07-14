@@ -1,63 +1,6 @@
-# Especificación super-inventory
+# Delta para super-inventory
 
-## Propósito
-
-Define la evolución de la Lista del Super hacia inventario doméstico configurable, preservando productos, categorías, endpoints y la lista manual actual mientras incorpora snapshot de stock y cantidad rápida en Etapa 2.
-
-## Requirements
-
-### Requirement: Evolución compatible del producto existente
-
-El sistema MUST tratar los productos existentes del super como la base progresiva del futuro Producto Base, sin crear una base paralela ni exigir reconstrucción funcional.
-
-#### Scenario: Producto existente sigue disponible
-- GIVEN un producto existente con categoría, nombre, notas y estado `checked`
-- WHEN se consulta la lista de productos
-- THEN el producto MUST aparecer con sus datos actuales preservados
-- AND su identidad funcional MUST seguir siendo la misma
-
-#### Scenario: Sin Producto Base paralelo
-- GIVEN la Etapa 1 está activa
-- WHEN se registra o actualiza un producto del super
-- THEN el sistema MUST usar el modelo evolutivo existente
-- AND MUST NOT requerir una tabla o catálogo paralelo de Producto Base
-
-### Requirement: Estado de configuración de producto
-
-El sistema MUST representar si un producto está configurado para inventario mediante unidad y objetivo opcionales.
-
-#### Scenario: Producto configurado
-- GIVEN un producto con unidad y objetivo válidos
-- WHEN se consulta el producto
-- THEN su estado de configuración MUST indicar que está configurado
-
-#### Scenario: Producto pendiente por datos faltantes
-- GIVEN un producto sin unidad o sin objetivo
-- WHEN se consulta el producto
-- THEN su estado MUST indicar configuración pendiente
-- AND el sistema MUST NOT inventar unidad ni objetivo por defecto
-
-#### Scenario: Objetivo inválido
-- GIVEN una solicitud con objetivo inválido para configuración
-- WHEN se crea o actualiza el producto
-- THEN el sistema MUST rechazar la solicitud con error de validación
-- AND MUST NOT modificar el producto persistido
-
-### Requirement: Contratos retrocompatibles de productos
-
-El sistema MUST aceptar contratos actuales sin unidad/objetivo y MAY aceptar contratos extendidos con esos datos opcionales.
-
-#### Scenario: Payload anterior sigue funcionando
-- GIVEN una solicitud actual con nombre, categoría, notas y `checked`
-- WHEN se crea o actualiza un producto
-- THEN la operación MUST conservar el comportamiento actual
-- AND el producto resultante MUST quedar pendiente si falta unidad u objetivo
-
-#### Scenario: Respuesta extendida compatible
-- GIVEN productos con y sin configuración completa
-- WHEN se consulta `/api/super/items`
-- THEN la respuesta MUST incluir los datos actuales
-- AND SHOULD exponer unidad, objetivo y estado cuando existan o apliquen
+## ADDED Requirements
 
 ### Requirement: Snapshot de inventario Etapa 2
 
@@ -95,6 +38,8 @@ El sistema MUST aceptar `quickQuantity` como dato nullable/opcional y MUST valid
 - WHEN se procesa la solicitud
 - THEN la ausencia MUST aceptarse como `null`
 - AND el valor no positivo MUST rechazarse con error de validación
+
+## MODIFIED Requirements
 
 ### Requirement: `checked` como intención manual de compra
 
