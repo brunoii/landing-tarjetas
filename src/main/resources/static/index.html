@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Panel de tarjetas</title>
-    <link rel="stylesheet" href="/css/styles.css?v=20260714-super-inventory-stage2-ui">
+    <link rel="stylesheet" href="/css/styles.css?v=20260714-super-inventory-stage3-ui">
 </head>
 <body>
 <header class="topbar tab-section" id="tab-summary" data-tab-panel="summary" role="tabpanel" aria-labelledby="primary-tab-summary">
@@ -737,6 +737,67 @@
         </div>
         <p class="empty-state" id="super-items-empty" hidden>Todavía no hay productos cargados en la lista del super.</p>
 
+        <div class="modal-overlay" id="super-movement-modal" hidden>
+            <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="super-movement-title">
+                <div class="modal-header">
+                    <div>
+                        <p class="eyebrow">Inventario</p>
+                        <h3 id="super-movement-title">Registrar movimiento</h3>
+                        <p class="section-note" id="super-movement-item-name"></p>
+                    </div>
+                    <button type="button" class="secondary-button icon-button" id="super-movement-close" aria-label="Cerrar movimiento">×</button>
+                </div>
+                <form class="super-movement-form" id="super-movement-form" aria-describedby="super-movement-feedback super-movement-conflict">
+                    <input id="super-movement-item-id" type="hidden">
+                    <input id="super-movement-type" type="hidden">
+                    <label>
+                        Cantidad
+                        <input id="super-movement-quantity" type="number" min="0.001" step="0.001" inputmode="decimal" required placeholder="Ejemplo: 1">
+                    </label>
+                    <label>
+                        Notas
+                        <input id="super-movement-notes" type="text" maxlength="500" placeholder="Nota opcional">
+                    </label>
+                    <label class="super-movement-negative-field">
+                        <span>Confirmar stock negativo</span>
+                        <input id="super-movement-allow-negative" type="checkbox">
+                    </label>
+                    <p class="form-feedback super-movement-conflict" id="super-movement-conflict" role="alert" hidden></p>
+                    <p class="form-feedback" id="super-movement-feedback" role="status" aria-live="polite"></p>
+                    <div class="modal-actions">
+                        <button type="button" class="secondary-button" id="super-movement-cancel">Cancelar</button>
+                        <button type="submit" id="super-movement-submit">Registrar movimiento</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <section class="supermarket-card super-movement-history" id="super-movement-history" aria-labelledby="super-movement-history-title">
+            <div class="section-heading">
+                <div>
+                    <p class="eyebrow">Movimientos</p>
+                    <h3 id="super-movement-history-title">Historial reciente</h3>
+                </div>
+                <p class="section-note">Compras, consumos y ajustes recientes del inventario.</p>
+            </div>
+            <div class="table-wrap super-movement-history-wrap responsive-card-table">
+                <table>
+                    <thead>
+                    <tr>
+                        <th>Fecha</th>
+                        <th>Producto</th>
+                        <th>Tipo</th>
+                        <th>Cantidad</th>
+                        <th>Stock</th>
+                        <th>Notas</th>
+                    </tr>
+                    </thead>
+                    <tbody id="super-movement-history-table"></tbody>
+                </table>
+            </div>
+            <p class="empty-state" id="super-movement-history-empty">Todavía no hay movimientos recientes.</p>
+        </section>
+
         <section class="super-generated-card" aria-labelledby="super-generated-title">
             <div class="section-heading">
                 <div>
@@ -824,6 +885,6 @@
     </section>
 </main>
 
-<script type="module" src="/js/app.js?v=20260714-super-inventory-stage2-ui"></script>
+<script type="module" src="/js/app.js?v=20260714-super-inventory-stage3-ui"></script>
 </body>
 </html>

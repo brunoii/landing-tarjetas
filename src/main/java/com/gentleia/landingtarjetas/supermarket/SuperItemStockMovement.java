@@ -21,7 +21,10 @@ import jakarta.persistence.Table;
 public class SuperItemStockMovement {
 
     public enum MovementType {
-        ADJUSTMENT
+        ADJUSTMENT,
+        PURCHASE,
+        CONSUMPTION,
+        QUICK_CONSUMPTION
     }
 
     @Id
@@ -42,6 +45,15 @@ public class SuperItemStockMovement {
     @Column(nullable = false, precision = 10, scale = 3)
     private BigDecimal resultingStock;
 
+    @Column(precision = 10, scale = 3)
+    private BigDecimal quantity;
+
+    @Column(length = 500)
+    private String notes;
+
+    @Column(length = 40)
+    private String source;
+
     @Column(nullable = false, updatable = false)
     private Instant createdAt;
 
@@ -53,6 +65,18 @@ public class SuperItemStockMovement {
         this.movementType = MovementType.ADJUSTMENT;
         this.previousStock = previousStock;
         this.resultingStock = resultingStock;
+        this.source = "MANUAL";
+    }
+
+    public SuperItemStockMovement(SuperItem item, MovementType movementType, BigDecimal previousStock, BigDecimal resultingStock,
+            BigDecimal quantity, String notes, String source) {
+        this.item = item;
+        this.movementType = movementType;
+        this.previousStock = previousStock;
+        this.resultingStock = resultingStock;
+        this.quantity = quantity;
+        this.notes = notes;
+        this.source = source;
     }
 
     @PrePersist
@@ -78,6 +102,18 @@ public class SuperItemStockMovement {
 
     public BigDecimal getResultingStock() {
         return resultingStock;
+    }
+
+    public BigDecimal getQuantity() {
+        return quantity;
+    }
+
+    public String getNotes() {
+        return notes;
+    }
+
+    public String getSource() {
+        return source;
     }
 
     public Instant getCreatedAt() {

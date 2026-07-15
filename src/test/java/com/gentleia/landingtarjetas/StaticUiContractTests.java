@@ -22,8 +22,8 @@ class StaticUiContractTests {
 
     private static final Path STATIC_ROOT = Path.of("src/main/resources/static");
     private static final String FRESH_STATIC_TOKEN = "20260713-pending-main";
-    private static final String STAGE2_API_TOKEN = "20260714-super-inventory-stage2-api";
-    private static final String STAGE2_UI_TOKEN = "20260714-super-inventory-stage2-ui";
+    private static final String STAGE3_API_TOKEN = "20260714-super-inventory-stage3-api";
+    private static final String STAGE3_UI_TOKEN = "20260714-super-inventory-stage3-ui";
     private static final String STALE_API_TOKEN = "20260712-security-hardening";
 
     @Test
@@ -32,15 +32,15 @@ class StaticUiContractTests {
         String login = readStatic("login.html");
         String app = readStatic("js/app.js");
 
-        assertThat(index).contains("<link rel=\"stylesheet\" href=\"/css/styles.css?v=" + STAGE2_UI_TOKEN + "\">");
+        assertThat(index).contains("<link rel=\"stylesheet\" href=\"/css/styles.css?v=" + STAGE3_UI_TOKEN + "\">");
         assertThat(index).doesNotContain("<link rel=\"stylesheet\" href=\"/css/styles.css\">");
-        assertThat(index).contains("<script type=\"module\" src=\"/js/app.js?v=" + STAGE2_UI_TOKEN + "\"></script>");
+        assertThat(index).contains("<script type=\"module\" src=\"/js/app.js?v=" + STAGE3_UI_TOKEN + "\"></script>");
         assertThat(index).doesNotContain("/css/styles.css?v=20260711-security-login", "/js/app.js?v=20260711-security-login");
         assertThat(login).contains("<link rel=\"stylesheet\" href=\"/css/styles.css?v=" + FRESH_STATIC_TOKEN + "\">")
                 .contains("/js/login.js?v=" + FRESH_STATIC_TOKEN)
                 .doesNotContain("/css/styles.css?v=20260711-security-login", "/js/login.js?v=20260711-security-login");
         assertThat(app)
-                .contains("./api.js?v=" + STAGE2_API_TOKEN, "./categories.js", "./dashboard.js?v=" + FRESH_STATIC_TOKEN, "./incomes.js?v=" + FRESH_STATIC_TOKEN, "./manual-expenses.js?v=" + FRESH_STATIC_TOKEN, "./navigation.js?v=" + FRESH_STATIC_TOKEN, "./simulator.js?v=" + FRESH_STATIC_TOKEN, "./statements.js?v=" + FRESH_STATIC_TOKEN, "./supermarket.js?v=" + STAGE2_UI_TOKEN, "./transactions.js?v=" + FRESH_STATIC_TOKEN, "./utils.js")
+                .contains("./api.js?v=" + STAGE3_API_TOKEN, "./categories.js", "./dashboard.js?v=" + FRESH_STATIC_TOKEN, "./incomes.js?v=" + FRESH_STATIC_TOKEN, "./manual-expenses.js?v=" + FRESH_STATIC_TOKEN, "./navigation.js?v=" + FRESH_STATIC_TOKEN, "./simulator.js?v=" + FRESH_STATIC_TOKEN, "./statements.js?v=" + FRESH_STATIC_TOKEN, "./supermarket.js?v=" + STAGE3_UI_TOKEN, "./transactions.js?v=" + FRESH_STATIC_TOKEN, "./utils.js")
                 .doesNotContain("./api.js\";")
                 .doesNotContain("./statements.js\";", "20260709-stage-7-polish", "20260710-mobile-slice-2", "20260711-mobile-simulator", "20260711-mobile-draft-responsive", "20260711-mobile-supermarket");
     }
@@ -86,8 +86,8 @@ class StaticUiContractTests {
     @Test
     void directApiImportsUseExpectedCacheVersions() throws IOException {
         Map<String, String> expectedApiImports = Map.of(
-                "js/app.js", "./api.js?v=" + STAGE2_API_TOKEN,
-                "js/supermarket.js", "./api.js?v=" + STAGE2_API_TOKEN,
+                "js/app.js", "./api.js?v=" + STAGE3_API_TOKEN,
+                "js/supermarket.js", "./api.js?v=" + STAGE3_API_TOKEN,
                 "js/incomes.js", "./api.js?v=" + FRESH_STATIC_TOKEN,
                 "js/login.js", "./api.js?v=" + FRESH_STATIC_TOKEN,
                 "js/statements.js", "./api.js?v=" + FRESH_STATIC_TOKEN
@@ -281,7 +281,7 @@ class StaticUiContractTests {
                 "name=\"password\"",
                 "/js/login.js?v=" + FRESH_STATIC_TOKEN
         );
-        assertThat(app).contains("from \"./api.js?v=" + STAGE2_API_TOKEN + "\"")
+        assertThat(app).contains("from \"./api.js?v=" + STAGE3_API_TOKEN + "\"")
                 .doesNotContain(STALE_API_TOKEN)
                 .doesNotContain("from \"./api.js\"");
         assertThat(loginJs).contains("from \"./api.js?v=" + FRESH_STATIC_TOKEN + "\"")
@@ -516,6 +516,16 @@ class StaticUiContractTests {
                 "`/api/super/items/${id}/checked`",
                 "adjustSuperItemStock(id, currentStock)",
                 "`/api/super/items/${id}/stock-adjustments`",
+                "purchaseSuperItem(id, payload)",
+                "`/api/super/items/${id}/purchases`",
+                "consumeSuperItem(id, payload)",
+                "`/api/super/items/${id}/consumptions`",
+                "quickConsumeSuperItem(id, payload)",
+                "`/api/super/items/${id}/quick-consumptions`",
+                "superStockMovements(filters = {})",
+                "withQuery(\"/api/super/movements\", filters)",
+                "error.status = response.status",
+                "error.body = body",
                 "uncheckAllSuperItems()",
                 "request(\"/api/super/items/uncheck-all\""
         );
@@ -531,6 +541,15 @@ class StaticUiContractTests {
                 "currentStock",
                 "superItemStockLabel",
                 "superItemQuickQuantityLabel",
+                "superMovementTypeLabel",
+                "superMovementSummary",
+                "data-super-action=\"purchase\"",
+                "data-super-action=\"consume\"",
+                "data-super-action=\"quick-consume\"",
+                "data-super-action=\"history\"",
+                "submitSuperMovementForm",
+                "allowNegativeStock: true",
+                "superMovementHistoryPanel",
                 "adjustSuperItemStock",
                 "super-configuration-badge",
                 "super-stock-value",
@@ -546,7 +565,22 @@ class StaticUiContractTests {
                 "Ocultar categorías",
                 "No hay productos marcados para comprar."
         );
-        assertThat(styles).contains(".supermarket-layout", ".super-item-form", ".super-items-table-wrap table", ".super-generated-list", ".super-category-table", ".super-category-actions", ".super-configuration-badge", ".super-configuration-badge.configured", ".super-configuration-badge.pending", ".super-stock-value", ".super-stock-value.unknown");
+        assertThat(index).contains(
+                "id=\"super-movement-modal\"",
+                "id=\"super-movement-form\"",
+                "id=\"super-movement-quantity\" type=\"number\" min=\"0.001\" step=\"0.001\"",
+                "id=\"super-movement-allow-negative\" type=\"checkbox\"",
+                "class=\"super-movement-negative-field\"",
+                "id=\"super-movement-history\"",
+                "id=\"super-movement-history-table\"",
+                "Cantidad",
+                "Confirmar stock negativo"
+        );
+        assertThat(supermarket).contains(
+                "document.querySelector(\".super-movement-negative-field\")",
+                "negativeField.hidden = type !== \"consume\""
+        );
+        assertThat(styles).contains(".supermarket-layout", ".super-item-form", ".super-items-table-wrap table", ".super-generated-list", ".super-category-table", ".super-category-actions", ".super-configuration-badge", ".super-configuration-badge.configured", ".super-configuration-badge.pending", ".super-stock-value", ".super-stock-value.unknown", ".super-movement-form", ".super-movement-history", ".super-movement-conflict");
         assertCssRuleHasDeclarations(styles, ".super-configuration-badge", Map.of("display", "inline-flex", "white-space", "normal"));
         assertThat(index).contains(
                 "class=\"table-wrap super-items-table-wrap responsive-card-table\"",
@@ -561,8 +595,7 @@ class StaticUiContractTests {
         assertResponsiveCardTableMobileCssContract(styles);
         assertDataLabels(supermarket, List.of("Estado", "Producto", "Categoría", "Configuración", "Stock", "Cantidad rápida", "Notas", "Acciones"));
         assertThat(supermarket).doesNotContain(
-                "amount", "price", "prices", "history",
-                "movement", "movements",
+                "amount", "price", "prices",
                 "barcode", "ocr", "suggested", "suggested-list", "suggestedList"
         );
     }

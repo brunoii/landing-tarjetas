@@ -20,6 +20,7 @@
     --expenses-table-min-width: 1740px;
     --simulator-table-min-width: 1160px;
     --supermarket-table-min-width: 980px;
+    --super-movement-table-min-width: 860px;
     --super-category-table-min-width: 420px;
     --draft-table-min-width: 1320px;
     --income-table-min-width: 1180px;
@@ -916,6 +917,10 @@ td {
     min-width: var(--super-category-table-min-width);
 }
 
+.super-movement-history-wrap table {
+    min-width: var(--super-movement-table-min-width);
+}
+
 .super-category-table th,
 .super-category-table td {
     padding: 0.55rem 0.7rem;
@@ -995,11 +1000,41 @@ td {
 
 .super-item-actions {
     display: grid;
-    grid-template-columns: repeat(2, max-content);
+    grid-template-columns: repeat(3, max-content);
     gap: 0.4rem;
     justify-content: end;
     align-items: center;
-    min-width: 5.75rem;
+    min-width: 8.5rem;
+}
+
+.super-movement-form {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.9rem;
+}
+
+.super-movement-negative-field,
+.super-movement-conflict,
+.super-movement-form .modal-actions {
+    grid-column: 1 / -1;
+}
+
+.super-movement-negative-field {
+    align-items: center;
+    grid-template-columns: auto max-content;
+    justify-content: start;
+}
+
+.super-movement-negative-field input {
+    width: auto;
+}
+
+.super-movement-history {
+    margin-top: 1rem;
+}
+
+.super-movement-conflict {
+    color: #fecaca;
 }
 
 .super-generated-card {
@@ -1322,9 +1357,9 @@ td {
 
     .super-item-actions,
     .super-category-actions {
-        grid-template-columns: repeat(2, max-content);
+        grid-template-columns: repeat(3, max-content);
         justify-content: end;
-        min-width: 5.75rem;
+        min-width: 8.5rem;
     }
 
     .income-actions .icon-button,
@@ -1470,7 +1505,8 @@ td {
 }
 
 @media (max-width: 520px) {
-    .income-edit-form {
+    .income-edit-form,
+    .super-movement-form {
         grid-template-columns: 1fr;
     }
 

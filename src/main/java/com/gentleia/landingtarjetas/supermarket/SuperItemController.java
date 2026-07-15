@@ -58,6 +58,21 @@ public class SuperItemController {
         return supermarketService.adjustItemStock(id, request);
     }
 
+    @PostMapping("/{id}/purchases")
+    public SuperItemResponse purchase(@PathVariable Long id, @Valid @RequestBody SuperItemStockMovementRequest request) {
+        return supermarketService.purchaseItemStock(id, request);
+    }
+
+    @PostMapping("/{id}/consumptions")
+    public SuperItemResponse consume(@PathVariable Long id, @Valid @RequestBody SuperItemStockMovementRequest request) {
+        return supermarketService.consumeItemStock(id, request);
+    }
+
+    @PostMapping("/{id}/quick-consumptions")
+    public SuperItemResponse quickConsume(@PathVariable Long id, @Valid @RequestBody SuperItemQuickConsumptionRequest request) {
+        return supermarketService.quickConsumeItemStock(id, request);
+    }
+
     @PostMapping("/uncheck-all")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void uncheckAll() {

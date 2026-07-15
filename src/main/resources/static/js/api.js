@@ -16,7 +16,7 @@ async function request(path, options = {}) {
     });
 
     if (!response.ok) {
-        throw new Error(await errorMessage(response));
+        throw await apiError(response);
     }
 
     if (response.status === 204) {
@@ -26,16 +26,33 @@ async function request(path, options = {}) {
     return response.json();
 }
 
-async function errorMessage(response) {
-    try {
-        const body = await response.json();
-        if (Array.isArray(body.details) && body.details.length > 0) {
-            return safeApiMessage(body.details.join(" "), response.status);
+async function apiError(response) {
+    const body = await errorBody(response);
+    const error = new Error(errorMessage(body, response.status));
+    error.status = response.status;
+    error.body = body;
+    error.details = Array.isArray(body?.details) ? body.details : [];
+    for (const key of ["itemId", "itemName", "currentStock", "quantity", "resultingStock", "movementType"]) {
+        if (body?.[key] !== undefined) {
+            error[key] = body[key];
         }
-        return safeApiMessage(body.error, response.status);
-    } catch {
-        return safeApiMessage("", response.status);
     }
+    return error;
+}
+
+async function errorBody(response) {
+    try {
+        return await response.json();
+    } catch {
+        return null;
+    }
+}
+
+function errorMessage(body, status) {
+    if (Array.isArray(body?.details) && body.details.length > 0) {
+        return safeApiMessage(body.details.join(" "), status);
+    }
+    return safeApiMessage(body?.error, status);
 }
 
 function safeApiMessage(message, status) {
@@ -204,6 +221,27 @@ export const api = {
             body: JSON.stringify({ currentStock })
         });
     },
+    purchaseSuperItem(id, payload) {
+        return request(`/api/super/items/${id}/purchases`, {
+            method: "POST",
+            body: JSON.stringify(payload)
+        });
+    },
+    consumeSuperItem(id, payload) {
+        return request(`/api/super/items/${id}/consumptions`, {
+            method: "POST",
+            body: JSON.stringify(payload)
+        });
+    },
+    quickConsumeSuperItem(id, payload) {
+        return request(`/api/super/items/${id}/quick-consumptions`, {
+            method: "POST",
+            body: JSON.stringify(payload)
+        });
+    },
+    superStockMovements(filters = {}) {
+        return request(withQuery("/api/super/movements", filters));
+    },
     deleteSuperItem(id) {
         return request(`/api/super/items/${id}`, { method: "DELETE" });
     },
@@ -227,7 +265,7 @@ async function uploadRequest(path, body) {
     });
 
     if (!response.ok) {
-        throw new Error(await errorMessage(response));
+        throw await apiError(response);
     }
 
     return response.json();

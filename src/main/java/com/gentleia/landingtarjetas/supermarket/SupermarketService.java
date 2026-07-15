@@ -3,6 +3,7 @@ package com.gentleia.landingtarjetas.supermarket;
 import java.math.BigDecimal;
 import java.util.List;
 
+import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -10,6 +11,11 @@ import org.springframework.web.server.ResponseStatusException;
 
 @Service
 public class SupermarketService {
+
+    private static final String MANUAL_SOURCE = "MANUAL";
+    private static final String QUICK_SOURCE = "QUICK";
+    private static final int DEFAULT_MOVEMENT_LIMIT = 50;
+    private static final int MAX_MOVEMENT_LIMIT = 100;
 
     private final SuperCategoryRepository categoryRepository;
     private final SuperItemRepository itemRepository;
@@ -105,11 +111,54 @@ public class SupermarketService {
 
     @Transactional
     public SuperItemResponse adjustItemStock(Long id, SuperItemStockAdjustmentRequest request) {
-        SuperItem item = getActiveItem(id);
+        SuperItem item = getActiveItemForStockCommand(id);
         BigDecimal previousStock = item.getCurrentStock();
         item.setCurrentStock(request.currentStock());
         stockMovementRepository.save(new SuperItemStockMovement(item, previousStock, request.currentStock()));
         return SuperItemResponse.from(item);
+    }
+
+    @Transactional
+    public SuperItemResponse purchaseItemStock(Long id, SuperItemStockMovementRequest request) {
+        SuperItem item = getActiveItemForStockCommand(id);
+        BigDecimal previousStock = requireKnownStock(item);
+        BigDecimal resultingStock = previousStock.add(request.quantity());
+        return applyStockMovement(item, SuperItemStockMovement.MovementType.PURCHASE, request.quantity(), request.notes(), MANUAL_SOURCE,
+                previousStock, resultingStock, false);
+    }
+
+    @Transactional
+    public SuperItemResponse consumeItemStock(Long id, SuperItemStockMovementRequest request) {
+        SuperItem item = getActiveItemForStockCommand(id);
+        BigDecimal previousStock = requireKnownStock(item);
+        BigDecimal resultingStock = previousStock.subtract(request.quantity());
+        return applyStockMovement(item, SuperItemStockMovement.MovementType.CONSUMPTION, request.quantity(), request.notes(), MANUAL_SOURCE,
+                previousStock, resultingStock, request.allowsNegativeStock());
+    }
+
+    @Transactional
+    public SuperItemResponse quickConsumeItemStock(Long id, SuperItemQuickConsumptionRequest request) {
+        SuperItem item = getActiveItemForStockCommand(id);
+        BigDecimal previousStock = requireKnownStock(item);
+        BigDecimal quantity = item.getQuickQuantity();
+        if (quantity == null || quantity.signum() <= 0) {
+            throw new IllegalArgumentException("Configure una cantidad rápida positiva antes de usar consumo rápido");
+        }
+        BigDecimal resultingStock = previousStock.subtract(quantity);
+        return applyStockMovement(item, SuperItemStockMovement.MovementType.QUICK_CONSUMPTION, quantity, null, QUICK_SOURCE,
+                previousStock, resultingStock, request.allowsNegativeStock());
+    }
+
+    @Transactional(readOnly = true)
+    public List<SuperItemStockMovementResponse> listStockMovements(Long itemId, int requestedLimit) {
+        int limit = normalizeMovementLimit(requestedLimit);
+        PageRequest pageRequest = PageRequest.of(0, limit);
+        List<SuperItemStockMovement> movements = itemId == null
+                ? stockMovementRepository.findRecent(pageRequest)
+                : stockMovementRepository.findRecentByItemId(itemId, pageRequest);
+        return movements.stream()
+                .map(SuperItemStockMovementResponse::from)
+                .toList();
     }
 
     @Transactional
@@ -134,6 +183,36 @@ public class SupermarketService {
     private SuperItem getActiveItem(Long id) {
         return itemRepository.findByIdAndActiveTrue(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "No se encontró el producto del super"));
+    }
+
+    private SuperItem getActiveItemForStockCommand(Long id) {
+        return itemRepository.findActiveByIdForStockCommand(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "No se encontró el producto del super"));
+    }
+
+    private BigDecimal requireKnownStock(SuperItem item) {
+        if (item.getCurrentStock() == null) {
+            throw new IllegalArgumentException("Inicialice el stock con un ajuste antes de registrar movimientos");
+        }
+        return item.getCurrentStock();
+    }
+
+    private SuperItemResponse applyStockMovement(SuperItem item, SuperItemStockMovement.MovementType movementType, BigDecimal quantity,
+            String notes, String source, BigDecimal previousStock, BigDecimal resultingStock, boolean allowNegativeStock) {
+        if (resultingStock.signum() < 0 && !allowNegativeStock) {
+            throw new SuperItemStockConflictException(item, quantity, resultingStock, movementType, allowNegativeStock);
+        }
+        item.setCurrentStock(resultingStock);
+        stockMovementRepository.save(new SuperItemStockMovement(item, movementType, previousStock, resultingStock, quantity,
+                trimToNull(notes), source));
+        return SuperItemResponse.from(item);
+    }
+
+    private int normalizeMovementLimit(int requestedLimit) {
+        if (requestedLimit <= 0) {
+            return DEFAULT_MOVEMENT_LIMIT;
+        }
+        return Math.min(requestedLimit, MAX_MOVEMENT_LIMIT);
     }
 
     private void ensureUniqueCategoryName(String name, Long currentId) {
