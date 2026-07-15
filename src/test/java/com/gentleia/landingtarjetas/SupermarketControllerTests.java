@@ -9,7 +9,10 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.lang.reflect.Method;
 import java.math.BigDecimal;
+
+import jakarta.persistence.LockModeType;
 
 import com.gentleia.landingtarjetas.category.Category;
 import com.gentleia.landingtarjetas.category.CategoryRepository;
@@ -25,6 +28,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -438,6 +442,364 @@ class SupermarketControllerTests {
                     assertThat(movement.getPreviousStock()).isNull();
                     assertThat(movement.getResultingStock()).isEqualByComparingTo("1.250");
                 });
+    }
+
+    @Test
+    void stockMovementCommandsPersistQuantitiesAndExposeNewestHistoryWithOptionalItemFilter() throws Exception {
+        SuperCategory almacen = superCategoryRepository.save(new SuperCategory("Almacén"));
+        SuperItem yerba = new SuperItem("Yerba", almacen);
+        yerba.setUnit("kg");
+        yerba.setCurrentStock(new BigDecimal("5.000"));
+        yerba.setQuickQuantity(new BigDecimal("0.750"));
+        SuperItem savedYerba = superItemRepository.save(yerba);
+        SuperItem aceite = new SuperItem("Aceite", almacen);
+        aceite.setUnit("litro");
+        aceite.setCurrentStock(new BigDecimal("2.000"));
+        SuperItem savedAceite = superItemRepository.save(aceite);
+
+        mockMvc.perform(post("/api/super/items/{id}/purchases", savedYerba.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "quantity": 2.000,
+                                  "notes": "Reposición"
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.currentStock").value(7.0));
+
+        mockMvc.perform(post("/api/super/items/{id}/consumptions", savedYerba.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "quantity": 1.250,
+                                  "notes": "Merienda",
+                                  "allowNegativeStock": false
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.currentStock").value(5.75));
+
+        mockMvc.perform(post("/api/super/items/{id}/quick-consumptions", savedYerba.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "allowNegativeStock": false
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.currentStock").value(5.0));
+
+        mockMvc.perform(post("/api/super/items/{id}/purchases", savedAceite.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "quantity": 1.000
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.currentStock").value(3.0));
+
+        assertThat(superItemStockMovementRepository.findAll())
+                .filteredOn(movement -> movement.getItem().getId().equals(savedYerba.getId()))
+                .hasSize(3)
+                .allSatisfy(movement -> assertThat(movement.getQuantity()).isNotNull());
+
+        mockMvc.perform(get("/api/super/movements")
+                        .param("itemId", savedYerba.getId().toString())
+                        .param("limit", "10"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(3))
+                .andExpect(jsonPath("$[0].movementType").value("QUICK_CONSUMPTION"))
+                .andExpect(jsonPath("$[0].itemId").value(savedYerba.getId()))
+                .andExpect(jsonPath("$[0].itemName").value("Yerba"))
+                .andExpect(jsonPath("$[0].itemUnit").value("kg"))
+                .andExpect(jsonPath("$[0].quantity").value(0.75))
+                .andExpect(jsonPath("$[0].previousStock").value(5.75))
+                .andExpect(jsonPath("$[0].resultingStock").value(5.0))
+                .andExpect(jsonPath("$[0].source").value("QUICK"))
+                .andExpect(jsonPath("$[1].movementType").value("CONSUMPTION"))
+                .andExpect(jsonPath("$[1].itemUnit").value("kg"))
+                .andExpect(jsonPath("$[1].quantity").value(1.25))
+                .andExpect(jsonPath("$[1].notes").value("Merienda"))
+                .andExpect(jsonPath("$[1].source").value("MANUAL"))
+                .andExpect(jsonPath("$[2].movementType").value("PURCHASE"))
+                .andExpect(jsonPath("$[2].itemUnit").value("kg"))
+                .andExpect(jsonPath("$[2].quantity").value(2.0))
+                .andExpect(jsonPath("$[2].notes").value("Reposición"))
+                .andExpect(jsonPath("$[2].source").value("MANUAL"));
+    }
+
+    @Test
+    void focusedStockAdjustmentPersistsAdjustmentWithNullQuantity() throws Exception {
+        SuperCategory almacen = superCategoryRepository.save(new SuperCategory("Almacén"));
+        SuperItem item = new SuperItem("Aceite", almacen);
+        item.setCurrentStock(new BigDecimal("4.000"));
+        SuperItem savedItem = superItemRepository.save(item);
+
+        mockMvc.perform(post("/api/super/items/{id}/stock-adjustments", savedItem.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "currentStock": 7.500
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.currentStock").value(7.5));
+
+        assertThat(superItemStockMovementRepository.findAll()).singleElement()
+                .satisfies(movement -> {
+                    assertThat(movement.getMovementType()).isEqualTo(SuperItemStockMovement.MovementType.ADJUSTMENT);
+                    assertThat(movement.getQuantity()).isNull();
+                    assertThat(movement.getPreviousStock()).isEqualByComparingTo("4.000");
+                    assertThat(movement.getResultingStock()).isEqualByComparingTo("7.500");
+                });
+
+        mockMvc.perform(get("/api/super/movements")
+                        .param("itemId", savedItem.getId().toString()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].movementType").value("ADJUSTMENT"))
+                .andExpect(jsonPath("$[0].quantity").isEmpty())
+                .andExpect(jsonPath("$[0].source").value("MANUAL"));
+    }
+
+    @Test
+    void stockMovementHistoryUsesDefaultAndMaximumLimit() throws Exception {
+        SuperCategory almacen = superCategoryRepository.save(new SuperCategory("Almacén"));
+        SuperItem item = new SuperItem("Yerba", almacen);
+        item.setCurrentStock(new BigDecimal("200.000"));
+        SuperItem savedItem = superItemRepository.save(item);
+
+        for (int index = 0; index < 105; index++) {
+            superItemStockMovementRepository.save(new SuperItemStockMovement(
+                    savedItem,
+                    SuperItemStockMovement.MovementType.PURCHASE,
+                    BigDecimal.valueOf(index),
+                    BigDecimal.valueOf(index + 1L),
+                    BigDecimal.ONE,
+                    null,
+                    "MANUAL"
+            ));
+        }
+
+        mockMvc.perform(get("/api/super/movements"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(50));
+
+        mockMvc.perform(get("/api/super/movements")
+                        .param("limit", "200"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(100));
+    }
+
+    @Test
+    void stockCommandsUsePessimisticWriteLockRepositoryMethod() throws Exception {
+        Method method = SuperItemRepository.class.getMethod("findActiveByIdForStockCommand", Long.class);
+
+        assertThat(method.getAnnotation(Lock.class)).isNotNull()
+                .extracting(Lock::value)
+                .isEqualTo(LockModeType.PESSIMISTIC_WRITE);
+    }
+
+    @Test
+    void stockMovementValidationRejectsUnknownStockInvalidQuantityAndMissingQuickQuantityWithoutMutation() throws Exception {
+        SuperCategory almacen = superCategoryRepository.save(new SuperCategory("Almacén"));
+        SuperItem unknownStock = superItemRepository.save(new SuperItem("Yerba", almacen));
+        SuperItem knownStock = new SuperItem("Aceite", almacen);
+        knownStock.setCurrentStock(new BigDecimal("4.000"));
+        SuperItem savedKnownStock = superItemRepository.save(knownStock);
+
+        mockMvc.perform(post("/api/super/items/{id}/purchases", unknownStock.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "quantity": 1.000
+                                }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("Inicialice el stock con un ajuste antes de registrar movimientos"));
+
+        mockMvc.perform(post("/api/super/items/{id}/consumptions", unknownStock.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "quantity": 1.000,
+                                  "allowNegativeStock": false
+                                }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("Inicialice el stock con un ajuste antes de registrar movimientos"));
+
+        mockMvc.perform(post("/api/super/items/{id}/quick-consumptions", unknownStock.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "allowNegativeStock": false
+                                }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("Inicialice el stock con un ajuste antes de registrar movimientos"));
+
+        mockMvc.perform(post("/api/super/items/{id}/purchases", savedKnownStock.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "quantity": 0
+                                }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.details[?(@ == 'Cantidad: debe ser mayor a 0')]").exists());
+
+        mockMvc.perform(post("/api/super/items/{id}/quick-consumptions", savedKnownStock.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "allowNegativeStock": false
+                                }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("Configure una cantidad rápida positiva antes de usar consumo rápido"));
+
+        assertThat(superItemRepository.findById(unknownStock.getId())).isPresent()
+                .get()
+                .satisfies(persisted -> assertThat(persisted.getCurrentStock()).isNull());
+        assertThat(superItemRepository.findById(savedKnownStock.getId())).isPresent()
+                .get()
+                .satisfies(persisted -> assertThat(persisted.getCurrentStock()).isEqualByComparingTo("4.000"));
+        assertThat(superItemStockMovementRepository.findAll()).isEmpty();
+    }
+
+    @Test
+    void negativeConsumptionConflictPreservesStockAndMovementHistoryUntilExplicitlyAllowed() throws Exception {
+        SuperCategory almacen = superCategoryRepository.save(new SuperCategory("Almacén"));
+        SuperItem item = new SuperItem("Yerba", almacen);
+        item.setCurrentStock(new BigDecimal("1.000"));
+        SuperItem savedItem = superItemRepository.save(item);
+
+        mockMvc.perform(post("/api/super/items/{id}/consumptions", savedItem.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "quantity": 2.000,
+                                  "allowNegativeStock": false
+                                }
+                                """))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error").value("El consumo dejaría stock negativo. Confirme para continuar."))
+                .andExpect(jsonPath("$.details[?(@ == 'Reintente con allowNegativeStock=true para confirmar.')]").exists())
+                .andExpect(jsonPath("$.itemId").value(savedItem.getId()))
+                .andExpect(jsonPath("$.itemName").value("Yerba"))
+                .andExpect(jsonPath("$.currentStock").value(1.0))
+                .andExpect(jsonPath("$.quantity").value(2.0))
+                .andExpect(jsonPath("$.resultingStock").value(-1.0))
+                .andExpect(jsonPath("$.movementType").value("CONSUMPTION"))
+                .andExpect(jsonPath("$.allowNegativeStock").value(false));
+
+        assertThat(superItemRepository.findById(savedItem.getId())).isPresent()
+                .get()
+                .satisfies(persisted -> assertThat(persisted.getCurrentStock()).isEqualByComparingTo("1.000"));
+        assertThat(superItemStockMovementRepository.findAll()).isEmpty();
+
+        mockMvc.perform(post("/api/super/items/{id}/consumptions", savedItem.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "quantity": 2.000,
+                                  "allowNegativeStock": true
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.currentStock").value(-1.0));
+
+        assertThat(superItemStockMovementRepository.findAll()).singleElement()
+                .satisfies(movement -> {
+                    assertThat(movement.getMovementType()).isEqualTo(SuperItemStockMovement.MovementType.CONSUMPTION);
+                    assertThat(movement.getQuantity()).isEqualByComparingTo("2.000");
+                    assertThat(movement.getPreviousStock()).isEqualByComparingTo("1.000");
+                    assertThat(movement.getResultingStock()).isEqualByComparingTo("-1.000");
+                });
+    }
+
+    @Test
+    void negativeQuickConsumptionConflictPreservesStockAndMovementHistoryUntilExplicitlyAllowed() throws Exception {
+        SuperCategory almacen = superCategoryRepository.save(new SuperCategory("Almacén"));
+        SuperItem item = new SuperItem("Arroz", almacen);
+        item.setCurrentStock(new BigDecimal("1.000"));
+        item.setQuickQuantity(new BigDecimal("2.000"));
+        SuperItem savedItem = superItemRepository.save(item);
+
+        mockMvc.perform(post("/api/super/items/{id}/quick-consumptions", savedItem.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "allowNegativeStock": false
+                                }
+                                """))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error").value("El consumo dejaría stock negativo. Confirme para continuar."))
+                .andExpect(jsonPath("$.details[?(@ == 'Reintente con allowNegativeStock=true para confirmar.')]").exists())
+                .andExpect(jsonPath("$.itemId").value(savedItem.getId()))
+                .andExpect(jsonPath("$.itemName").value("Arroz"))
+                .andExpect(jsonPath("$.currentStock").value(1.0))
+                .andExpect(jsonPath("$.quantity").value(2.0))
+                .andExpect(jsonPath("$.resultingStock").value(-1.0))
+                .andExpect(jsonPath("$.movementType").value("QUICK_CONSUMPTION"))
+                .andExpect(jsonPath("$.allowNegativeStock").value(false));
+
+        assertThat(superItemRepository.findById(savedItem.getId())).isPresent()
+                .get()
+                .satisfies(persisted -> assertThat(persisted.getCurrentStock()).isEqualByComparingTo("1.000"));
+        assertThat(superItemStockMovementRepository.findAll()).isEmpty();
+
+        mockMvc.perform(post("/api/super/items/{id}/quick-consumptions", savedItem.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "allowNegativeStock": true
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.currentStock").value(-1.0));
+
+        assertThat(superItemStockMovementRepository.findAll()).singleElement()
+                .satisfies(movement -> {
+                    assertThat(movement.getMovementType()).isEqualTo(SuperItemStockMovement.MovementType.QUICK_CONSUMPTION);
+                    assertThat(movement.getQuantity()).isEqualByComparingTo("2.000");
+                    assertThat(movement.getPreviousStock()).isEqualByComparingTo("1.000");
+                    assertThat(movement.getResultingStock()).isEqualByComparingTo("-1.000");
+                    assertThat(movement.getSource()).isEqualTo("QUICK");
+                });
+    }
+
+    @Test
+    void stockMovementValidationUsesSpanishLabelsForQuantityAndAllowNegativeStock() throws Exception {
+        SuperCategory almacen = superCategoryRepository.save(new SuperCategory("Almacén"));
+        SuperItem item = new SuperItem("Yerba", almacen);
+        item.setCurrentStock(new BigDecimal("3.000"));
+        SuperItem savedItem = superItemRepository.save(item);
+
+        mockMvc.perform(post("/api/super/items/{id}/consumptions", savedItem.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "quantity": -1,
+                                  "allowNegativeStock": false
+                                }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("La validación de la solicitud falló"))
+                .andExpect(jsonPath("$.details[?(@ == 'Cantidad: debe ser mayor a 0')]").exists());
+
+        mockMvc.perform(post("/api/super/items/{id}/quick-consumptions", savedItem.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "allowNegativeStock": "not-a-boolean"
+                                }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.details[?(@ == 'Permitir stock negativo: valor inválido')]").exists());
     }
 
     @Test

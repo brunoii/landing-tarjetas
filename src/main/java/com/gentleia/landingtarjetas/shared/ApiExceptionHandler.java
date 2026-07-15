@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.Map;
 
 import com.fasterxml.jackson.databind.exc.InvalidFormatException;
+import com.gentleia.landingtarjetas.supermarket.SuperItemStockConflictException;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -35,6 +36,7 @@ public class ApiExceptionHandler {
             Map.entry("name", "Nombre"),
             Map.entry("notes", "Notas"),
             Map.entry("provider", "Proveedor"),
+            Map.entry("quantity", "Cantidad"),
             Map.entry("quickQuantity", "Cantidad rápida"),
             Map.entry("recurringMonthly", "Recurrente mensual"),
             Map.entry("startMonth", "Mes de inicio"),
@@ -42,6 +44,7 @@ public class ApiExceptionHandler {
             Map.entry("totalPesos", "Total en pesos"),
             Map.entry("totalUsd", "Total en USD"),
             Map.entry("type", "Tipo"),
+            Map.entry("allowNegativeStock", "Permitir stock negativo"),
             Map.entry("unit", "Unidad")
     );
 
@@ -84,15 +87,30 @@ public class ApiExceptionHandler {
                 .body(ApiErrorResponse.of(status.value(), exception.getReason(), List.of()));
     }
 
+    @ExceptionHandler(SuperItemStockConflictException.class)
+    ResponseEntity<ApiErrorResponse> handleStockConflict(SuperItemStockConflictException exception) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(ApiErrorResponse.stockConflict(
+                        HttpStatus.CONFLICT.value(),
+                        exception.getMessage(),
+                        List.of("Reintente con allowNegativeStock=true para confirmar."),
+                        exception.getItemId(),
+                        exception.getItemName(),
+                        exception.getCurrentStock(),
+                        exception.getQuantity(),
+                        exception.getResultingStock(),
+                        exception.getMovementType().name(),
+                        exception.isAllowNegativeStock()
+                ));
+    }
+
     private String fieldLabel(String field) {
         return FIELD_LABELS.getOrDefault(field, field);
     }
 
     private List<String> unreadableMessageDetails(HttpMessageNotReadableException exception) {
         Throwable cause = exception.getMostSpecificCause();
-        if (cause instanceof InvalidFormatException invalidFormatException
-                && invalidFormatException.getTargetType().isEnum()
-                && !invalidFormatException.getPath().isEmpty()) {
+        if (cause instanceof InvalidFormatException invalidFormatException && !invalidFormatException.getPath().isEmpty()) {
             String field = invalidFormatException.getPath()
                     .get(invalidFormatException.getPath().size() - 1)
                     .getFieldName();
