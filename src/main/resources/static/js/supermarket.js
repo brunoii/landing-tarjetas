@@ -1,9 +1,10 @@
-import { api } from "./api.js?v=20260714-super-inventory-stage2-api";
+import { api } from "./api.js?v=20260714-super-inventory-stage3-api";
 import { escapeHtml, setButtonBusy } from "./utils.js";
 
 let supermarketApi = api;
 let superItems = [];
 let editingItemId = null;
+let editingItemOriginalStock = null;
 let editingCategoryId = null;
 let superCategoryTableCollapsed = true;
 let superCategoryCount = 0;
@@ -17,6 +18,8 @@ export const SUPER_FIELD_LIMITS = Object.freeze({
 
 export function setupSupermarket({ apiClient = api } = {}) {
     supermarketApi = apiClient;
+    editingItemId = null;
+    editingItemOriginalStock = null;
     editingCategoryId = null;
     superCategoryTableCollapsed = true;
 
@@ -39,6 +42,9 @@ export function setupSupermarket({ apiClient = api } = {}) {
     document.querySelector("#super-download-list")?.addEventListener("click", downloadGeneratedSuperList);
     document.querySelector("#super-whatsapp-list")?.addEventListener("click", shareGeneratedSuperList);
     document.querySelector("#super-uncheck-all")?.addEventListener("click", uncheckAllSuperItems);
+    document.querySelector("#super-movement-form")?.addEventListener("submit", submitSuperMovementForm);
+    document.querySelector("#super-movement-cancel")?.addEventListener("click", closeSuperMovementModal);
+    document.querySelector("#super-movement-close")?.addEventListener("click", closeSuperMovementModal);
 
     document.querySelector("#super-items-table")?.addEventListener("change", async (event) => {
         const checkbox = event.target.closest("input[data-super-action='checked']");
@@ -138,6 +144,27 @@ export function superItemQuickQuantityLabel(item) {
     return quantityWithUnit(item.quickQuantity, item.unit);
 }
 
+export function superMovementTypeLabel(type) {
+    return {
+        ADJUSTMENT: "Ajuste",
+        PURCHASE: "Compra",
+        CONSUMPTION: "Consumo",
+        QUICK_CONSUMPTION: "Consumo rápido"
+    }[type] || "Movimiento";
+}
+
+export function superMovementQuantityLabel(movement) {
+    if (movement.movementType === "ADJUSTMENT") {
+        return `Ajuste a ${quantityWithUnit(movement.resultingStock, movement.itemUnit)}`;
+    }
+    const sign = movement.movementType === "PURCHASE" ? "+" : "-";
+    return `${sign}${quantityWithUnit(movement.quantity, movement.itemUnit)}`;
+}
+
+export function superMovementSummary(movement) {
+    return `${superMovementTypeLabel(movement.movementType)} · ${movement.itemName || "Producto"} · ${superMovementQuantityLabel(movement)} · stock ${quantityWithUnit(movement.resultingStock, movement.itemUnit)}`;
+}
+
 export function groupSuperItems(items) {
     const sorted = [...items].sort(compareSuperItems);
     return sorted.reduce((groups, item) => {
@@ -179,6 +206,7 @@ async function loadSupermarket() {
         renderSuperCategories(categories);
         renderSuperCategoryOptions(categories);
         renderSuperItems(items);
+        await loadSuperMovementHistory();
         clearGeneratedSuperList();
         showSuperFeedback(items.length ? "Lista del super cargada." : "Todavía no hay productos cargados.");
         return null;
@@ -415,6 +443,18 @@ function superItemRowHtml(item) {
                 <button type="button" class="secondary-button icon-button" data-super-action="edit" data-super-item-id="${item.id}" aria-label="Editar producto ${escapeHtml(item.name)}" title="Editar">
                     <span aria-hidden="true">✎</span><span class="sr-only">Editar</span>
                 </button>
+                <button type="button" class="secondary-button icon-button" data-super-action="purchase" data-super-item-id="${item.id}" aria-label="Registrar compra de ${escapeHtml(item.name)}" title="Compra">
+                    <span aria-hidden="true">＋</span><span class="sr-only">Compra</span>
+                </button>
+                <button type="button" class="secondary-button icon-button" data-super-action="consume" data-super-item-id="${item.id}" aria-label="Registrar consumo de ${escapeHtml(item.name)}" title="Consumir">
+                    <span aria-hidden="true">−</span><span class="sr-only">Consumir</span>
+                </button>
+                <button type="button" class="secondary-button icon-button" data-super-action="quick-consume" data-super-item-id="${item.id}" aria-label="Consumo rápido de ${escapeHtml(item.name)}" title="Rápido">
+                    <span aria-hidden="true">↯</span><span class="sr-only">Rápido</span>
+                </button>
+                <button type="button" class="secondary-button icon-button" data-super-action="history" data-super-item-id="${item.id}" aria-label="Ver historial de ${escapeHtml(item.name)}" title="Historial">
+                    <span aria-hidden="true">↺</span><span class="sr-only">Historial</span>
+                </button>
                 <button type="button" class="danger-button icon-button" data-super-action="delete" data-super-item-id="${item.id}" aria-label="Eliminar producto ${escapeHtml(item.name)}" title="Eliminar">
                     <span aria-hidden="true">🗑</span><span class="sr-only">Eliminar</span>
                 </button>
@@ -464,7 +504,7 @@ async function saveSuperItem() {
         let stockAdjustmentError = null;
         if (editingItemId) {
             await supermarketApi.updateSuperItem(editingItemId, payload);
-            if (currentStock) {
+            if (shouldAdjustSuperItemStock(currentStock)) {
                 stockAdjustmentError = await adjustSuperItemStockSafely(editingItemId, currentStock);
             }
             if (!stockAdjustmentError) {
@@ -472,7 +512,7 @@ async function saveSuperItem() {
             }
         } else {
             const createdItem = await supermarketApi.createSuperItem(payload);
-            if (currentStock && createdItem?.id) {
+            if (currentStock !== "" && createdItem?.id) {
                 stockAdjustmentError = await adjustSuperItemStockSafely(createdItem.id, currentStock);
             }
             if (!stockAdjustmentError) {
@@ -514,9 +554,224 @@ async function handleSuperItemAction(button) {
         openSuperItemEdit(id);
         return;
     }
+    if (button.dataset.superAction === "purchase") {
+        openSuperMovementModal("purchase", id);
+        return;
+    }
+    if (button.dataset.superAction === "consume") {
+        openSuperMovementModal("consume", id);
+        return;
+    }
+    if (button.dataset.superAction === "quick-consume") {
+        await quickConsumeSuperItem(id, button);
+        return;
+    }
+    if (button.dataset.superAction === "history") {
+        await loadSuperMovementHistory(itemById(id));
+        return;
+    }
     if (button.dataset.superAction === "delete") {
         await deleteSuperItem(id, button);
     }
+}
+
+function shouldAdjustSuperItemStock(currentStock) {
+    if (currentStock === "") {
+        return false;
+    }
+    if (!editingItemId) {
+        return true;
+    }
+    return !stockFieldMatchesOriginal(currentStock, editingItemOriginalStock);
+}
+
+function stockFieldMatchesOriginal(currentStock, originalStock) {
+    const original = String(originalStock ?? "").trim();
+    if (original === "") {
+        return currentStock === "";
+    }
+    const currentNumber = Number(currentStock);
+    const originalNumber = Number(original);
+    if (Number.isFinite(currentNumber) && Number.isFinite(originalNumber)) {
+        return currentNumber === originalNumber;
+    }
+    return currentStock === original;
+}
+
+function openSuperMovementModal(type, id) {
+    const item = itemById(id);
+    if (!item) {
+        showSuperFeedback("No se encontró el producto seleccionado.", true);
+        return;
+    }
+    document.querySelector("#super-movement-title").textContent = type === "purchase" ? "Registrar compra" : "Registrar consumo";
+    document.querySelector("#super-movement-item-id").value = String(item.id);
+    document.querySelector("#super-movement-type").value = type;
+    document.querySelector("#super-movement-item-name").textContent = item.name;
+    document.querySelector("#super-movement-quantity").value = "";
+    document.querySelector("#super-movement-notes").value = "";
+    const negativeField = document.querySelector(".super-movement-negative-field");
+    const negativeInput = document.querySelector("#super-movement-allow-negative");
+    negativeInput.checked = false;
+    negativeField.hidden = type !== "consume";
+    showSuperMovementConflict("", false);
+    showSuperMovementFeedback("");
+    document.querySelector("#super-movement-modal").hidden = false;
+    document.querySelector("#super-movement-quantity")?.focus?.();
+}
+
+function closeSuperMovementModal() {
+    const modal = document.querySelector("#super-movement-modal");
+    if (modal) {
+        modal.hidden = true;
+    }
+    document.querySelector("#super-movement-form")?.reset?.();
+    showSuperMovementConflict("", false);
+    showSuperMovementFeedback("");
+}
+
+async function submitSuperMovementForm(event) {
+    event?.preventDefault?.();
+    const id = Number(document.querySelector("#super-movement-item-id")?.value || 0);
+    const type = document.querySelector("#super-movement-type")?.value;
+    const quantity = String(document.querySelector("#super-movement-quantity")?.value || "").trim();
+    const notes = String(document.querySelector("#super-movement-notes")?.value || "").trim();
+    const allowNegativeStock = Boolean(document.querySelector("#super-movement-allow-negative")?.checked);
+    if (!id || !["purchase", "consume"].includes(type)) {
+        showSuperMovementFeedback("Seleccione un movimiento válido.", true);
+        return;
+    }
+    if (!Number.isFinite(Number(quantity)) || Number(quantity) <= 0) {
+        showSuperMovementFeedback("La cantidad debe ser mayor que cero.", true);
+        return;
+    }
+    const payload = type === "consume" ? { quantity, notes, allowNegativeStock } : { quantity, notes };
+    await runSuperMovementCommand(id, type, payload);
+}
+
+async function runSuperMovementCommand(id, type, payload) {
+    const button = document.querySelector("#super-movement-submit");
+    try {
+        setButtonBusy(button, true, "Registrando...");
+        if (type === "purchase") {
+            await supermarketApi.purchaseSuperItem(id, payload);
+        } else {
+            await supermarketApi.consumeSuperItem(id, payload);
+        }
+        closeSuperMovementModal();
+        await loadSupermarket();
+        showSuperFeedback(type === "purchase" ? "Compra registrada." : "Consumo registrado.");
+    } catch (error) {
+        if (type === "consume" && isNegativeStockConflict(error) && !payload.allowNegativeStock) {
+            await confirmAndRetryNegativeStock(id, type, payload, error);
+            return;
+        }
+        showSuperMovementFeedback(`No se pudo registrar el movimiento: ${error.message}`, true);
+    } finally {
+        setButtonBusy(button, false);
+    }
+}
+
+async function confirmAndRetryNegativeStock(id, type, payload, error) {
+    const message = negativeStockConfirmationMessage(error);
+    showSuperMovementConflict(message, true);
+    if (!globalThis.confirm || !globalThis.confirm(message)) {
+        showSuperMovementFeedback("Confirmación de stock negativo cancelada.", true);
+        return;
+    }
+    document.querySelector("#super-movement-allow-negative").checked = true;
+    await runSuperMovementCommand(id, type, { ...payload, allowNegativeStock: true });
+}
+
+async function quickConsumeSuperItem(id, button, allowNegativeStock = false) {
+    try {
+        setButtonBusy(button, true, "Consumiendo...");
+        await supermarketApi.quickConsumeSuperItem(id, { allowNegativeStock });
+        await loadSupermarket();
+        showSuperFeedback("Consumo rápido registrado.");
+    } catch (error) {
+        if (isNegativeStockConflict(error) && !allowNegativeStock) {
+            const message = negativeStockConfirmationMessage(error);
+            if (globalThis.confirm && globalThis.confirm(message)) {
+                await quickConsumeSuperItem(id, button, true);
+                return;
+            }
+        }
+        showSuperFeedback(`No se pudo registrar el consumo rápido: ${error.message}`, true);
+    } finally {
+        setButtonBusy(button, false);
+    }
+}
+
+async function loadSuperMovementHistory(item = null) {
+    if (!supermarketApi.superStockMovements) {
+        return;
+    }
+    const filters = item?.id ? { itemId: String(item.id), limit: 50 } : { limit: 50 };
+    try {
+        const movements = await supermarketApi.superStockMovements(filters);
+        renderSuperMovementHistory(movements, item);
+    } catch (error) {
+        const empty = document.querySelector("#super-movement-history-empty");
+        if (empty) {
+            empty.hidden = false;
+            empty.textContent = `No se pudo cargar el historial: ${error.message}`;
+        }
+    }
+}
+
+function renderSuperMovementHistory(movements, item = null) {
+    const panel = superMovementHistoryPanel();
+    const title = document.querySelector("#super-movement-history-title");
+    const table = document.querySelector("#super-movement-history-table");
+    const empty = document.querySelector("#super-movement-history-empty");
+    if (panel) {
+        panel.hidden = false;
+    }
+    if (title) {
+        title.textContent = item?.name ? `Historial reciente · ${item.name}` : "Historial reciente";
+    }
+    if (!table) {
+        return;
+    }
+    table.innerHTML = "";
+    movements.forEach((movement) => {
+        const row = document.createElement("tr");
+        row.innerHTML = superMovementRowHtml(movement);
+        table.append(row);
+    });
+    if (empty) {
+        empty.hidden = movements.length > 0;
+        empty.textContent = item?.name ? "Todavía no hay movimientos para este producto." : "Todavía no hay movimientos recientes.";
+    }
+}
+
+function superMovementRowHtml(movement) {
+    return `
+        <td data-label="Fecha">${escapeHtml(formatMovementDate(movement.createdAt))}</td>
+        <td data-label="Producto">${escapeHtml(movement.itemName || "—")}</td>
+        <td data-label="Tipo">${escapeHtml(superMovementTypeLabel(movement.movementType))}</td>
+        <td data-label="Cantidad">${escapeHtml(superMovementQuantityLabel(movement))}</td>
+        <td data-label="Stock">${escapeHtml(quantityWithUnit(movement.resultingStock, movement.itemUnit))}</td>
+        <td data-label="Notas">${movement.notes ? escapeHtml(movement.notes) : "—"}</td>
+    `;
+}
+
+function superMovementHistoryPanel() {
+    return document.querySelector("#super-movement-history");
+}
+
+function isNegativeStockConflict(error) {
+    return error?.status === 409 && (error.movementType === "CONSUMPTION" || error.movementType === "QUICK_CONSUMPTION" || error.body?.movementType);
+}
+
+function negativeStockConfirmationMessage(error) {
+    const body = error.body || error;
+    return `El consumo dejaría stock negativo. Stock actual: ${body.currentStock ?? "—"}. Resultado: ${body.resultingStock ?? "—"}. ¿Confirmás stock negativo?`;
+}
+
+function itemById(id) {
+    return superItems.find((candidate) => String(candidate.id) === String(id));
 }
 
 function openSuperItemEdit(id) {
@@ -526,6 +781,7 @@ function openSuperItemEdit(id) {
         return;
     }
     editingItemId = item.id;
+    editingItemOriginalStock = String(item.currentStock ?? "").trim();
     document.querySelector("#super-item-name").value = item.name;
     document.querySelector("#super-item-category").value = String(item.categoryId);
     document.querySelector("#super-item-unit").value = item.unit || "";
@@ -540,6 +796,7 @@ function openSuperItemEdit(id) {
 
 function resetSuperItemForm() {
     editingItemId = null;
+    editingItemOriginalStock = null;
     document.querySelector("#super-item-form")?.reset();
     const submit = document.querySelector("#super-item-submit");
     if (submit) {
@@ -675,6 +932,27 @@ function showSuperFeedback(message, isError = false, isLoading = false) {
 
 function showSuperCategoryFeedback(message, isError = false, isLoading = false) {
     showFeedback("#super-category-feedback", message, isError, isLoading);
+}
+
+function showSuperMovementFeedback(message, isError = false, isLoading = false) {
+    showFeedback("#super-movement-feedback", message, isError, isLoading);
+}
+
+function showSuperMovementConflict(message, visible) {
+    const conflict = document.querySelector("#super-movement-conflict");
+    if (!conflict) {
+        return;
+    }
+    conflict.textContent = message;
+    conflict.hidden = !visible;
+    conflict.classList.toggle("error-text", visible);
+}
+
+function formatMovementDate(value) {
+    if (!value) {
+        return "—";
+    }
+    return String(value).replace("T", " ").slice(0, 16);
 }
 
 function showFeedback(selector, message, isError = false, isLoading = false) {

@@ -8,8 +8,8 @@ const sourceRoot = path.resolve("src/main/resources/static/js");
 const moduleRoot = path.join(tmpdir(), `landing-tarjetas-static-ui-${process.pid}`);
 const staticModuleFileNames = ["api.js", "app.js", "categories.js", "dashboard.js", "incomes.js", "login.js", "manual-expenses.js", "navigation.js", "simulator.js", "statements.js", "supermarket.js", "transactions.js", "utils.js"];
 const freshStaticToken = "20260713-pending-main";
-const stage2ApiToken = "20260714-super-inventory-stage2-api";
-const stage2UiToken = "20260714-super-inventory-stage2-ui";
+const stage3ApiToken = "20260714-super-inventory-stage3-api";
+const stage3UiToken = "20260714-super-inventory-stage3-ui";
 const staleApiToken = "20260712-security-hardening";
 
 await rm(moduleRoot, { force: true, recursive: true });
@@ -61,6 +61,9 @@ try {
         groupSuperItems,
         setupSupermarket,
         superItemConfigurationLabel,
+        superMovementQuantityLabel,
+        superMovementSummary,
+        superMovementTypeLabel,
         superItemQuickQuantityLabel,
         superItemPayloadFromValues,
         superItemStockLabel,
@@ -109,21 +112,29 @@ try {
     assert.match(indexHtml, /id="super-item-current-stock"[^>]+type="number"[^>]+min="0"[^>]+step="0\.001"/);
     assert.match(indexHtml, /<th>Stock<\/th>/);
     assert.match(indexHtml, /<th>Cantidad rápida<\/th>/);
-    assert.ok(indexHtml.includes(`/css/styles.css?v=${stage2UiToken}`));
-    assert.ok(indexHtml.includes(`/js/app.js?v=${stage2UiToken}`));
+    assert.match(indexHtml, /id="super-movement-modal"/);
+    assert.match(indexHtml, /id="super-movement-form"/);
+    assert.match(indexHtml, /id="super-movement-quantity"[^>]+type="number"[^>]+min="0\.001"[^>]+step="0\.001"/);
+    assert.match(indexHtml, /id="super-movement-allow-negative"[^>]+type="checkbox"/);
+    assert.match(indexHtml, /id="super-movement-history"/);
+    assert.match(indexHtml, /id="super-movement-history-table"/);
+    assert.match(indexHtml, /Cantidad/);
+    assert.match(indexHtml, /Confirmar stock negativo/);
+    assert.ok(indexHtml.includes(`/css/styles.css?v=${stage3UiToken}`));
+    assert.ok(indexHtml.includes(`/js/app.js?v=${stage3UiToken}`));
     assert.ok(loginHtml.includes(`/css/styles.css?v=${freshStaticToken}`));
     assert.ok(loginHtml.includes(`/js/login.js?v=${freshStaticToken}`));
     assert.doesNotMatch(indexHtml, /\/css\/styles\.css\?v=20260711-security-login|\/js\/app\.js\?v=20260711-security-login/);
     assert.doesNotMatch(loginHtml, /\/css\/styles\.css\?v=20260711-security-login|\/js\/login\.js\?v=20260711-security-login/);
-    assert.ok(appSource.includes(`from "./api.js?v=${stage2ApiToken}"`));
+    assert.ok(appSource.includes(`from "./api.js?v=${stage3ApiToken}"`));
     assert.doesNotMatch(appSource, new RegExp(staleApiToken));
     assert.doesNotMatch(appSource, /from "\.\/api\.js"/);
     assert.ok(loginSource.includes(`from "./api.js?v=${freshStaticToken}"`));
     assert.doesNotMatch(loginSource, new RegExp(staleApiToken));
     assert.doesNotMatch(loginSource, /from "\.\/api\.js"/);
     const expectedApiImports = new Map([
-        ["app.js", `./api.js?v=${stage2ApiToken}`],
-        ["supermarket.js", `./api.js?v=${stage2ApiToken}`],
+        ["app.js", `./api.js?v=${stage3ApiToken}`],
+        ["supermarket.js", `./api.js?v=${stage3ApiToken}`],
         ["incomes.js", `./api.js?v=${freshStaticToken}`],
         ["login.js", `./api.js?v=${freshStaticToken}`],
         ["statements.js", `./api.js?v=${freshStaticToken}`]
@@ -146,7 +157,7 @@ try {
     for (const moduleName of ["dashboard", "incomes", "manual-expenses", "navigation", "simulator", "statements", "transactions"]) {
         assert.ok(appSource.includes(`./${moduleName}.js?v=${freshStaticToken}`), `${moduleName}.js should preserve origin/main cache token`);
     }
-    assert.ok(appSource.includes(`./supermarket.js?v=${stage2UiToken}`));
+    assert.ok(appSource.includes(`./supermarket.js?v=${stage3UiToken}`));
     assert.doesNotMatch(appSource, /20260709-stage-7-polish|20260710-mobile-slice-2|20260711-mobile-simulator|20260711-mobile-draft-responsive|20260711-mobile-supermarket/);
     assert.doesNotMatch(appSource, /from "\.\/statements\.js";/);
     const primaryTabButtons = extractPrimaryTabButtons(indexHtml);
@@ -300,6 +311,10 @@ try {
         await api.createSuperItem({ name: "Leche", categoryId: 4, unit: "litro", habitualObjective: "2.000" });
         await api.updateSuperItem(9, { name: "Leche", categoryId: 4, checked: true });
         await api.adjustSuperItemStock(9, "4.000");
+        await api.purchaseSuperItem(9, { quantity: "2.000", notes: "Reposición" });
+        await api.consumeSuperItem(9, { quantity: "1.000", notes: "Cena", allowNegativeStock: false });
+        await api.quickConsumeSuperItem(9, { allowNegativeStock: false });
+        await api.superStockMovements({ itemId: 9, limit: 25 });
         await api.updateSuperItemChecked(9, true);
         await api.uncheckAllSuperItems();
         await api.deleteSuperItem(9);
@@ -330,6 +345,10 @@ try {
         ["/api/super/items", "POST"],
         ["/api/super/items/9", "PUT"],
         ["/api/super/items/9/stock-adjustments", "POST"],
+        ["/api/super/items/9/purchases", "POST"],
+        ["/api/super/items/9/consumptions", "POST"],
+        ["/api/super/items/9/quick-consumptions", "POST"],
+        ["/api/super/movements?itemId=9&limit=25", "GET"],
         ["/api/super/items/9/checked", "PATCH"],
         ["/api/super/items/uncheck-all", "POST"],
         ["/api/super/items/9", "DELETE"],
@@ -339,7 +358,49 @@ try {
     assert.deepEqual(JSON.parse(apiCalls[7].options.body), { description: "Préstamo", amountPesos: "100", startMonth: "2026-07" });
     assert.deepEqual(JSON.parse(apiCalls[15].options.body), { name: "Leche", categoryId: 4, unit: "litro", habitualObjective: "2.000" });
     assert.deepEqual(JSON.parse(apiCalls[17].options.body), { currentStock: "4.000" });
-    assert.deepEqual(JSON.parse(apiCalls[18].options.body), { checked: true });
+    assert.deepEqual(JSON.parse(apiCalls[18].options.body), { quantity: "2.000", notes: "Reposición" });
+    assert.deepEqual(JSON.parse(apiCalls[19].options.body), { quantity: "1.000", notes: "Cena", allowNegativeStock: false });
+    assert.deepEqual(JSON.parse(apiCalls[20].options.body), { allowNegativeStock: false });
+    assert.deepEqual(JSON.parse(apiCalls[22].options.body), { checked: true });
+
+    const previousConflictFetch = globalThis.fetch;
+    globalThis.fetch = async () => ({
+        ok: false,
+        status: 409,
+        async json() {
+            return {
+                status: 409,
+                error: "El consumo dejaría stock negativo. Confirme para continuar.",
+                details: ["Reintente con allowNegativeStock=true para confirmar."],
+                itemId: 9,
+                itemName: "Leche",
+                currentStock: "1.000",
+                quantity: "2.000",
+                resultingStock: "-1.000",
+                movementType: "CONSUMPTION"
+            };
+        }
+    });
+    try {
+        await assert.rejects(
+            () => api.consumeSuperItem(9, { quantity: "2.000", allowNegativeStock: false }),
+            (error) => {
+                assert.equal(error.message, "Reintente con allowNegativeStock=true para confirmar.");
+                assert.equal(error.status, 409);
+                assert.equal(error.body.itemId, 9);
+                assert.deepEqual(error.details, ["Reintente con allowNegativeStock=true para confirmar."]);
+                assert.equal(error.resultingStock, "-1.000");
+                assert.equal(error.movementType, "CONSUMPTION");
+                return true;
+            }
+        );
+    } finally {
+        if (previousConflictFetch === undefined) {
+            delete globalThis.fetch;
+        } else {
+            globalThis.fetch = previousConflictFetch;
+        }
+    }
 
     assert.equal(manualExpenseTypeLabel("ONE_PAYMENT"), "Un pago");
     assert.equal(manualExpenseTypeLabel("LOAN"), "Préstamo");
@@ -416,6 +477,14 @@ try {
     assert.equal(superItemStockLabel(superItemFixture({ currentStock: "2.500", unit: "kg" })), "2.500 kg");
     assert.equal(superItemQuickQuantityLabel(superItemFixture({ quickQuantity: "1.000", unit: "kg" })), "1.000 kg");
     assert.equal(superItemQuickQuantityLabel(superItemFixture({ quickQuantity: "1.000", unit: null })), "—");
+    assert.equal(superMovementTypeLabel("PURCHASE"), "Compra");
+    assert.equal(superMovementTypeLabel("CONSUMPTION"), "Consumo");
+    assert.equal(superMovementTypeLabel("QUICK_CONSUMPTION"), "Consumo rápido");
+    assert.equal(superMovementTypeLabel("ADJUSTMENT"), "Ajuste");
+    assert.equal(superMovementQuantityLabel({ movementType: "PURCHASE", quantity: "2.000", itemUnit: "kg" }), "+2.000 kg");
+    assert.equal(superMovementQuantityLabel({ movementType: "CONSUMPTION", quantity: "1.000", itemUnit: "kg" }), "-1.000 kg");
+    assert.equal(superMovementQuantityLabel({ movementType: "ADJUSTMENT", quantity: null, resultingStock: "4.000", itemUnit: "kg" }), "Ajuste a 4.000 kg");
+    assert.equal(superMovementSummary({ movementType: "QUICK_CONSUMPTION", itemName: "Arroz", quantity: "1.000", resultingStock: "3.000", itemUnit: "kg" }), "Consumo rápido · Arroz · -1.000 kg · stock 3.000 kg");
     assert.deepEqual([...groupSuperItems([
         superItemFixture({ name: "Zanahoria", categoryName: "Verdulería" }),
         superItemFixture({ name: "Arroz", categoryName: "Almacén" }),
@@ -481,8 +550,55 @@ try {
         assert.match(supermarketDom.elements.get("#super-items-table").children[1].innerHTML, /1\.000 kg/);
         assert.match(supermarketDom.elements.get("#super-items-table").children[3].innerHTML, /Pendiente/);
         assert.match(supermarketDom.elements.get("#super-items-table").children[3].innerHTML, />0</);
+        assert.match(supermarketDom.elements.get("#super-items-table").children[1].innerHTML, /data-super-action="purchase"/);
+        assert.match(supermarketDom.elements.get("#super-items-table").children[1].innerHTML, /data-super-action="consume"/);
+        assert.match(supermarketDom.elements.get("#super-items-table").children[1].innerHTML, /data-super-action="quick-consume"/);
+        assert.match(supermarketDom.elements.get("#super-items-table").children[1].innerHTML, /data-super-action="history"/);
         assertResponsiveCardLabels(supermarketDom.elements.get("#super-items-table").children[1].innerHTML, ["Estado", "Producto", "Categoría", "Configuración", "Stock", "Cantidad rápida", "Notas", "Acciones"]);
         assertResponsiveCardLabels(supermarketDom.elements.get("#super-category-list").children[0].innerHTML, ["Categoría", "Acciones"]);
+
+        const movementRow = supermarketDom.elements.get("#super-items-table").children[1];
+        await supermarketDom.elements.get("#super-items-table").clickTarget(fakeSuperItemActionButton("purchase", movementRow, "10"));
+        assert.equal(supermarketDom.elements.get("#super-movement-modal").hidden, false);
+        assert.equal(supermarketDom.elements.get("#super-movement-title").textContent, "Registrar compra");
+        assert.equal(supermarketDom.elements.get("#super-movement-item-name").textContent, "Arroz");
+        assert.equal(supermarketDom.elements.get(".super-movement-negative-field").hidden, true);
+        supermarketDom.elements.get("#super-movement-quantity").value = "2.000";
+        supermarketDom.elements.get("#super-movement-notes").value = " Reposición ";
+        const purchaseCallStart = supermarketDom.api.calls.length;
+        await supermarketDom.elements.get("#super-movement-form").submit();
+        assertSupermarketMutationAfter(supermarketDom, purchaseCallStart, {
+            method: "purchaseSuperItem",
+            id: 10,
+            payload: { quantity: "2.000", notes: "Reposición" }
+        });
+
+        await supermarketDom.elements.get("#super-items-table").clickTarget(fakeSuperItemActionButton("consume", movementRow, "10"));
+        assert.equal(supermarketDom.elements.get(".super-movement-negative-field").hidden, false);
+        supermarketDom.elements.get("#super-movement-quantity").value = "5.000";
+        const consumeCallStart = supermarketDom.api.calls.length;
+        await supermarketDom.elements.get("#super-movement-form").submit();
+        assert.equal(supermarketConfirmMessages.at(-1).includes("stock negativo"), true);
+        assertSupermarketMutationsAfter(supermarketDom, consumeCallStart, [
+            { method: "consumeSuperItem", id: 10, payload: { quantity: "5.000", notes: "", allowNegativeStock: false } },
+            { method: "consumeSuperItem", id: 10, payload: { quantity: "5.000", notes: "", allowNegativeStock: true } }
+        ]);
+
+        const quickConsumeCallStart = supermarketDom.api.calls.length;
+        await supermarketDom.elements.get("#super-items-table").clickTarget(fakeSuperItemActionButton("quick-consume", movementRow, "10"));
+        assert.equal(supermarketConfirmMessages.at(-1).includes("Stock actual: 1.000"), true);
+        assert.equal(supermarketConfirmMessages.at(-1).includes("Resultado: -1.000"), true);
+        assertSupermarketMutationsAfter(supermarketDom, quickConsumeCallStart, [
+            { method: "quickConsumeSuperItem", id: "10", payload: { allowNegativeStock: false } },
+            { method: "quickConsumeSuperItem", id: "10", payload: { allowNegativeStock: true } }
+        ]);
+
+        await supermarketDom.elements.get("#super-items-table").clickTarget(fakeSuperItemActionButton("history", movementRow, "10"));
+        assert.equal(supermarketDom.api.calls.at(-1).method, "superStockMovements");
+        assert.deepEqual(supermarketDom.api.calls.at(-1).filters, { itemId: "10", limit: 50 });
+        assert.equal(supermarketDom.elements.get("#super-movement-history-title").textContent, "Historial reciente · Arroz");
+        assert.match(supermarketDom.elements.get("#super-movement-history-table").children[0].innerHTML, /Compra/);
+        assert.match(supermarketDom.elements.get("#super-movement-history-table").children[1].innerHTML, /Consumo rápido/);
 
         supermarketDom.elements.get("#super-category-name").value = "  Limpieza ";
         const createCategoryCallStart = supermarketDom.api.calls.length;
@@ -551,7 +667,8 @@ try {
             "createSuperItem",
             "adjustSuperItemStock",
             "superCategories",
-            "superItems"
+            "superItems",
+            "superStockMovements"
         ]);
         assert.deepEqual(supermarketDom.api.calls.slice(partialCreateCallStart, partialCreateCallStart + 2), [
             {
@@ -593,6 +710,21 @@ try {
         assert.equal(supermarketDom.elements.get("#super-feedback").classList.contains("error-text"), true);
         supermarketDom.api.adjustSuperItemStock = originalAdjustSuperItemStock;
         supermarketDom.api.superItems = originalSuperItems;
+
+        const knownStockRow = supermarketDom.elements.get("#super-items-table").children[3];
+        await supermarketDom.elements.get("#super-items-table").clickTarget(fakeSuperItemActionButton("edit", knownStockRow, "11"));
+        assert.equal(supermarketDom.elements.get("#super-item-name").value, "Banana");
+        assert.equal(supermarketDom.elements.get("#super-item-current-stock").value, "0");
+        supermarketDom.elements.get("#super-item-unit").value = "unidad";
+        supermarketDom.elements.get("#super-item-objective").value = "6";
+        supermarketDom.elements.get("#super-item-quick-quantity").value = "1";
+        const updateWithoutStockAdjustmentCallStart = supermarketDom.api.calls.length;
+        await supermarketDom.elements.get("#super-item-form").submit();
+        assertSupermarketMutationAfter(supermarketDom, updateWithoutStockAdjustmentCallStart, {
+            method: "updateSuperItem",
+            id: 11,
+            payload: { name: "Banana", categoryId: 5, checked: true, notes: "", unit: "unidad", habitualObjective: "6", quickQuantity: "1" }
+        });
 
         await supermarketDom.elements.get("#super-generate-list").click();
         assert.equal(supermarketDom.elements.get("#super-generated-list").textContent, "Lista del super\n\nAlmacén\n- Arroz (1.000 kg) — Doble carolina\n\nVerdulería\n- Banana");
@@ -655,7 +787,8 @@ try {
             "updateSuperItem",
             "adjustSuperItemStock",
             "superCategories",
-            "superItems"
+            "superItems",
+            "superStockMovements"
         ]);
         assert.deepEqual(supermarketDom.api.calls.slice(partialUpdateCallStart, partialUpdateCallStart + 2), [
             {
@@ -1681,6 +1814,24 @@ function fakeAppDom() {
         "#super-items-summary",
         "#super-generated-list",
         "#super-feedback",
+        "#super-movement-modal",
+        "#super-movement-form",
+        "#super-movement-title",
+        "#super-movement-item-id",
+        "#super-movement-type",
+        "#super-movement-item-name",
+        "#super-movement-quantity",
+        "#super-movement-notes",
+        "#super-movement-allow-negative",
+        "#super-movement-conflict",
+        "#super-movement-feedback",
+        "#super-movement-submit",
+        "#super-movement-cancel",
+        "#super-movement-close",
+        "#super-movement-history",
+        "#super-movement-history-title",
+        "#super-movement-history-table",
+        "#super-movement-history-empty",
         "#logout-form",
         "#app-status"
     ]) {
@@ -1809,6 +1960,9 @@ function fakeAppDom() {
                 return jsonResponse([]);
             }
             if (resource.startsWith("/api/super/categories")) {
+                return jsonResponse([]);
+            }
+            if (resource.startsWith("/api/super/movements")) {
                 return jsonResponse([]);
             }
             if (resource.startsWith("/api/super/items")) {
@@ -2362,6 +2516,27 @@ function fakeSupermarketDom() {
     elements.set("#super-items-summary", fakeElement());
     elements.set("#super-generated-list", fakeElement());
     elements.set("#super-feedback", fakeElement());
+    elements.set("#super-movement-modal", fakeElement());
+    elements.get("#super-movement-modal").hidden = true;
+    elements.set("#super-movement-form", fakeSuperMovementForm(elements));
+    elements.set("#super-movement-title", fakeElement());
+    elements.set("#super-movement-item-id", fakeInput());
+    elements.set("#super-movement-type", fakeInput());
+    elements.set("#super-movement-item-name", fakeElement());
+    elements.set("#super-movement-quantity", fakeInput());
+    elements.set("#super-movement-notes", fakeInput());
+    elements.set(".super-movement-negative-field", fakeElement());
+    elements.set("#super-movement-allow-negative", fakeInput());
+    elements.get("#super-movement-allow-negative").checked = false;
+    elements.set("#super-movement-conflict", fakeElement());
+    elements.set("#super-movement-feedback", fakeElement());
+    elements.set("#super-movement-submit", elements.get("#super-movement-form").submitButton);
+    elements.set("#super-movement-cancel", fakeClickableButton("Cancelar"));
+    elements.set("#super-movement-close", fakeClickableButton("Cerrar"));
+    elements.set("#super-movement-history", fakeElement());
+    elements.set("#super-movement-history-title", fakeElement());
+    elements.set("#super-movement-history-table", fakeIncomeTable());
+    elements.set("#super-movement-history-empty", fakeElement());
 
     const calls = [];
     const categories = [
@@ -2401,6 +2576,57 @@ function fakeSupermarketDom() {
         },
         async adjustSuperItemStock(id, currentStock) {
             calls.push({ method: "adjustSuperItemStock", id, currentStock });
+        },
+        async purchaseSuperItem(id, payload) {
+            calls.push({ method: "purchaseSuperItem", id, payload });
+            return { ...items.find((item) => String(item.id) === String(id)), currentStock: "2.000" };
+        },
+        async consumeSuperItem(id, payload) {
+            calls.push({ method: "consumeSuperItem", id, payload });
+            if (!payload.allowNegativeStock && payload.quantity === "5.000") {
+                const error = new Error("Reintente con allowNegativeStock=true para confirmar.");
+                error.status = 409;
+                error.body = {
+                    itemId: Number(id),
+                    itemName: "Arroz",
+                    currentStock: "1.000",
+                    quantity: payload.quantity,
+                    resultingStock: "-4.000",
+                    movementType: "CONSUMPTION"
+                };
+                error.details = ["Reintente con allowNegativeStock=true para confirmar."];
+                error.resultingStock = "-4.000";
+                error.movementType = "CONSUMPTION";
+                throw error;
+            }
+            return { ...items.find((item) => String(item.id) === String(id)), currentStock: payload.allowNegativeStock ? "-4.000" : "1.000" };
+        },
+        async quickConsumeSuperItem(id, payload) {
+            calls.push({ method: "quickConsumeSuperItem", id, payload });
+            if (!payload.allowNegativeStock && String(id) === "10") {
+                const error = new Error("Reintente con allowNegativeStock=true para confirmar.");
+                error.status = 409;
+                error.body = {
+                    itemId: Number(id),
+                    itemName: "Arroz",
+                    currentStock: "1.000",
+                    quantity: "2.000",
+                    resultingStock: "-1.000",
+                    movementType: "QUICK_CONSUMPTION"
+                };
+                error.details = ["Reintente con allowNegativeStock=true para confirmar."];
+                error.resultingStock = "-1.000";
+                error.movementType = "QUICK_CONSUMPTION";
+                throw error;
+            }
+            return { ...items.find((item) => String(item.id) === String(id)), currentStock: "0.000" };
+        },
+        async superStockMovements(filters = {}) {
+            calls.push({ method: "superStockMovements", filters });
+            return [
+                { id: 1, itemId: 10, itemName: "Arroz", itemUnit: "kg", movementType: "PURCHASE", quantity: "2.000", previousStock: "1.000", resultingStock: "3.000", notes: "Reposición", createdAt: "2026-07-14T20:00:00" },
+                { id: 2, itemId: 10, itemName: "Arroz", itemUnit: "kg", movementType: "QUICK_CONSUMPTION", quantity: "1.000", previousStock: "3.000", resultingStock: "2.000", notes: "", createdAt: "2026-07-14T21:00:00" }
+            ];
         },
         async deleteSuperItem(id) {
             calls.push({ method: "deleteSuperItem", id });
@@ -2505,6 +2731,23 @@ function fakeSuperCategoryForm(elements) {
     form.reset = function resetSuperCategoryForm() {
         this.resetCount += 1;
         elements.get("#super-category-name").value = "";
+    };
+    return form;
+}
+
+function fakeSuperMovementForm(elements) {
+    const form = fakeForm(elements);
+    form.submitButton = fakeButton("Registrar movimiento");
+    form.querySelector = (selector) => {
+        assert.equal(selector, "button[type='submit']");
+        return form.submitButton;
+    };
+    form.reset = function resetSuperMovementForm() {
+        this.resetCount += 1;
+        for (const selector of ["#super-movement-item-id", "#super-movement-type", "#super-movement-quantity", "#super-movement-notes"]) {
+            elements.get(selector).value = "";
+        }
+        elements.get("#super-movement-allow-negative").checked = false;
     };
     return form;
 }
@@ -2719,9 +2962,6 @@ function assertNoUnsupportedSuperInventorySemantics(source) {
         "amount",
         "price",
         "prices",
-        "history",
-        "movement",
-        "movements",
         "barcode",
         "ocr",
         "suggested",
@@ -2739,7 +2979,7 @@ function assertSupermarketMutationAfter(supermarketDom, startIndex, expected) {
 
 function assertSupermarketMutationsAfter(supermarketDom, startIndex, expected) {
     const callsAfterAction = supermarketDom.api.calls.slice(startIndex);
-    const mutationCalls = callsAfterAction.filter((call) => !["superCategories", "superItems"].includes(call.method));
+    const mutationCalls = callsAfterAction.filter((call) => !["superCategories", "superItems", "superStockMovements"].includes(call.method));
     assert.deepEqual(mutationCalls, expected);
 }
 
