@@ -1,4 +1,4 @@
-import { api } from "./api.js?v=20260715-super-inventory-stage4-api";
+import { api } from "./api.js?v=20260716-super-inventory-stage5-api";
 import { escapeHtml, setButtonBusy } from "./utils.js";
 
 let supermarketApi = api;
@@ -237,18 +237,86 @@ export function generatedSuperListText(items) {
     return lines.join("\n").trim();
 }
 
+export function renderSuperSuggestedItems(suggestions) {
+    const list = document.querySelector("#super-suggested-list");
+    const empty = document.querySelector("#super-suggested-empty");
+    const summary = document.querySelector("#super-suggested-summary");
+    if (!list) {
+        return;
+    }
+    list.innerHTML = "";
+    if (!Array.isArray(suggestions) || suggestions.length === 0) {
+        if (empty) {
+            empty.hidden = false;
+        }
+        if (summary) {
+            summary.textContent = "Sin sugerencias por ahora.";
+            summary.classList.toggle("loading", false);
+        }
+        return;
+    }
+
+    list.innerHTML = suggestions.map(superSuggestedItemHtml).join("");
+    if (empty) {
+        empty.hidden = true;
+    }
+    if (summary) {
+        summary.textContent = `${suggestions.length} ${suggestions.length === 1 ? "producto sugerido" : "productos sugeridos"} para reponer.`;
+        summary.classList.toggle("loading", false);
+    }
+}
+
+export function superSuggestedItemText(item) {
+    return `Comprar ${quantityWithUnit(item.suggestedQuantity, item.unit)}`;
+}
+
+function superSuggestedItemHtml(item) {
+    const category = item.categoryName || "Sin categoría";
+    const stock = quantityWithUnit(item.currentStock, item.unit);
+    const objective = quantityWithUnit(item.habitualObjective, item.unit);
+    return `
+        <article class="super-suggested-item" data-super-suggested-item-id="${escapeHtml(String(item.itemId || ""))}">
+            <div>
+                <strong>${escapeHtml(item.name || "Producto")}</strong>
+                <span>${escapeHtml(category)}</span>
+            </div>
+            <p class="super-suggested-quantity">${escapeHtml(superSuggestedItemText(item))}</p>
+            <small>Stock actual ${escapeHtml(stock)} · objetivo ${escapeHtml(objective)}</small>
+        </article>
+    `;
+}
+
+function showSuperSuggestedLoading() {
+    const list = document.querySelector("#super-suggested-list");
+    const empty = document.querySelector("#super-suggested-empty");
+    const summary = document.querySelector("#super-suggested-summary");
+    if (list) {
+        list.innerHTML = "";
+    }
+    if (empty) {
+        empty.hidden = true;
+    }
+    if (summary) {
+        summary.textContent = "Cargando sugerencias...";
+        summary.classList.toggle("loading", true);
+    }
+}
+
 async function loadSupermarket() {
     try {
         showSuperFeedback("Cargando lista del super...", false, true);
-        const [categories, items] = await Promise.all([
+        showSuperSuggestedLoading();
+        const [categories, items, suggestedItems] = await Promise.all([
             supermarketApi.superCategories(),
-            supermarketApi.superItems()
+            supermarketApi.superItems(),
+            supermarketApi.superSuggestedList()
         ]);
         superItems = items;
         renderSuperCategories(categories);
         renderSuperCategoryOptions(categories);
         renderSuperBarcodeItemOptions(items);
         renderSuperItems(items);
+        renderSuperSuggestedItems(suggestedItems);
         applySuperBarcodeHighlight(currentBarcodeAlias?.item?.id);
         await loadSuperMovementHistory();
         clearGeneratedSuperList();

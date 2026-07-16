@@ -8,8 +8,8 @@ const sourceRoot = path.resolve("src/main/resources/static/js");
 const moduleRoot = path.join(tmpdir(), `landing-tarjetas-static-ui-${process.pid}`);
 const staticModuleFileNames = ["api.js", "app.js", "categories.js", "dashboard.js", "incomes.js", "login.js", "manual-expenses.js", "navigation.js", "simulator.js", "statements.js", "supermarket.js", "transactions.js", "utils.js"];
 const freshStaticToken = "20260713-pending-main";
-const stage4ApiToken = "20260715-super-inventory-stage4-api";
-const stage4UiToken = "20260715-super-inventory-stage4-ui";
+const stage5ApiToken = "20260716-super-inventory-stage5-api";
+const stage5UiToken = "20260716-super-inventory-stage5-ui";
 const staleApiToken = "20260712-security-hardening";
 
 await rm(moduleRoot, { force: true, recursive: true });
@@ -60,6 +60,7 @@ try {
         generatedSuperListText,
         groupSuperItems,
         normalizeSuperBarcodeCode,
+        renderSuperSuggestedItems,
         setupSupermarket,
         superBarcodePayloadFromValues,
         superBarcodeAliasLabel,
@@ -133,21 +134,21 @@ try {
     assert.match(indexHtml, /id="super-movement-history-table"/);
     assert.match(indexHtml, /Cantidad/);
     assert.match(indexHtml, /Confirmar stock negativo/);
-    assert.ok(indexHtml.includes(`/css/styles.css?v=${stage4UiToken}`));
-    assert.ok(indexHtml.includes(`/js/app.js?v=${stage4UiToken}`));
+    assert.ok(indexHtml.includes(`/css/styles.css?v=${stage5UiToken}`));
+    assert.ok(indexHtml.includes(`/js/app.js?v=${stage5UiToken}`));
     assert.ok(loginHtml.includes(`/css/styles.css?v=${freshStaticToken}`));
     assert.ok(loginHtml.includes(`/js/login.js?v=${freshStaticToken}`));
     assert.doesNotMatch(indexHtml, /\/css\/styles\.css\?v=20260711-security-login|\/js\/app\.js\?v=20260711-security-login/);
     assert.doesNotMatch(loginHtml, /\/css\/styles\.css\?v=20260711-security-login|\/js\/login\.js\?v=20260711-security-login/);
-    assert.ok(appSource.includes(`from "./api.js?v=${stage4ApiToken}"`));
+    assert.ok(appSource.includes(`from "./api.js?v=${stage5ApiToken}"`));
     assert.doesNotMatch(appSource, new RegExp(staleApiToken));
     assert.doesNotMatch(appSource, /from "\.\/api\.js"/);
     assert.ok(loginSource.includes(`from "./api.js?v=${freshStaticToken}"`));
     assert.doesNotMatch(loginSource, new RegExp(staleApiToken));
     assert.doesNotMatch(loginSource, /from "\.\/api\.js"/);
     const expectedApiImports = new Map([
-        ["app.js", `./api.js?v=${stage4ApiToken}`],
-        ["supermarket.js", `./api.js?v=${stage4ApiToken}`],
+        ["app.js", `./api.js?v=${stage5ApiToken}`],
+        ["supermarket.js", `./api.js?v=${stage5ApiToken}`],
         ["incomes.js", `./api.js?v=${freshStaticToken}`],
         ["login.js", `./api.js?v=${freshStaticToken}`],
         ["statements.js", `./api.js?v=${freshStaticToken}`]
@@ -170,7 +171,7 @@ try {
     for (const moduleName of ["dashboard", "incomes", "manual-expenses", "navigation", "simulator", "statements", "transactions"]) {
         assert.ok(appSource.includes(`./${moduleName}.js?v=${freshStaticToken}`), `${moduleName}.js should preserve origin/main cache token`);
     }
-    assert.ok(appSource.includes(`./supermarket.js?v=${stage4UiToken}`));
+    assert.ok(appSource.includes(`./supermarket.js?v=${stage5UiToken}`));
     assert.doesNotMatch(appSource, /20260709-stage-7-polish|20260710-mobile-slice-2|20260711-mobile-simulator|20260711-mobile-draft-responsive|20260711-mobile-supermarket/);
     assert.doesNotMatch(appSource, /from "\.\/statements\.js";/);
     const primaryTabButtons = extractPrimaryTabButtons(indexHtml);
@@ -321,6 +322,7 @@ try {
         await api.updateSuperCategory(4, { name: "Verdulería" });
         await api.deleteSuperCategory(4);
         await api.superItems();
+        await api.superSuggestedList();
         await api.createSuperItem({ name: "Leche", categoryId: 4, unit: "litro", habitualObjective: "2.000" });
         await api.updateSuperItem(9, { name: "Leche", categoryId: 4, checked: true });
         await api.adjustSuperItemStock(9, "4.000");
@@ -358,6 +360,7 @@ try {
         ["/api/super/categories/4", "PUT"],
         ["/api/super/categories/4", "DELETE"],
         ["/api/super/items", "GET"],
+        ["/api/super/suggested-list", "GET"],
         ["/api/super/items", "POST"],
         ["/api/super/items/9", "PUT"],
         ["/api/super/items/9/stock-adjustments", "POST"],
@@ -375,13 +378,13 @@ try {
     ]);
     assert.deepEqual(JSON.parse(apiCalls[2].options.body), { description: "Sueldo", amountPesos: "100", startMonth: "2026-07" });
     assert.deepEqual(JSON.parse(apiCalls[7].options.body), { description: "Préstamo", amountPesos: "100", startMonth: "2026-07" });
-    assert.deepEqual(JSON.parse(apiCalls[15].options.body), { name: "Leche", categoryId: 4, unit: "litro", habitualObjective: "2.000" });
-    assert.deepEqual(JSON.parse(apiCalls[17].options.body), { currentStock: "4.000" });
-    assert.deepEqual(JSON.parse(apiCalls[18].options.body), { quantity: "2.000", notes: "Reposición" });
-    assert.deepEqual(JSON.parse(apiCalls[19].options.body), { quantity: "1.000", notes: "Cena", allowNegativeStock: false });
-    assert.deepEqual(JSON.parse(apiCalls[20].options.body), { allowNegativeStock: false });
-    assert.deepEqual(JSON.parse(apiCalls[23].options.body), { code: "0075012345678", format: "EAN_13" });
-    assert.deepEqual(JSON.parse(apiCalls[25].options.body), { checked: true });
+    assert.deepEqual(JSON.parse(apiCalls[16].options.body), { name: "Leche", categoryId: 4, unit: "litro", habitualObjective: "2.000" });
+    assert.deepEqual(JSON.parse(apiCalls[18].options.body), { currentStock: "4.000" });
+    assert.deepEqual(JSON.parse(apiCalls[19].options.body), { quantity: "2.000", notes: "Reposición" });
+    assert.deepEqual(JSON.parse(apiCalls[20].options.body), { quantity: "1.000", notes: "Cena", allowNegativeStock: false });
+    assert.deepEqual(JSON.parse(apiCalls[21].options.body), { allowNegativeStock: false });
+    assert.deepEqual(JSON.parse(apiCalls[24].options.body), { code: "0075012345678", format: "EAN_13" });
+    assert.deepEqual(JSON.parse(apiCalls[26].options.body), { checked: true });
 
     const previousConflictFetch = globalThis.fetch;
     globalThis.fetch = async () => ({
@@ -531,6 +534,10 @@ try {
         superItemFixture({ name: "Arroz", categoryName: "Almacén", checked: true, unit: "kg", habitualObjective: "3.000", configured: true, stock: "12", price: "99", barcode: "779", ocr: true, suggestedList: true }),
         superItemFixture({ name: "Leche", categoryName: "Lácteos", checked: true, movements: [{ quantity: 1 }], suggestedQuantity: 2 })
     ]), "Lista del super\n\nAlmacén\n- Arroz\n\nLácteos\n- Leche");
+    assert.equal(generatedSuperListText([
+        superItemFixture({ name: "Arroz", categoryName: "Almacén", checked: false, suggestedQuantity: "2.000", unit: "kg" }),
+        superItemFixture({ name: "Leche", categoryName: "Lácteos", checked: true, quickQuantity: "1.000", unit: "litro" })
+    ]), "Lista del super\n\nLácteos\n- Leche (1.000 litro)");
     assertNoUnsupportedSuperInventorySemantics(supermarketSource);
 
     const supermarketDom = fakeSupermarketDom();
@@ -554,7 +561,16 @@ try {
     try {
         setupSupermarket({ apiClient: supermarketDom.api });
         await flushAsyncWork();
-        assert.deepEqual(supermarketDom.api.calls.slice(0, 2), [{ method: "superCategories" }, { method: "superItems" }]);
+        assert.deepEqual(supermarketDom.api.calls.slice(0, 3), [{ method: "superCategories" }, { method: "superItems" }, { method: "superSuggestedList" }]);
+        assert.equal(supermarketDom.elements.get("#super-suggested-list").innerHTML.includes("Comprar 2.000 kg"), true);
+        assert.equal(supermarketDom.elements.get("#super-suggested-list").innerHTML.includes("Arroz"), true);
+        assert.equal(supermarketDom.elements.get("#super-suggested-empty").hidden, true);
+        assert.equal(supermarketDom.elements.get("#super-suggested-summary").textContent, "1 producto sugerido para reponer.");
+        renderSuperSuggestedItems([]);
+        assert.equal(supermarketDom.elements.get("#super-suggested-list").innerHTML, "");
+        assert.equal(supermarketDom.elements.get("#super-suggested-empty").hidden, false);
+        assert.equal(supermarketDom.elements.get("#super-suggested-summary").textContent, "Sin sugerencias por ahora.");
+        renderSuperSuggestedItems([{ itemId: 10, name: "Arroz", categoryName: "Almacén", unit: "kg", currentStock: "1.000", habitualObjective: "3.000", suggestedQuantity: "2.000" }]);
         assert.equal(supermarketDom.elements.get("#super-category-name").maxLength, SUPER_FIELD_LIMITS.categoryName);
         assert.equal(supermarketDom.elements.get("#super-item-name").maxLength, SUPER_FIELD_LIMITS.itemName);
         assert.equal(supermarketDom.elements.get("#super-item-notes").maxLength, SUPER_FIELD_LIMITS.itemNotes);
@@ -732,6 +748,7 @@ try {
             "adjustSuperItemStock",
             "superCategories",
             "superItems",
+            "superSuggestedList",
             "superStockMovements"
         ]);
         assert.deepEqual(supermarketDom.api.calls.slice(partialCreateCallStart, partialCreateCallStart + 2), [
@@ -767,7 +784,8 @@ try {
             "createSuperItem",
             "adjustSuperItemStock",
             "superCategories",
-            "superItems"
+            "superItems",
+            "superSuggestedList"
         ]);
         assert.equal(supermarketDom.elements.get("#super-feedback").textContent, "Producto guardado, pero no se pudo ajustar el stock: Stock API no disponible. Además, no se pudo refrescar la lista: Refresh API caída");
         assert.doesNotMatch(supermarketDom.elements.get("#super-feedback").textContent, /No se pudo guardar el producto/);
@@ -852,6 +870,7 @@ try {
             "adjustSuperItemStock",
             "superCategories",
             "superItems",
+            "superSuggestedList",
             "superStockMovements"
         ]);
         assert.deepEqual(supermarketDom.api.calls.slice(partialUpdateCallStart, partialUpdateCallStart + 2), [
@@ -886,7 +905,8 @@ try {
             "updateSuperItem",
             "adjustSuperItemStock",
             "superCategories",
-            "superItems"
+            "superItems",
+            "superSuggestedList"
         ]);
         assert.equal(supermarketDom.elements.get("#super-feedback").textContent, "Producto guardado, pero no se pudo ajustar el stock: Timeout de stock. Además, no se pudo refrescar la lista: Refresh API caída");
         assert.doesNotMatch(supermarketDom.elements.get("#super-feedback").textContent, /No se pudo guardar el producto/);
@@ -2600,6 +2620,9 @@ function fakeSupermarketDom() {
     elements.set("#super-items-table", table);
     elements.set("#super-items-empty", fakeElement());
     elements.set("#super-items-summary", fakeElement());
+    elements.set("#super-suggested-list", fakeElement());
+    elements.set("#super-suggested-empty", fakeElement());
+    elements.set("#super-suggested-summary", fakeElement());
     elements.set("#super-generated-list", fakeElement());
     elements.set("#super-feedback", fakeElement());
     elements.set("#super-movement-modal", fakeElement());
@@ -2634,6 +2657,9 @@ function fakeSupermarketDom() {
         superItemFixture({ id: 11, name: "Banana", categoryId: 5, categoryName: "Verdulería", checked: true, unit: null, habitualObjective: null, currentStock: "0", configured: false }),
         superItemFixture({ id: 12, name: "Zanahoria", categoryId: 5, categoryName: "Verdulería", checked: false })
     ];
+    const suggestedItems = [
+        { itemId: 10, name: "Arroz", categoryId: 4, categoryName: "Almacén", unit: "kg", habitualObjective: "3.000", currentStock: "1.000", suggestedQuantity: "2.000" }
+    ];
     const api = {
         calls,
         async superCategories() {
@@ -2652,6 +2678,10 @@ function fakeSupermarketDom() {
         async superItems() {
             calls.push({ method: "superItems" });
             return items;
+        },
+        async superSuggestedList() {
+            calls.push({ method: "superSuggestedList" });
+            return suggestedItems;
         },
         async createSuperItem(payload) {
             calls.push({ method: "createSuperItem", payload });
@@ -3081,16 +3111,18 @@ function assertNoUnsupportedSuperInventorySemantics(source) {
         "price",
         "prices",
         "ocr",
-        "suggested",
-        "suggested-list",
-        "suggestedList",
         "OpenFoodFacts",
         "Tesseract",
         "BarcodeDetector",
         "getUserMedia",
         "externalLookup",
+        "store",
+        "presentation",
         "autoPurchase",
-        "purchaseAutomation"
+        "purchaseAutomation",
+        "persistSuggestion",
+        "suggestionPersistence",
+        "saveSuggestion"
     ];
     for (const term of unsupportedTerms) {
         assert.equal(source.includes(term), false, `Unexpected unsupported super inventory term: ${term}`);
@@ -3103,7 +3135,7 @@ function assertSupermarketMutationAfter(supermarketDom, startIndex, expected) {
 
 function assertSupermarketMutationsAfter(supermarketDom, startIndex, expected) {
     const callsAfterAction = supermarketDom.api.calls.slice(startIndex);
-    const mutationCalls = callsAfterAction.filter((call) => !["superCategories", "superItems", "superStockMovements"].includes(call.method));
+    const mutationCalls = callsAfterAction.filter((call) => !["superCategories", "superItems", "superSuggestedList", "superStockMovements"].includes(call.method));
     assert.deepEqual(mutationCalls, expected);
 }
 

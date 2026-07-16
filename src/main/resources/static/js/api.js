@@ -203,6 +203,9 @@ export const api = {
     superItems() {
         return request("/api/super/items");
     },
+    superSuggestedList() {
+        return request("/api/super/suggested-list");
+    },
     createSuperItem(payload) {
         return request("/api/super/items", {
             method: "POST",
