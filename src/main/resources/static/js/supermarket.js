@@ -15,6 +15,7 @@ export const SUPER_FIELD_LIMITS = Object.freeze({
     itemName: 160,
     itemNotes: 500,
     itemUnit: 40,
+    presentationLabel: 120,
     barcodeCode: 80,
     barcodeFormat: 40
 });
@@ -100,6 +101,8 @@ function superFieldLimitAttribute(fieldName) {
 export function superItemPayloadFromValues(values) {
     const categoryId = Number(values.categoryId || 0);
     const unit = String(values.unit || "").trim();
+    const commercialPresentationLabel = String(values.commercialPresentationLabel || "").trim();
+    const commercialPresentationQuantity = String(values.commercialPresentationQuantity || "").trim();
     const habitualObjective = String(values.habitualObjective || "").trim();
     const quickQuantity = String(values.quickQuantity || "").trim();
     const payload = {
@@ -110,6 +113,12 @@ export function superItemPayloadFromValues(values) {
     };
     if (unit) {
         payload.unit = unit;
+    }
+    if (commercialPresentationLabel) {
+        payload.commercialPresentationLabel = commercialPresentationLabel;
+    }
+    if (commercialPresentationQuantity) {
+        payload.commercialPresentationQuantity = commercialPresentationQuantity;
     }
     if (habitualObjective) {
         payload.habitualObjective = habitualObjective;
@@ -132,6 +141,15 @@ export function validateSuperItemPayload(payload) {
     }
     if (payload.quickQuantity && (!Number.isFinite(Number(payload.quickQuantity)) || Number(payload.quickQuantity) <= 0)) {
         return "La cantidad rápida debe ser mayor que cero.";
+    }
+    if (payload.commercialPresentationQuantity && (!Number.isFinite(Number(payload.commercialPresentationQuantity)) || Number(payload.commercialPresentationQuantity) <= 0)) {
+        return "La cantidad de presentación debe ser mayor que cero.";
+    }
+    if (payload.commercialPresentationQuantity && !payload.unit) {
+        return "La cantidad de presentación requiere unidad de inventario.";
+    }
+    if (payload.commercialPresentationQuantity && !payload.commercialPresentationLabel) {
+        return "La cantidad de presentación requiere una presentación comercial.";
     }
     return "";
 }
@@ -184,6 +202,16 @@ export function superItemQuickQuantityLabel(item) {
         return "—";
     }
     return quantityWithUnit(item.quickQuantity, item.unit);
+}
+
+export function superItemCommercialPresentationLabel(item) {
+    if (!item.commercialPresentationLabel) {
+        return "—";
+    }
+    if (!item.commercialPresentationQuantity) {
+        return item.commercialPresentationLabel;
+    }
+    return `${item.commercialPresentationLabel} · ${quantityWithUnit(item.commercialPresentationQuantity, item.unit)}`;
 }
 
 export function superMovementTypeLabel(type) {
@@ -538,7 +566,7 @@ function renderSuperItems(items) {
     for (const [categoryName, categoryItems] of groupSuperItems(items)) {
         const groupRow = document.createElement("tr");
         groupRow.className = "super-category-group-row";
-        groupRow.innerHTML = `<th scope="rowgroup" colspan="8">${escapeHtml(categoryName)}</th>`;
+        groupRow.innerHTML = `<th scope="rowgroup" colspan="9">${escapeHtml(categoryName)}</th>`;
         table.append(groupRow);
         categoryItems.forEach((item) => {
             const row = document.createElement("tr");
@@ -565,6 +593,7 @@ function superItemRowHtml(item) {
         <td data-label="Producto">${escapeHtml(item.name)}</td>
         <td data-label="Categoría">${escapeHtml(item.categoryName)}</td>
         <td data-label="Configuración">${superItemConfigurationBadgeHtml(item)}</td>
+        <td data-label="Presentación">${escapeHtml(superItemCommercialPresentationLabel(item))}</td>
         <td data-label="Stock">${superItemStockHtml(item)}</td>
         <td data-label="Cantidad rápida">${escapeHtml(superItemQuickQuantityLabel(item))}</td>
         <td data-label="Notas">${item.notes ? escapeHtml(item.notes) : "—"}</td>
@@ -615,6 +644,8 @@ async function saveSuperItem() {
         categoryId: document.querySelector("#super-item-category")?.value,
         checked: editingItemId ? currentEditingItem()?.checked : false,
         unit: document.querySelector("#super-item-unit")?.value,
+        commercialPresentationLabel: document.querySelector("#super-item-presentation-label")?.value,
+        commercialPresentationQuantity: document.querySelector("#super-item-presentation-quantity")?.value,
         habitualObjective: document.querySelector("#super-item-objective")?.value,
         quickQuantity: document.querySelector("#super-item-quick-quantity")?.value,
         notes: document.querySelector("#super-item-notes")?.value
@@ -1049,6 +1080,8 @@ function openSuperItemEdit(id) {
     document.querySelector("#super-item-name").value = item.name;
     document.querySelector("#super-item-category").value = String(item.categoryId);
     document.querySelector("#super-item-unit").value = item.unit || "";
+    document.querySelector("#super-item-presentation-label").value = item.commercialPresentationLabel || "";
+    document.querySelector("#super-item-presentation-quantity").value = item.commercialPresentationQuantity || "";
     document.querySelector("#super-item-objective").value = item.habitualObjective || "";
     document.querySelector("#super-item-quick-quantity").value = item.quickQuantity || "";
     document.querySelector("#super-item-current-stock").value = item.currentStock ?? "";

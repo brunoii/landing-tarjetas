@@ -6,7 +6,7 @@ import { renderManualExpenses, setManualExpenseApi, setManualExpenseCategories, 
 import { setupPrimaryTabs } from "./navigation.js?v=20260713-pending-main";
 import { setSimulatorApi, setSimulatorCategories, setupSimulator } from "./simulator.js?v=20260713-pending-main";
 import { renderDraftStatementList, setStatementCategories, setupStatementUpload } from "./statements.js?v=20260713-pending-main";
-import { setupSupermarket } from "./supermarket.js?v=20260716-super-inventory-stage5-ui";
+import { setupSupermarket } from "./supermarket.js?v=20260716-super-inventory-stage6-ui";
 import { renderTransactions, rerenderTransactionsAfterSearch, resetTransactionFilters, setTransactionCategories, syncTransactionMonth, transactionFilters } from "./transactions.js?v=20260713-pending-main";
 import { currentYearMonth, setButtonBusy } from "./utils.js";
 
