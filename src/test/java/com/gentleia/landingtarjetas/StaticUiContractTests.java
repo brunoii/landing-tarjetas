@@ -22,8 +22,8 @@ class StaticUiContractTests {
 
     private static final Path STATIC_ROOT = Path.of("src/main/resources/static");
     private static final String FRESH_STATIC_TOKEN = "20260713-pending-main";
-    private static final String STAGE3_API_TOKEN = "20260714-super-inventory-stage3-api";
-    private static final String STAGE3_UI_TOKEN = "20260714-super-inventory-stage3-ui";
+    private static final String STAGE4_API_TOKEN = "20260715-super-inventory-stage4-api";
+    private static final String STAGE4_UI_TOKEN = "20260715-super-inventory-stage4-ui";
     private static final String STALE_API_TOKEN = "20260712-security-hardening";
 
     @Test
@@ -32,15 +32,15 @@ class StaticUiContractTests {
         String login = readStatic("login.html");
         String app = readStatic("js/app.js");
 
-        assertThat(index).contains("<link rel=\"stylesheet\" href=\"/css/styles.css?v=" + STAGE3_UI_TOKEN + "\">");
+        assertThat(index).contains("<link rel=\"stylesheet\" href=\"/css/styles.css?v=" + STAGE4_UI_TOKEN + "\">");
         assertThat(index).doesNotContain("<link rel=\"stylesheet\" href=\"/css/styles.css\">");
-        assertThat(index).contains("<script type=\"module\" src=\"/js/app.js?v=" + STAGE3_UI_TOKEN + "\"></script>");
+        assertThat(index).contains("<script type=\"module\" src=\"/js/app.js?v=" + STAGE4_UI_TOKEN + "\"></script>");
         assertThat(index).doesNotContain("/css/styles.css?v=20260711-security-login", "/js/app.js?v=20260711-security-login");
         assertThat(login).contains("<link rel=\"stylesheet\" href=\"/css/styles.css?v=" + FRESH_STATIC_TOKEN + "\">")
                 .contains("/js/login.js?v=" + FRESH_STATIC_TOKEN)
                 .doesNotContain("/css/styles.css?v=20260711-security-login", "/js/login.js?v=20260711-security-login");
         assertThat(app)
-                .contains("./api.js?v=" + STAGE3_API_TOKEN, "./categories.js", "./dashboard.js?v=" + FRESH_STATIC_TOKEN, "./incomes.js?v=" + FRESH_STATIC_TOKEN, "./manual-expenses.js?v=" + FRESH_STATIC_TOKEN, "./navigation.js?v=" + FRESH_STATIC_TOKEN, "./simulator.js?v=" + FRESH_STATIC_TOKEN, "./statements.js?v=" + FRESH_STATIC_TOKEN, "./supermarket.js?v=" + STAGE3_UI_TOKEN, "./transactions.js?v=" + FRESH_STATIC_TOKEN, "./utils.js")
+                .contains("./api.js?v=" + STAGE4_API_TOKEN, "./categories.js", "./dashboard.js?v=" + FRESH_STATIC_TOKEN, "./incomes.js?v=" + FRESH_STATIC_TOKEN, "./manual-expenses.js?v=" + FRESH_STATIC_TOKEN, "./navigation.js?v=" + FRESH_STATIC_TOKEN, "./simulator.js?v=" + FRESH_STATIC_TOKEN, "./statements.js?v=" + FRESH_STATIC_TOKEN, "./supermarket.js?v=" + STAGE4_UI_TOKEN, "./transactions.js?v=" + FRESH_STATIC_TOKEN, "./utils.js")
                 .doesNotContain("./api.js\";")
                 .doesNotContain("./statements.js\";", "20260709-stage-7-polish", "20260710-mobile-slice-2", "20260711-mobile-simulator", "20260711-mobile-draft-responsive", "20260711-mobile-supermarket");
     }
@@ -86,8 +86,8 @@ class StaticUiContractTests {
     @Test
     void directApiImportsUseExpectedCacheVersions() throws IOException {
         Map<String, String> expectedApiImports = Map.of(
-                "js/app.js", "./api.js?v=" + STAGE3_API_TOKEN,
-                "js/supermarket.js", "./api.js?v=" + STAGE3_API_TOKEN,
+                "js/app.js", "./api.js?v=" + STAGE4_API_TOKEN,
+                "js/supermarket.js", "./api.js?v=" + STAGE4_API_TOKEN,
                 "js/incomes.js", "./api.js?v=" + FRESH_STATIC_TOKEN,
                 "js/login.js", "./api.js?v=" + FRESH_STATIC_TOKEN,
                 "js/statements.js", "./api.js?v=" + FRESH_STATIC_TOKEN
@@ -281,7 +281,7 @@ class StaticUiContractTests {
                 "name=\"password\"",
                 "/js/login.js?v=" + FRESH_STATIC_TOKEN
         );
-        assertThat(app).contains("from \"./api.js?v=" + STAGE3_API_TOKEN + "\"")
+        assertThat(app).contains("from \"./api.js?v=" + STAGE4_API_TOKEN + "\"")
                 .doesNotContain(STALE_API_TOKEN)
                 .doesNotContain("from \"./api.js\"");
         assertThat(loginJs).contains("from \"./api.js?v=" + FRESH_STATIC_TOKEN + "\"")
@@ -471,6 +471,14 @@ class StaticUiContractTests {
                 "Generar lista",
                 "id=\"super-uncheck-all\"",
                 "Desmarcar todos",
+                "id=\"super-barcode-form\"",
+                "id=\"super-barcode-code\" type=\"text\" data-super-limit=\"barcodeCode\"",
+                "id=\"super-barcode-item\"",
+                "id=\"super-barcode-attach\"",
+                "id=\"super-barcode-remove\"",
+                "Buscar código local",
+                "Asociar a producto existente",
+                "Quitar alias",
                 "Copiar",
                 "Descargar TXT",
                 "Compartir por WhatsApp",
@@ -524,6 +532,12 @@ class StaticUiContractTests {
                 "`/api/super/items/${id}/quick-consumptions`",
                 "superStockMovements(filters = {})",
                 "withQuery(\"/api/super/movements\", filters)",
+                "lookupSuperItemBarcodeAlias(code)",
+                "withQuery(\"/api/super/barcode-aliases\", { code })",
+                "attachSuperItemBarcodeAlias(id, payload)",
+                "`/api/super/items/${id}/barcode-aliases`",
+                "removeSuperItemBarcodeAlias(itemId, aliasId)",
+                "`/api/super/items/${itemId}/barcode-aliases/${aliasId}`",
                 "error.status = response.status",
                 "error.body = body",
                 "uncheckAllSuperItems()",
@@ -565,6 +579,18 @@ class StaticUiContractTests {
                 "Ocultar categorías",
                 "No hay productos marcados para comprar."
         );
+        assertThat(supermarket).contains(
+                "normalizeSuperBarcodeCode",
+                "superBarcodePayloadFromValues",
+                "validateSuperBarcodeLookup",
+                "submitSuperBarcodeLookup",
+                "attachSuperBarcodeAlias",
+                "removeSuperBarcodeAlias",
+                "super-item-barcode-match",
+                "superBarcodeAliasLabel"
+        );
+        assertThat(supermarket).doesNotContain("Number(code)", "parseInt(code", "parseFloat(code");
+        assertThat(supermarket).doesNotContain("BarcodeDetector", "getUserMedia");
         assertThat(index).contains(
                 "id=\"super-movement-modal\"",
                 "id=\"super-movement-form\"",
@@ -580,7 +606,7 @@ class StaticUiContractTests {
                 "document.querySelector(\".super-movement-negative-field\")",
                 "negativeField.hidden = type !== \"consume\""
         );
-        assertThat(styles).contains(".supermarket-layout", ".super-item-form", ".super-items-table-wrap table", ".super-generated-list", ".super-category-table", ".super-category-actions", ".super-configuration-badge", ".super-configuration-badge.configured", ".super-configuration-badge.pending", ".super-stock-value", ".super-stock-value.unknown", ".super-movement-form", ".super-movement-history", ".super-movement-conflict");
+        assertThat(styles).contains(".supermarket-layout", ".super-item-form", ".super-items-table-wrap table", ".super-generated-list", ".super-category-table", ".super-category-actions", ".super-configuration-badge", ".super-configuration-badge.configured", ".super-configuration-badge.pending", ".super-stock-value", ".super-stock-value.unknown", ".super-movement-form", ".super-movement-history", ".super-movement-conflict", ".super-barcode-card", ".super-barcode-form", ".super-item-barcode-match", ".super-barcode-current-alias");
         assertCssRuleHasDeclarations(styles, ".super-configuration-badge", Map.of("display", "inline-flex", "white-space", "normal"));
         assertThat(index).contains(
                 "class=\"table-wrap super-items-table-wrap responsive-card-table\"",
@@ -596,7 +622,8 @@ class StaticUiContractTests {
         assertDataLabels(supermarket, List.of("Estado", "Producto", "Categoría", "Configuración", "Stock", "Cantidad rápida", "Notas", "Acciones"));
         assertThat(supermarket).doesNotContain(
                 "amount", "price", "prices",
-                "barcode", "ocr", "suggested", "suggested-list", "suggestedList"
+                "ocr", "suggested", "suggested-list", "suggestedList",
+                "OpenFoodFacts", "Tesseract", "store", "presentation", "autoPurchase", "purchaseAutomation"
         );
     }
 
@@ -939,7 +966,9 @@ class StaticUiContractTests {
                 "categoryName", javaIntConstant(source, "CATEGORY_NAME_MAX_LENGTH"),
                 "itemName", javaIntConstant(source, "ITEM_NAME_MAX_LENGTH"),
                 "itemNotes", javaIntConstant(source, "ITEM_NOTES_MAX_LENGTH"),
-                "itemUnit", javaIntConstant(source, "ITEM_UNIT_MAX_LENGTH")
+                "itemUnit", javaIntConstant(source, "ITEM_UNIT_MAX_LENGTH"),
+                "barcodeCode", javaIntConstant(source, "BARCODE_CODE_MAX_LENGTH"),
+                "barcodeFormat", javaIntConstant(source, "BARCODE_FORMAT_MAX_LENGTH")
         );
     }
 

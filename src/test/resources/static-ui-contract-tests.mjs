@@ -8,8 +8,8 @@ const sourceRoot = path.resolve("src/main/resources/static/js");
 const moduleRoot = path.join(tmpdir(), `landing-tarjetas-static-ui-${process.pid}`);
 const staticModuleFileNames = ["api.js", "app.js", "categories.js", "dashboard.js", "incomes.js", "login.js", "manual-expenses.js", "navigation.js", "simulator.js", "statements.js", "supermarket.js", "transactions.js", "utils.js"];
 const freshStaticToken = "20260713-pending-main";
-const stage3ApiToken = "20260714-super-inventory-stage3-api";
-const stage3UiToken = "20260714-super-inventory-stage3-ui";
+const stage4ApiToken = "20260715-super-inventory-stage4-api";
+const stage4UiToken = "20260715-super-inventory-stage4-ui";
 const staleApiToken = "20260712-security-hardening";
 
 await rm(moduleRoot, { force: true, recursive: true });
@@ -59,7 +59,10 @@ try {
         SUPER_FIELD_LIMITS,
         generatedSuperListText,
         groupSuperItems,
+        normalizeSuperBarcodeCode,
         setupSupermarket,
+        superBarcodePayloadFromValues,
+        superBarcodeAliasLabel,
         superItemConfigurationLabel,
         superMovementQuantityLabel,
         superMovementSummary,
@@ -67,6 +70,7 @@ try {
         superItemQuickQuantityLabel,
         superItemPayloadFromValues,
         superItemStockLabel,
+        validateSuperBarcodeLookup,
         validateSuperItemPayload
     } = await import(pathToFileURL(path.join(moduleRoot, "supermarket.js")));
     const {
@@ -95,7 +99,9 @@ try {
         categoryName: supermarketLimitConstants.CATEGORY_NAME_MAX_LENGTH,
         itemName: supermarketLimitConstants.ITEM_NAME_MAX_LENGTH,
         itemNotes: supermarketLimitConstants.ITEM_NOTES_MAX_LENGTH,
-        itemUnit: supermarketLimitConstants.ITEM_UNIT_MAX_LENGTH
+        itemUnit: supermarketLimitConstants.ITEM_UNIT_MAX_LENGTH,
+        barcodeCode: supermarketLimitConstants.BARCODE_CODE_MAX_LENGTH,
+        barcodeFormat: supermarketLimitConstants.BARCODE_FORMAT_MAX_LENGTH
     };
     assert.ok(indexHtml.indexOf('id="super-items-table"') < indexHtml.indexOf('id="super-category-form"'));
     assert.ok(indexHtml.indexOf('id="super-generated-list"') < indexHtml.indexOf('id="super-category-form"'));
@@ -110,6 +116,13 @@ try {
     assert.match(indexHtml, /<table class="super-category-table">[\s\S]*<th>Categoría<\/th>[\s\S]*<tbody id="super-category-list">/);
     assert.match(indexHtml, /id="super-item-quick-quantity"[^>]+type="number"[^>]+min="0\.001"[^>]+step="0\.001"/);
     assert.match(indexHtml, /id="super-item-current-stock"[^>]+type="number"[^>]+min="0"[^>]+step="0\.001"/);
+    assert.match(indexHtml, /id="super-barcode-form"/);
+    assert.match(indexHtml, /id="super-barcode-code"[^>]+type="text"[^>]+data-super-limit="barcodeCode"/);
+    assert.match(indexHtml, /id="super-barcode-format"[^>]+type="text"[^>]+data-super-limit="barcodeFormat"/);
+    assert.match(indexHtml, /id="super-barcode-item"/);
+    assert.match(indexHtml, /id="super-barcode-attach"/);
+    assert.match(indexHtml, /id="super-barcode-remove"/);
+    assert.match(indexHtml, /Buscar código local/);
     assert.match(indexHtml, /<th>Stock<\/th>/);
     assert.match(indexHtml, /<th>Cantidad rápida<\/th>/);
     assert.match(indexHtml, /id="super-movement-modal"/);
@@ -120,21 +133,21 @@ try {
     assert.match(indexHtml, /id="super-movement-history-table"/);
     assert.match(indexHtml, /Cantidad/);
     assert.match(indexHtml, /Confirmar stock negativo/);
-    assert.ok(indexHtml.includes(`/css/styles.css?v=${stage3UiToken}`));
-    assert.ok(indexHtml.includes(`/js/app.js?v=${stage3UiToken}`));
+    assert.ok(indexHtml.includes(`/css/styles.css?v=${stage4UiToken}`));
+    assert.ok(indexHtml.includes(`/js/app.js?v=${stage4UiToken}`));
     assert.ok(loginHtml.includes(`/css/styles.css?v=${freshStaticToken}`));
     assert.ok(loginHtml.includes(`/js/login.js?v=${freshStaticToken}`));
     assert.doesNotMatch(indexHtml, /\/css\/styles\.css\?v=20260711-security-login|\/js\/app\.js\?v=20260711-security-login/);
     assert.doesNotMatch(loginHtml, /\/css\/styles\.css\?v=20260711-security-login|\/js\/login\.js\?v=20260711-security-login/);
-    assert.ok(appSource.includes(`from "./api.js?v=${stage3ApiToken}"`));
+    assert.ok(appSource.includes(`from "./api.js?v=${stage4ApiToken}"`));
     assert.doesNotMatch(appSource, new RegExp(staleApiToken));
     assert.doesNotMatch(appSource, /from "\.\/api\.js"/);
     assert.ok(loginSource.includes(`from "./api.js?v=${freshStaticToken}"`));
     assert.doesNotMatch(loginSource, new RegExp(staleApiToken));
     assert.doesNotMatch(loginSource, /from "\.\/api\.js"/);
     const expectedApiImports = new Map([
-        ["app.js", `./api.js?v=${stage3ApiToken}`],
-        ["supermarket.js", `./api.js?v=${stage3ApiToken}`],
+        ["app.js", `./api.js?v=${stage4ApiToken}`],
+        ["supermarket.js", `./api.js?v=${stage4ApiToken}`],
         ["incomes.js", `./api.js?v=${freshStaticToken}`],
         ["login.js", `./api.js?v=${freshStaticToken}`],
         ["statements.js", `./api.js?v=${freshStaticToken}`]
@@ -157,7 +170,7 @@ try {
     for (const moduleName of ["dashboard", "incomes", "manual-expenses", "navigation", "simulator", "statements", "transactions"]) {
         assert.ok(appSource.includes(`./${moduleName}.js?v=${freshStaticToken}`), `${moduleName}.js should preserve origin/main cache token`);
     }
-    assert.ok(appSource.includes(`./supermarket.js?v=${stage3UiToken}`));
+    assert.ok(appSource.includes(`./supermarket.js?v=${stage4UiToken}`));
     assert.doesNotMatch(appSource, /20260709-stage-7-polish|20260710-mobile-slice-2|20260711-mobile-simulator|20260711-mobile-draft-responsive|20260711-mobile-supermarket/);
     assert.doesNotMatch(appSource, /from "\.\/statements\.js";/);
     const primaryTabButtons = extractPrimaryTabButtons(indexHtml);
@@ -315,6 +328,9 @@ try {
         await api.consumeSuperItem(9, { quantity: "1.000", notes: "Cena", allowNegativeStock: false });
         await api.quickConsumeSuperItem(9, { allowNegativeStock: false });
         await api.superStockMovements({ itemId: 9, limit: 25 });
+        await api.lookupSuperItemBarcodeAlias("0075012345678");
+        await api.attachSuperItemBarcodeAlias(9, { code: "0075012345678", format: "EAN_13" });
+        await api.removeSuperItemBarcodeAlias(9, 44);
         await api.updateSuperItemChecked(9, true);
         await api.uncheckAllSuperItems();
         await api.deleteSuperItem(9);
@@ -349,6 +365,9 @@ try {
         ["/api/super/items/9/consumptions", "POST"],
         ["/api/super/items/9/quick-consumptions", "POST"],
         ["/api/super/movements?itemId=9&limit=25", "GET"],
+        ["/api/super/barcode-aliases?code=0075012345678", "GET"],
+        ["/api/super/items/9/barcode-aliases", "POST"],
+        ["/api/super/items/9/barcode-aliases/44", "DELETE"],
         ["/api/super/items/9/checked", "PATCH"],
         ["/api/super/items/uncheck-all", "POST"],
         ["/api/super/items/9", "DELETE"],
@@ -361,7 +380,8 @@ try {
     assert.deepEqual(JSON.parse(apiCalls[18].options.body), { quantity: "2.000", notes: "Reposición" });
     assert.deepEqual(JSON.parse(apiCalls[19].options.body), { quantity: "1.000", notes: "Cena", allowNegativeStock: false });
     assert.deepEqual(JSON.parse(apiCalls[20].options.body), { allowNegativeStock: false });
-    assert.deepEqual(JSON.parse(apiCalls[22].options.body), { checked: true });
+    assert.deepEqual(JSON.parse(apiCalls[23].options.body), { code: "0075012345678", format: "EAN_13" });
+    assert.deepEqual(JSON.parse(apiCalls[25].options.body), { checked: true });
 
     const previousConflictFetch = globalThis.fetch;
     globalThis.fetch = async () => ({
@@ -470,6 +490,14 @@ try {
     assert.equal(validateSuperItemPayload(superItemPayloadFromValues({ name: "Leche", categoryId: "4", habitualObjective: "-1" })), "El objetivo habitual debe ser mayor que cero.");
     assert.equal(validateSuperItemPayload(superItemPayloadFromValues({ name: "Leche", categoryId: "4", quickQuantity: "0" })), "La cantidad rápida debe ser mayor que cero.");
     assert.equal(validateSuperItemPayload(superItemPayloadFromValues({ name: "Leche", categoryId: "4" })), "");
+    assert.equal(normalizeSuperBarcodeCode("  0075012345678  "), "0075012345678");
+    assert.equal(normalizeSuperBarcodeCode(75012345678), "75012345678");
+    assert.deepEqual(superBarcodePayloadFromValues({ code: "  0075012345678  ", format: " EAN_13 " }), { code: "0075012345678", format: "EAN_13" });
+    assert.deepEqual(superBarcodePayloadFromValues({ code: "00042", format: " " }), { code: "00042" });
+    assert.equal(validateSuperBarcodeLookup({ code: "" }), "Ingresá un código de barras para buscar.");
+    assert.equal(validateSuperBarcodeLookup({ code: "0".repeat(SUPER_FIELD_LIMITS.barcodeCode + 1) }), `El código de barras no puede superar ${SUPER_FIELD_LIMITS.barcodeCode} caracteres.`);
+    assert.equal(validateSuperBarcodeLookup({ code: "0075012345678" }), "");
+    assert.equal(superBarcodeAliasLabel({ code: "0075012345678", format: "EAN_13" }), "0075012345678 · EAN_13");
     assert.equal(superItemConfigurationLabel(superItemFixture({ unit: "kg", habitualObjective: "2.000", configured: true })), "Configurado");
     assert.equal(superItemConfigurationLabel(superItemFixture({ unit: "kg", habitualObjective: null, configured: false })), "Pendiente");
     assert.equal(superItemStockLabel(superItemFixture({ currentStock: null, unit: "kg" })), "Sin cargar");
@@ -531,7 +559,10 @@ try {
         assert.equal(supermarketDom.elements.get("#super-item-name").maxLength, SUPER_FIELD_LIMITS.itemName);
         assert.equal(supermarketDom.elements.get("#super-item-notes").maxLength, SUPER_FIELD_LIMITS.itemNotes);
         assert.equal(supermarketDom.elements.get("#super-item-unit").maxLength, SUPER_FIELD_LIMITS.itemUnit);
+        assert.equal(supermarketDom.elements.get("#super-barcode-code").maxLength, SUPER_FIELD_LIMITS.barcodeCode);
+        assert.equal(supermarketDom.elements.get("#super-barcode-format").maxLength, SUPER_FIELD_LIMITS.barcodeFormat);
         assert.match(supermarketDom.elements.get("#super-item-category").innerHTML, /Almacén/);
+        assert.match(supermarketDom.elements.get("#super-barcode-item").innerHTML, /Arroz/);
         assert.equal(supermarketDom.elements.get("#super-category-table-wrap").hidden, true);
         assert.equal(supermarketDom.elements.get("#super-category-toggle").textContent, "Mostrar categorías (2)");
         assert.equal(supermarketDom.elements.get("#super-category-toggle").attributes.get("aria-expanded"), "false");
@@ -556,6 +587,39 @@ try {
         assert.match(supermarketDom.elements.get("#super-items-table").children[1].innerHTML, /data-super-action="history"/);
         assertResponsiveCardLabels(supermarketDom.elements.get("#super-items-table").children[1].innerHTML, ["Estado", "Producto", "Categoría", "Configuración", "Stock", "Cantidad rápida", "Notas", "Acciones"]);
         assertResponsiveCardLabels(supermarketDom.elements.get("#super-category-list").children[0].innerHTML, ["Categoría", "Acciones"]);
+
+        supermarketDom.elements.get("#super-barcode-code").value = "  0075012345678  ";
+        const barcodeFoundCallStart = supermarketDom.api.calls.length;
+        await supermarketDom.elements.get("#super-barcode-form").submit();
+        assert.deepEqual(supermarketDom.api.calls.slice(barcodeFoundCallStart), [{ method: "lookupSuperItemBarcodeAlias", code: "0075012345678" }]);
+        assert.equal(supermarketDom.elements.get("#super-barcode-result").textContent, "Código 0075012345678 asociado a Arroz.");
+        assert.equal(supermarketDom.elements.get("#super-items-table").children[1].classList.contains("super-item-barcode-match"), true);
+        assert.equal(supermarketDom.elements.get("#super-barcode-remove").hidden, false);
+
+        const removeBarcodeCallStart = supermarketDom.api.calls.length;
+        await supermarketDom.elements.get("#super-barcode-remove").click();
+        assertSupermarketMutationAfter(supermarketDom, removeBarcodeCallStart, { method: "removeSuperItemBarcodeAlias", itemId: 10, aliasId: 44 });
+        assert.equal(supermarketDom.elements.get("#super-barcode-result").textContent, "Alias 0075012345678 quitado de Arroz.");
+
+        supermarketDom.elements.get("#super-barcode-code").value = "0000000000001";
+        const barcodeNotFoundCallStart = supermarketDom.api.calls.length;
+        await supermarketDom.elements.get("#super-barcode-form").submit();
+        assert.deepEqual(supermarketDom.api.calls.slice(barcodeNotFoundCallStart), [{ method: "lookupSuperItemBarcodeAlias", code: "0000000000001" }]);
+        assert.equal(supermarketDom.elements.get("#super-barcode-result").textContent, "Código 0000000000001 no encontrado. Podés asociarlo a un producto existente.");
+        assert.equal(supermarketDom.elements.get("#super-barcode-attach").disabled, false);
+        supermarketDom.elements.get("#super-barcode-item").value = "11";
+        supermarketDom.elements.get("#super-barcode-format").value = "  EAN_13 ";
+        const attachBarcodeCallStart = supermarketDom.api.calls.length;
+        await supermarketDom.elements.get("#super-barcode-attach").click();
+        assertSupermarketMutationAfter(supermarketDom, attachBarcodeCallStart, {
+            method: "attachSuperItemBarcodeAlias",
+            id: 11,
+            payload: { code: "0000000000001", format: "EAN_13" }
+        });
+        assert.equal(supermarketDom.elements.get("#super-barcode-result").textContent, "Código 0000000000001 asociado a Banana.");
+
+        const barcodeCallsAfterUi = supermarketDom.api.calls.slice(barcodeFoundCallStart).map((call) => call.method);
+        assert.deepEqual(barcodeCallsAfterUi.filter((method) => ["adjustSuperItemStock", "updateSuperItemChecked", "purchaseSuperItem", "consumeSuperItem", "quickConsumeSuperItem", "superStockMovements"].includes(method)), []);
 
         const movementRow = supermarketDom.elements.get("#super-items-table").children[1];
         await supermarketDom.elements.get("#super-items-table").clickTarget(fakeSuperItemActionButton("purchase", movementRow, "10"));
@@ -1793,6 +1857,15 @@ function fakeAppDom() {
         "#super-category-list",
         "#super-category-table-wrap",
         "#super-category-toggle",
+        "#super-barcode-form",
+        "#super-barcode-form button[type='submit']",
+        "#super-barcode-code",
+        "#super-barcode-format",
+        "#super-barcode-item",
+        "#super-barcode-attach",
+        "#super-barcode-remove",
+        "#super-barcode-feedback",
+        "#super-barcode-result",
         "#super-item-form",
         "#super-item-form button[type='submit']",
         "#super-item-name",
@@ -1846,8 +1919,10 @@ function fakeAppDom() {
     elements.get("#super-item-name").dataset.superLimit = "itemName";
     elements.get("#super-item-unit").dataset.superLimit = "itemUnit";
     elements.get("#super-item-notes").dataset.superLimit = "itemNotes";
+    elements.get("#super-barcode-code").dataset.superLimit = "barcodeCode";
+    elements.get("#super-barcode-format").dataset.superLimit = "barcodeFormat";
     elements.get("#statement-files").files = [];
-    for (const selector of ["#category-form", "#missing-transaction-form", "#income-form", "#manual-expense-form", "#simulator-form", "#super-category-form", "#super-item-form"]) {
+    for (const selector of ["#category-form", "#missing-transaction-form", "#income-form", "#manual-expense-form", "#simulator-form", "#super-category-form", "#super-item-form", "#super-barcode-form"]) {
         elements.get(selector).reset = function resetForm() {
             this.resetCount += 1;
         };
@@ -2487,7 +2562,9 @@ function fakeSupermarketDom() {
         "#super-item-objective",
         "#super-item-notes",
         "#super-item-quick-quantity",
-        "#super-item-current-stock"
+        "#super-item-current-stock",
+        "#super-barcode-code",
+        "#super-barcode-format"
     ]) {
         elements.set(selector, fakeInput());
     }
@@ -2495,7 +2572,16 @@ function fakeSupermarketDom() {
     elements.get("#super-item-name").dataset.superLimit = "itemName";
     elements.get("#super-item-unit").dataset.superLimit = "itemUnit";
     elements.get("#super-item-notes").dataset.superLimit = "itemNotes";
+    elements.get("#super-barcode-code").dataset.superLimit = "barcodeCode";
+    elements.get("#super-barcode-format").dataset.superLimit = "barcodeFormat";
     elements.set("#super-item-category", fakeSelect());
+    elements.set("#super-barcode-form", fakeSuperBarcodeForm(elements));
+    elements.set("#super-barcode-form button[type='submit']", elements.get("#super-barcode-form").submitButton);
+    elements.set("#super-barcode-item", fakeSelect());
+    elements.set("#super-barcode-attach", fakeClickableButton("Asociar a producto existente"));
+    elements.set("#super-barcode-remove", fakeClickableButton("Quitar alias"));
+    elements.set("#super-barcode-feedback", fakeElement());
+    elements.set("#super-barcode-result", fakeElement());
     elements.set("#super-category-form", superCategoryForm);
     elements.set("#super-category-form button[type='submit']", superCategoryForm.submitButton);
     elements.set("#super-category-feedback", fakeElement());
@@ -2628,6 +2714,20 @@ function fakeSupermarketDom() {
                 { id: 2, itemId: 10, itemName: "Arroz", itemUnit: "kg", movementType: "QUICK_CONSUMPTION", quantity: "1.000", previousStock: "3.000", resultingStock: "2.000", notes: "", createdAt: "2026-07-14T21:00:00" }
             ];
         },
+        async lookupSuperItemBarcodeAlias(code) {
+            calls.push({ method: "lookupSuperItemBarcodeAlias", code });
+            if (code === "0075012345678") {
+                return { found: true, code, aliasId: 44, format: "EAN_13", item: items[0] };
+            }
+            return { found: false, code };
+        },
+        async attachSuperItemBarcodeAlias(id, payload) {
+            calls.push({ method: "attachSuperItemBarcodeAlias", id, payload });
+            return { id: 45, itemId: Number(id), code: payload.code, format: payload.format || null, active: true };
+        },
+        async removeSuperItemBarcodeAlias(itemId, aliasId) {
+            calls.push({ method: "removeSuperItemBarcodeAlias", itemId, aliasId });
+        },
         async deleteSuperItem(id) {
             calls.push({ method: "deleteSuperItem", id });
         },
@@ -2695,7 +2795,9 @@ async function readSupermarketLimitConstants() {
         CATEGORY_NAME_MAX_LENGTH: javaIntConstant(source, "CATEGORY_NAME_MAX_LENGTH"),
         ITEM_NAME_MAX_LENGTH: javaIntConstant(source, "ITEM_NAME_MAX_LENGTH"),
         ITEM_NOTES_MAX_LENGTH: javaIntConstant(source, "ITEM_NOTES_MAX_LENGTH"),
-        ITEM_UNIT_MAX_LENGTH: javaIntConstant(source, "ITEM_UNIT_MAX_LENGTH")
+        ITEM_UNIT_MAX_LENGTH: javaIntConstant(source, "ITEM_UNIT_MAX_LENGTH"),
+        BARCODE_CODE_MAX_LENGTH: javaIntConstant(source, "BARCODE_CODE_MAX_LENGTH"),
+        BARCODE_FORMAT_MAX_LENGTH: javaIntConstant(source, "BARCODE_FORMAT_MAX_LENGTH")
     };
 }
 
@@ -2748,6 +2850,22 @@ function fakeSuperMovementForm(elements) {
             elements.get(selector).value = "";
         }
         elements.get("#super-movement-allow-negative").checked = false;
+    };
+    return form;
+}
+
+function fakeSuperBarcodeForm(elements) {
+    const form = fakeForm(elements);
+    form.submitButton = fakeButton("Buscar código local");
+    form.querySelector = (selector) => {
+        assert.equal(selector, "button[type='submit']");
+        return form.submitButton;
+    };
+    form.reset = function resetSuperBarcodeForm() {
+        this.resetCount += 1;
+        for (const selector of ["#super-barcode-code", "#super-barcode-format", "#super-barcode-item"]) {
+            elements.get(selector).value = "";
+        }
     };
     return form;
 }
@@ -2954,7 +3072,7 @@ function fakeInput(value = "") {
 }
 
 function supermarketLimitFields(elements) {
-    return ["#super-category-name", "#super-item-name", "#super-item-unit", "#super-item-notes"].map((selector) => elements.get(selector));
+    return ["#super-category-name", "#super-item-name", "#super-item-unit", "#super-item-notes", "#super-barcode-code", "#super-barcode-format"].map((selector) => elements.get(selector));
 }
 
 function assertNoUnsupportedSuperInventorySemantics(source) {
@@ -2962,11 +3080,17 @@ function assertNoUnsupportedSuperInventorySemantics(source) {
         "amount",
         "price",
         "prices",
-        "barcode",
         "ocr",
         "suggested",
         "suggested-list",
-        "suggestedList"
+        "suggestedList",
+        "OpenFoodFacts",
+        "Tesseract",
+        "BarcodeDetector",
+        "getUserMedia",
+        "externalLookup",
+        "autoPurchase",
+        "purchaseAutomation"
     ];
     for (const term of unsupportedTerms) {
         assert.equal(source.includes(term), false, `Unexpected unsupported super inventory term: ${term}`);

@@ -893,6 +893,32 @@ td {
     background: var(--surface-muted);
 }
 
+.super-barcode-card {
+    margin-top: 1rem;
+    border-color: rgba(125, 211, 252, 0.34);
+    background: rgba(125, 211, 252, 0.07);
+}
+
+.super-barcode-form {
+    display: grid;
+    grid-template-columns: minmax(14rem, 1fr) minmax(10rem, 0.55fr) minmax(14rem, 1fr);
+    gap: 0.85rem;
+    align-items: end;
+    margin-bottom: 0.75rem;
+}
+
+.super-barcode-current-alias {
+    margin-bottom: 0;
+    color: var(--accent);
+    font-weight: 800;
+}
+
+.super-item-barcode-match {
+    outline: 2px solid rgba(125, 211, 252, 0.86);
+    outline-offset: -2px;
+    background: rgba(125, 211, 252, 0.12);
+}
+
 .super-category-heading {
     display: flex;
     justify-content: space-between;
@@ -1188,6 +1214,7 @@ td {
 
     .card-detail-grid,
     .category-form,
+    .super-barcode-form,
     .super-category-form,
     .super-item-form,
     .supermarket-layout,
@@ -1330,6 +1357,7 @@ td {
 
     .filters,
     .category-form,
+    .super-barcode-form,
     .super-category-form,
     .super-item-form,
     .upload-form,

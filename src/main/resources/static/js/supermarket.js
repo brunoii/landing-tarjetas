@@ -1,4 +1,4 @@
-import { api } from "./api.js?v=20260714-super-inventory-stage3-api";
+import { api } from "./api.js?v=20260715-super-inventory-stage4-api";
 import { escapeHtml, setButtonBusy } from "./utils.js";
 
 let supermarketApi = api;
@@ -8,12 +8,15 @@ let editingItemOriginalStock = null;
 let editingCategoryId = null;
 let superCategoryTableCollapsed = true;
 let superCategoryCount = 0;
+let currentBarcodeAlias = null;
 
 export const SUPER_FIELD_LIMITS = Object.freeze({
     categoryName: 80,
     itemName: 160,
     itemNotes: 500,
-    itemUnit: 40
+    itemUnit: 40,
+    barcodeCode: 80,
+    barcodeFormat: 40
 });
 
 export function setupSupermarket({ apiClient = api } = {}) {
@@ -22,6 +25,7 @@ export function setupSupermarket({ apiClient = api } = {}) {
     editingItemOriginalStock = null;
     editingCategoryId = null;
     superCategoryTableCollapsed = true;
+    currentBarcodeAlias = null;
 
     applySupermarketFieldLimits();
 
@@ -36,6 +40,9 @@ export function setupSupermarket({ apiClient = api } = {}) {
     });
 
     document.querySelector("#super-item-cancel-edit")?.addEventListener("click", () => resetSuperItemForm());
+    document.querySelector("#super-barcode-form")?.addEventListener("submit", submitSuperBarcodeLookup);
+    document.querySelector("#super-barcode-attach")?.addEventListener("click", attachSuperBarcodeAlias);
+    document.querySelector("#super-barcode-remove")?.addEventListener("click", removeSuperBarcodeAlias);
     document.querySelector("#super-category-toggle")?.addEventListener("click", toggleSuperCategoryTable);
     document.querySelector("#super-generate-list")?.addEventListener("click", generateSuperList);
     document.querySelector("#super-copy-list")?.addEventListener("click", copyGeneratedSuperList);
@@ -74,6 +81,9 @@ export function setupSupermarket({ apiClient = api } = {}) {
 
 function applySupermarketFieldLimits() {
     document.querySelectorAll?.("[data-super-limit]")?.forEach((field) => {
+        if (!field) {
+            return;
+        }
         const limit = SUPER_FIELD_LIMITS[field.dataset.superLimit];
         if (!limit) {
             return;
@@ -124,6 +134,38 @@ export function validateSuperItemPayload(payload) {
         return "La cantidad rápida debe ser mayor que cero.";
     }
     return "";
+}
+
+export function normalizeSuperBarcodeCode(value) {
+    return String(value ?? "").trim();
+}
+
+export function superBarcodePayloadFromValues(values) {
+    const payload = { code: normalizeSuperBarcodeCode(values?.code) };
+    const format = String(values?.format || "").trim();
+    if (format) {
+        payload.format = format;
+    }
+    return payload;
+}
+
+export function validateSuperBarcodeLookup(payload) {
+    if (!payload.code) {
+        return "Ingresá un código de barras para buscar.";
+    }
+    if (payload.code.length > SUPER_FIELD_LIMITS.barcodeCode) {
+        return `El código de barras no puede superar ${SUPER_FIELD_LIMITS.barcodeCode} caracteres.`;
+    }
+    if (payload.format && payload.format.length > SUPER_FIELD_LIMITS.barcodeFormat) {
+        return `El formato del código no puede superar ${SUPER_FIELD_LIMITS.barcodeFormat} caracteres.`;
+    }
+    return "";
+}
+
+export function superBarcodeAliasLabel(alias) {
+    const code = normalizeSuperBarcodeCode(alias?.code);
+    const format = String(alias?.format || "").trim();
+    return format ? `${code} · ${format}` : code;
 }
 
 export function superItemConfigurationLabel(item) {
@@ -205,7 +247,9 @@ async function loadSupermarket() {
         superItems = items;
         renderSuperCategories(categories);
         renderSuperCategoryOptions(categories);
+        renderSuperBarcodeItemOptions(items);
         renderSuperItems(items);
+        applySuperBarcodeHighlight(currentBarcodeAlias?.item?.id);
         await loadSuperMovementHistory();
         clearGeneratedSuperList();
         showSuperFeedback(items.length ? "Lista del super cargada." : "Todavía no hay productos cargados.");
@@ -397,6 +441,24 @@ function renderSuperCategoryOptions(categories) {
     select.value = currentValue;
 }
 
+function renderSuperBarcodeItemOptions(items) {
+    const select = document.querySelector("#super-barcode-item");
+    if (!select) {
+        return;
+    }
+    const currentValue = select.value;
+    select.innerHTML = '<option value="">Seleccionar producto</option>';
+    groupSuperItems(items).forEach((categoryItems, categoryName) => {
+        categoryItems.forEach((item) => {
+            const option = document.createElement("option");
+            option.value = String(item.id);
+            option.textContent = `${item.name} · ${categoryName}`;
+            select.append(option);
+        });
+    });
+    select.value = currentValue;
+}
+
 function renderSuperItems(items) {
     const table = document.querySelector("#super-items-table");
     const empty = document.querySelector("#super-items-empty");
@@ -572,6 +634,140 @@ async function handleSuperItemAction(button) {
     }
     if (button.dataset.superAction === "delete") {
         await deleteSuperItem(id, button);
+    }
+}
+
+async function submitSuperBarcodeLookup(event) {
+    event?.preventDefault?.();
+    const button = document.querySelector("#super-barcode-form")?.querySelector("button[type='submit']");
+    const payload = superBarcodePayloadFromValues({
+        code: document.querySelector("#super-barcode-code")?.value,
+        format: document.querySelector("#super-barcode-format")?.value
+    });
+    const validationMessage = validateSuperBarcodeLookup(payload);
+    if (validationMessage) {
+        showSuperBarcodeFeedback(validationMessage, true);
+        return;
+    }
+    try {
+        setButtonBusy(button, true, "Buscando...");
+        const lookup = await supermarketApi.lookupSuperItemBarcodeAlias(payload.code);
+        document.querySelector("#super-barcode-code").value = payload.code;
+        if (lookup?.found && lookup.item) {
+            currentBarcodeAlias = {
+                aliasId: lookup.aliasId,
+                code: lookup.code || payload.code,
+                format: lookup.format,
+                item: lookup.item
+            };
+            document.querySelector("#super-barcode-item").value = String(lookup.item.id);
+            showSuperBarcodeResult(`Código ${currentBarcodeAlias.code} asociado a ${lookup.item.name}.`);
+            showSuperBarcodeFeedback("Alias encontrado.");
+            setSuperBarcodeAttachEnabled(false);
+            setSuperBarcodeRemoveVisible(true);
+            applySuperBarcodeHighlight(lookup.item.id);
+            return;
+        }
+        currentBarcodeAlias = { code: payload.code, format: payload.format || null, item: null, aliasId: null };
+        showSuperBarcodeResult(`Código ${payload.code} no encontrado. Podés asociarlo a un producto existente.`);
+        showSuperBarcodeFeedback("No se encontró un alias activo.");
+        setSuperBarcodeAttachEnabled(true);
+        setSuperBarcodeRemoveVisible(false);
+        applySuperBarcodeHighlight(null);
+    } catch (error) {
+        showSuperBarcodeFeedback(`No se pudo buscar el código: ${error.message}`, true);
+    } finally {
+        setButtonBusy(button, false);
+    }
+}
+
+async function attachSuperBarcodeAlias() {
+    const button = document.querySelector("#super-barcode-attach");
+    const payload = superBarcodePayloadFromValues({
+        code: document.querySelector("#super-barcode-code")?.value || currentBarcodeAlias?.code,
+        format: document.querySelector("#super-barcode-format")?.value || currentBarcodeAlias?.format
+    });
+    const validationMessage = validateSuperBarcodeLookup(payload);
+    if (validationMessage) {
+        showSuperBarcodeFeedback(validationMessage, true);
+        return;
+    }
+    const itemId = document.querySelector("#super-barcode-item")?.value;
+    const item = itemById(itemId);
+    if (!item) {
+        showSuperBarcodeFeedback("Seleccioná un producto existente para asociar el código.", true);
+        return;
+    }
+    try {
+        setButtonBusy(button, true, "Asociando...");
+        const alias = await supermarketApi.attachSuperItemBarcodeAlias(item.id, payload);
+        currentBarcodeAlias = { aliasId: alias?.id, code: alias?.code || payload.code, format: alias?.format || payload.format || null, item };
+        showSuperBarcodeResult(`Código ${currentBarcodeAlias.code} asociado a ${item.name}.`);
+        showSuperBarcodeFeedback("Alias asociado.");
+        setSuperBarcodeAttachEnabled(false);
+        setSuperBarcodeRemoveVisible(Boolean(currentBarcodeAlias.aliasId));
+        applySuperBarcodeHighlight(item.id);
+    } catch (error) {
+        showSuperBarcodeFeedback(`No se pudo asociar el código: ${error.message}`, true);
+    } finally {
+        setButtonBusy(button, false);
+    }
+}
+
+async function removeSuperBarcodeAlias() {
+    const button = document.querySelector("#super-barcode-remove");
+    if (!currentBarcodeAlias?.aliasId || !currentBarcodeAlias.item?.id) {
+        showSuperBarcodeFeedback("No hay un alias seleccionado para quitar.", true);
+        return;
+    }
+    try {
+        setButtonBusy(button, true, "Quitando...");
+        await supermarketApi.removeSuperItemBarcodeAlias(currentBarcodeAlias.item.id, currentBarcodeAlias.aliasId);
+        showSuperBarcodeResult(`Alias ${currentBarcodeAlias.code} quitado de ${currentBarcodeAlias.item.name}.`);
+        showSuperBarcodeFeedback("Alias quitado.");
+        currentBarcodeAlias = { code: currentBarcodeAlias.code, format: currentBarcodeAlias.format || null, item: null, aliasId: null };
+        setSuperBarcodeAttachEnabled(true);
+        setSuperBarcodeRemoveVisible(false);
+        applySuperBarcodeHighlight(null);
+    } catch (error) {
+        showSuperBarcodeFeedback(`No se pudo quitar el alias: ${error.message}`, true);
+    } finally {
+        setButtonBusy(button, false);
+    }
+}
+
+function applySuperBarcodeHighlight(itemId) {
+    const table = document.querySelector("#super-items-table");
+    Array.from(table?.children || []).forEach((row) => {
+        if (!row.dataset?.superItemId) {
+            return;
+        }
+        const matches = itemId && String(row.dataset.superItemId) === String(itemId);
+        row.classList.toggle("super-item-barcode-match", Boolean(matches));
+        if (matches) {
+            row.scrollIntoView?.({ block: "center", behavior: "smooth" });
+        }
+    });
+}
+
+function setSuperBarcodeAttachEnabled(enabled) {
+    const button = document.querySelector("#super-barcode-attach");
+    if (button) {
+        button.disabled = !enabled;
+    }
+}
+
+function setSuperBarcodeRemoveVisible(visible) {
+    const button = document.querySelector("#super-barcode-remove");
+    if (button) {
+        button.hidden = !visible;
+    }
+}
+
+function showSuperBarcodeResult(message) {
+    const result = document.querySelector("#super-barcode-result");
+    if (result) {
+        result.textContent = message;
     }
 }
 
@@ -932,6 +1128,10 @@ function showSuperFeedback(message, isError = false, isLoading = false) {
 
 function showSuperCategoryFeedback(message, isError = false, isLoading = false) {
     showFeedback("#super-category-feedback", message, isError, isLoading);
+}
+
+function showSuperBarcodeFeedback(message, isError = false, isLoading = false) {
+    showFeedback("#super-barcode-feedback", message, isError, isLoading);
 }
 
 function showSuperMovementFeedback(message, isError = false, isLoading = false) {

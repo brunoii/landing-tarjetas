@@ -242,6 +242,18 @@ export const api = {
     superStockMovements(filters = {}) {
         return request(withQuery("/api/super/movements", filters));
     },
+    lookupSuperItemBarcodeAlias(code) {
+        return request(withQuery("/api/super/barcode-aliases", { code }));
+    },
+    attachSuperItemBarcodeAlias(id, payload) {
+        return request(`/api/super/items/${id}/barcode-aliases`, {
+            method: "POST",
+            body: JSON.stringify(payload)
+        });
+    },
+    removeSuperItemBarcodeAlias(itemId, aliasId) {
+        return request(`/api/super/items/${itemId}/barcode-aliases/${aliasId}`, { method: "DELETE" });
+    },
     deleteSuperItem(id) {
         return request(`/api/super/items/${id}`, { method: "DELETE" });
     },
