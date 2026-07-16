@@ -48,6 +48,12 @@ public class SuperItem {
     @Column(precision = 10, scale = 3)
     private BigDecimal quickQuantity;
 
+    @Column(length = SupermarketLimits.ITEM_PRESENTATION_LABEL_MAX_LENGTH)
+    private String commercialPresentationLabel;
+
+    @Column(precision = 10, scale = 3)
+    private BigDecimal commercialPresentationQuantity;
+
     @Column(nullable = false)
     private boolean active = true;
 
@@ -145,6 +151,22 @@ public class SuperItem {
 
     public void setQuickQuantity(BigDecimal quickQuantity) {
         this.quickQuantity = quickQuantity;
+    }
+
+    public String getCommercialPresentationLabel() {
+        return commercialPresentationLabel;
+    }
+
+    public void setCommercialPresentationLabel(String commercialPresentationLabel) {
+        this.commercialPresentationLabel = commercialPresentationLabel;
+    }
+
+    public BigDecimal getCommercialPresentationQuantity() {
+        return commercialPresentationQuantity;
+    }
+
+    public void setCommercialPresentationQuantity(BigDecimal commercialPresentationQuantity) {
+        this.commercialPresentationQuantity = commercialPresentationQuantity;
     }
 
     public boolean isConfigured() {
