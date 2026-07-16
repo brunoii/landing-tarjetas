@@ -313,12 +313,17 @@ public class SupermarketService {
     private void applyCommercialPresentation(SuperItem item, SuperItemRequest request) {
         String presentationLabel = trimToNull(request.commercialPresentationLabel());
         BigDecimal presentationQuantity = request.commercialPresentationQuantity();
+        BigDecimal presentationPricePesos = request.commercialPresentationPricePesos();
         if (presentationLabel == null) {
             if (presentationQuantity != null) {
                 throw new IllegalArgumentException("Presentación comercial: la cantidad requiere una presentación");
             }
+            if (presentationPricePesos != null) {
+                throw new IllegalArgumentException("Precio de presentación: requiere una presentación comercial");
+            }
             item.setCommercialPresentationLabel(null);
             item.setCommercialPresentationQuantity(null);
+            item.setCommercialPresentationPricePesos(null);
             return;
         }
         if (presentationQuantity != null) {
@@ -327,8 +332,10 @@ public class SupermarketService {
                 throw new IllegalArgumentException("Presentación comercial: la cantidad requiere una unidad de inventario");
             }
         }
+        BigDecimal normalizedPresentationPricePesos = normalizeCommercialPresentationPrice(presentationPricePesos);
         item.setCommercialPresentationLabel(presentationLabel);
         item.setCommercialPresentationQuantity(presentationQuantity);
+        item.setCommercialPresentationPricePesos(normalizedPresentationPricePesos);
     }
 
     private void ensureNoGenericStockMutation(SuperItemRequest request) {
@@ -347,5 +354,15 @@ public class SupermarketService {
         if (presentationQuantity.signum() <= 0) {
             throw new IllegalArgumentException("Cantidad de presentación: debe ser mayor a 0");
         }
+    }
+
+    private BigDecimal normalizeCommercialPresentationPrice(BigDecimal presentationPricePesos) {
+        if (presentationPricePesos == null) {
+            return null;
+        }
+        if (presentationPricePesos.signum() <= 0) {
+            throw new IllegalArgumentException("Precio de presentación: debe ser mayor a 0");
+        }
+        return presentationPricePesos.setScale(2);
     }
 }
