@@ -54,6 +54,9 @@ public class SuperItem {
     @Column(precision = 10, scale = 3)
     private BigDecimal commercialPresentationQuantity;
 
+    @Column(name = "commercial_presentation_price_pesos", precision = 12, scale = 2)
+    private BigDecimal commercialPresentationPricePesos;
+
     @Column(nullable = false)
     private boolean active = true;
 
@@ -167,6 +170,14 @@ public class SuperItem {
 
     public void setCommercialPresentationQuantity(BigDecimal commercialPresentationQuantity) {
         this.commercialPresentationQuantity = commercialPresentationQuantity;
+    }
+
+    public BigDecimal getCommercialPresentationPricePesos() {
+        return commercialPresentationPricePesos;
+    }
+
+    public void setCommercialPresentationPricePesos(BigDecimal commercialPresentationPricePesos) {
+        this.commercialPresentationPricePesos = commercialPresentationPricePesos;
     }
 
     public boolean isConfigured() {
