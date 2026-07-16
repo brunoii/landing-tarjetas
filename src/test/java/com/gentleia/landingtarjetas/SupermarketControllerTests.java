@@ -923,6 +923,104 @@ class SupermarketControllerTests {
     }
 
     @Test
+    void suggestedListReturnsEligibleItemsWithSuggestedQuantityInListOrderingAndNoCheckedField() throws Exception {
+        SuperCategory almacen = superCategoryRepository.save(new SuperCategory("Almacén"));
+        SuperCategory verduleria = superCategoryRepository.save(new SuperCategory("Verdulería"));
+        superItemRepository.save(configuredStockItem("Banana", verduleria, "kg", "5.000", "2.000"));
+        superItemRepository.save(configuredStockItem("Arroz", almacen, "paquete", "4.000", "1.500"));
+
+        mockMvc.perform(get("/api/super/suggested-list"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(2))
+                .andExpect(jsonPath("$[0].name").value("Arroz"))
+                .andExpect(jsonPath("$[0].categoryName").value("Almacén"))
+                .andExpect(jsonPath("$[0].unit").value("paquete"))
+                .andExpect(jsonPath("$[0].habitualObjective").value(4.0))
+                .andExpect(jsonPath("$[0].currentStock").value(1.5))
+                .andExpect(jsonPath("$[0].suggestedQuantity").value(2.5))
+                .andExpect(jsonPath("$[0].checked").doesNotExist())
+                .andExpect(jsonPath("$[1].name").value("Banana"))
+                .andExpect(jsonPath("$[1].categoryName").value("Verdulería"))
+                .andExpect(jsonPath("$[1].suggestedQuantity").value(3.0))
+                .andExpect(jsonPath("$[1].checked").doesNotExist());
+    }
+
+    @Test
+    void suggestedListExcludesInactiveUnconfiguredUnknownStockTargetMetAndOverTargetItems() throws Exception {
+        SuperCategory almacen = superCategoryRepository.save(new SuperCategory("Almacén"));
+        superItemRepository.save(configuredStockItem("Arroz", almacen, "paquete", "4.000", "1.000"));
+        SuperItem inactive = configuredStockItem("Yerba", almacen, "kg", "2.000", "1.000");
+        inactive.setActive(false);
+        superItemRepository.save(inactive);
+        superItemRepository.save(configuredStockItem("Aceite", almacen, " ", "3.000", "1.000"));
+        SuperItem withoutUnit = new SuperItem("Fideos", almacen);
+        withoutUnit.setHabitualObjective(new BigDecimal("3.000"));
+        withoutUnit.setCurrentStock(new BigDecimal("1.000"));
+        superItemRepository.save(withoutUnit);
+        SuperItem withoutObjective = new SuperItem("Harina", almacen);
+        withoutObjective.setUnit("kg");
+        withoutObjective.setCurrentStock(new BigDecimal("1.000"));
+        superItemRepository.save(withoutObjective);
+        SuperItem unknownStock = new SuperItem("Sal", almacen);
+        unknownStock.setUnit("paquete");
+        unknownStock.setHabitualObjective(new BigDecimal("2.000"));
+        superItemRepository.save(unknownStock);
+        superItemRepository.save(configuredStockItem("Azúcar", almacen, "kg", "2.000", "2.000"));
+        superItemRepository.save(configuredStockItem("Café", almacen, "paquete", "2.000", "3.000"));
+
+        mockMvc.perform(get("/api/super/suggested-list"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].name").value("Arroz"))
+                .andExpect(jsonPath("$[0].suggestedQuantity").value(3.0));
+    }
+
+    @Test
+    void suggestedListIsReadOnlyAndPreservesManualStockMovementBarcodeAliasAndUpdatedAt() throws Exception {
+        SuperCategory almacen = superCategoryRepository.save(new SuperCategory("Almacén"));
+        SuperItem item = configuredStockItem("Aceite", almacen, "litro", "5.000", "2.000");
+        item.setChecked(true);
+        SuperItem savedItem = superItemRepository.saveAndFlush(item);
+        SuperItemStockMovement movement = superItemStockMovementRepository.save(new SuperItemStockMovement(
+                savedItem,
+                SuperItemStockMovement.MovementType.ADJUSTMENT,
+                null,
+                new BigDecimal("2.000"),
+                null,
+                "Inicial",
+                "MANUAL"
+        ));
+        SuperItemBarcodeAlias alias = superItemBarcodeAliasRepository.saveAndFlush(
+                new SuperItemBarcodeAlias(savedItem, "0075012345678", "EAN_13"));
+        var itemUpdatedAtBeforeRequest = superItemRepository.findById(savedItem.getId()).orElseThrow().getUpdatedAt();
+        var aliasUpdatedAtBeforeRequest = superItemBarcodeAliasRepository.findById(alias.getId()).orElseThrow().getUpdatedAt();
+
+        mockMvc.perform(get("/api/super/suggested-list"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].name").value("Aceite"))
+                .andExpect(jsonPath("$[0].suggestedQuantity").value(3.0))
+                .andExpect(jsonPath("$[0].checked").doesNotExist());
+
+        assertThat(superItemRepository.findById(savedItem.getId())).isPresent()
+                .get()
+                .satisfies(persisted -> {
+                    assertThat(persisted.isChecked()).isTrue();
+                    assertThat(persisted.getCurrentStock()).isEqualByComparingTo("2.000");
+                    assertThat(persisted.getUpdatedAt()).isEqualTo(itemUpdatedAtBeforeRequest);
+                });
+        assertThat(superItemStockMovementRepository.findAll()).singleElement()
+                .satisfies(persisted -> assertThat(persisted.getId()).isEqualTo(movement.getId()));
+        assertThat(superItemBarcodeAliasRepository.findById(alias.getId())).isPresent()
+                .get()
+                .satisfies(persisted -> {
+                    assertThat(persisted.isActive()).isTrue();
+                    assertThat(persisted.getActiveCode()).isEqualTo("0075012345678");
+                    assertThat(persisted.getUpdatedAt()).isEqualTo(aliasUpdatedAtBeforeRequest);
+                });
+    }
+
+    @Test
     void uncheckAllPreservesInventoryConfiguration() throws Exception {
         SuperCategory almacen = superCategoryRepository.save(new SuperCategory("Almacén"));
         SuperItem item = checkedItem("Azúcar", almacen, true);
@@ -1275,6 +1373,14 @@ class SupermarketControllerTests {
     private SuperItem checkedItem(String name, SuperCategory category, boolean checked) {
         SuperItem item = new SuperItem(name, category);
         item.setChecked(checked);
+        return item;
+    }
+
+    private SuperItem configuredStockItem(String name, SuperCategory category, String unit, String habitualObjective, String currentStock) {
+        SuperItem item = new SuperItem(name, category);
+        item.setUnit(unit);
+        item.setHabitualObjective(new BigDecimal(habitualObjective));
+        item.setCurrentStock(new BigDecimal(currentStock));
         return item;
     }
 
