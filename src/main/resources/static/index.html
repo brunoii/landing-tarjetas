@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Panel de tarjetas</title>
-    <link rel="stylesheet" href="/css/styles.css?v=20260714-super-inventory-stage3-ui">
+    <link rel="stylesheet" href="/css/styles.css?v=20260715-super-inventory-stage4-ui">
 </head>
 <body>
 <header class="topbar tab-section" id="tab-summary" data-tab-panel="summary" role="tabpanel" aria-labelledby="primary-tab-summary">
@@ -717,6 +717,36 @@
             <button type="button" id="super-generate-list">Generar lista</button>
             <button type="button" class="secondary-button" id="super-uncheck-all">Desmarcar todos</button>
         </div>
+        <section class="supermarket-card super-barcode-card" aria-labelledby="super-barcode-title">
+            <div class="section-heading">
+                <div>
+                    <p class="eyebrow">Barcode local</p>
+                    <h3 id="super-barcode-title">Buscar o asociar código</h3>
+                </div>
+                <p class="section-note">Ingresá o pegá un código local. Si ya existe, abre el producto; si no, podés asociarlo a un producto existente.</p>
+            </div>
+            <form class="super-barcode-form" id="super-barcode-form" aria-describedby="super-barcode-feedback super-barcode-result">
+                <label>
+                    Código de barras
+                    <input id="super-barcode-code" type="text" data-super-limit="barcodeCode" inputmode="numeric" autocomplete="off" placeholder="Ejemplo: 0075012345678">
+                </label>
+                <label>
+                    Formato opcional
+                    <input id="super-barcode-format" type="text" data-super-limit="barcodeFormat" placeholder="Ejemplo: EAN_13">
+                </label>
+                <label>
+                    Producto existente
+                    <select id="super-barcode-item"><option value="">Seleccionar producto</option></select>
+                </label>
+                <div class="form-actions">
+                    <button type="submit">Buscar código local</button>
+                    <button type="button" class="secondary-button" id="super-barcode-attach" disabled>Asociar a producto existente</button>
+                    <button type="button" class="danger-button" id="super-barcode-remove" data-super-action="remove-barcode" hidden>Quitar alias</button>
+                </div>
+            </form>
+            <p class="form-feedback" id="super-barcode-feedback" role="status" aria-live="polite"></p>
+            <p class="form-feedback super-barcode-current-alias" id="super-barcode-result" role="status" aria-live="polite"></p>
+        </section>
         <p class="filter-summary" id="super-items-summary" aria-live="polite">No hay productos cargados.</p>
         <div class="table-wrap super-items-table-wrap responsive-card-table">
             <table>
@@ -885,6 +915,6 @@
     </section>
 </main>
 
-<script type="module" src="/js/app.js?v=20260714-super-inventory-stage3-ui"></script>
+<script type="module" src="/js/app.js?v=20260715-super-inventory-stage4-ui"></script>
 </body>
 </html>
