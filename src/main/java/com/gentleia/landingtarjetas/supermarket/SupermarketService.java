@@ -1,8 +1,10 @@
 package com.gentleia.landingtarjetas.supermarket;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.util.List;
 
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -20,12 +22,14 @@ public class SupermarketService {
     private final SuperCategoryRepository categoryRepository;
     private final SuperItemRepository itemRepository;
     private final SuperItemStockMovementRepository stockMovementRepository;
+    private final SuperItemBarcodeAliasRepository barcodeAliasRepository;
 
     public SupermarketService(SuperCategoryRepository categoryRepository, SuperItemRepository itemRepository,
-            SuperItemStockMovementRepository stockMovementRepository) {
+            SuperItemStockMovementRepository stockMovementRepository, SuperItemBarcodeAliasRepository barcodeAliasRepository) {
         this.categoryRepository = categoryRepository;
         this.itemRepository = itemRepository;
         this.stockMovementRepository = stockMovementRepository;
+        this.barcodeAliasRepository = barcodeAliasRepository;
     }
 
     @Transactional(readOnly = true)
@@ -100,6 +104,7 @@ public class SupermarketService {
     @Transactional
     public void deleteItem(Long id) {
         getActiveItem(id).setActive(false);
+        barcodeAliasRepository.deactivateActiveAliasesByItemId(id, Instant.now());
     }
 
     @Transactional
@@ -159,6 +164,39 @@ public class SupermarketService {
         return movements.stream()
                 .map(SuperItemStockMovementResponse::from)
                 .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public SuperBarcodeLookupResponse lookupBarcodeAlias(String code) {
+        String normalizedCode = normalizeBarcodeCode(code);
+        return barcodeAliasRepository.findActiveByActiveCode(normalizedCode)
+                .map(SuperBarcodeLookupResponse::found)
+                .orElseGet(() -> SuperBarcodeLookupResponse.notFound(normalizedCode));
+    }
+
+    @Transactional
+    public SuperItemBarcodeAliasResponse attachBarcodeAlias(Long itemId, SuperItemBarcodeAliasRequest request) {
+        SuperItem item = getActiveItem(itemId);
+        String normalizedCode = normalizeBarcodeCode(request.code());
+        String normalizedFormat = trimToNull(request.format());
+        barcodeAliasRepository.deactivateActiveAliasesForInactiveItemsByActiveCode(normalizedCode, Instant.now());
+        if (barcodeAliasRepository.existsByActiveCodeAndActiveTrue(normalizedCode)) {
+            throw duplicateBarcodeAliasConflict();
+        }
+        try {
+            SuperItemBarcodeAlias alias = new SuperItemBarcodeAlias(item, normalizedCode, normalizedFormat);
+            return SuperItemBarcodeAliasResponse.from(barcodeAliasRepository.saveAndFlush(alias));
+        } catch (DataIntegrityViolationException exception) {
+            throw duplicateBarcodeAliasConflict();
+        }
+    }
+
+    @Transactional
+    public void deactivateBarcodeAlias(Long itemId, Long aliasId) {
+        getActiveItem(itemId);
+        SuperItemBarcodeAlias alias = barcodeAliasRepository.findByIdAndItemIdAndActiveTrue(aliasId, itemId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "No se encontró el alias de barcode para ese producto"));
+        alias.deactivate();
     }
 
     @Transactional
@@ -228,6 +266,22 @@ public class SupermarketService {
             return null;
         }
         return value.trim();
+    }
+
+    private String normalizeBarcodeCode(String code) {
+        String normalizedCode = trimToNull(code);
+        if (normalizedCode == null) {
+            throw new IllegalArgumentException("Código de barcode: es obligatorio");
+        }
+        if (normalizedCode.length() > SupermarketLimits.BARCODE_CODE_MAX_LENGTH) {
+            throw new IllegalArgumentException("Código de barcode: no puede superar "
+                    + SupermarketLimits.BARCODE_CODE_MAX_LENGTH + " caracteres");
+        }
+        return normalizedCode;
+    }
+
+    private ResponseStatusException duplicateBarcodeAliasConflict() {
+        return new ResponseStatusException(HttpStatus.CONFLICT, "Ya existe un alias activo para ese código");
     }
 
     private void applyInventoryConfiguration(SuperItem item, SuperItemRequest request) {
