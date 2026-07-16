@@ -76,6 +76,14 @@ public class SupermarketService {
                 .toList();
     }
 
+    @Transactional(readOnly = true)
+    public List<SuperSuggestedItemResponse> listSuggestedItems() {
+        return itemRepository.findActiveOrderedForList().stream()
+                .filter(this::isSuggestedItem)
+                .map(SuperSuggestedItemResponse::from)
+                .toList();
+    }
+
     @Transactional
     public SuperItemResponse createItem(SuperItemRequest request) {
         ensureNoGenericStockMutation(request);
@@ -266,6 +274,15 @@ public class SupermarketService {
             return null;
         }
         return value.trim();
+    }
+
+    private boolean isSuggestedItem(SuperItem item) {
+        return item.isActive()
+                && item.getUnit() != null
+                && !item.getUnit().isBlank()
+                && item.getHabitualObjective() != null
+                && item.getCurrentStock() != null
+                && item.getCurrentStock().compareTo(item.getHabitualObjective()) < 0;
     }
 
     private String normalizeBarcodeCode(String code) {
