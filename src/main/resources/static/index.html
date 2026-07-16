@@ -756,6 +756,7 @@
                     <th>Producto</th>
                     <th>Categoría</th>
                     <th>Configuración</th>
+                    <th>Presentación</th>
                     <th>Stock</th>
                     <th>Cantidad rápida</th>
                     <th>Notas</th>
@@ -873,6 +874,14 @@
                         <input id="super-item-unit" type="text" data-super-limit="itemUnit" placeholder="Ejemplo: litro, kg, unidad">
                     </label>
                     <label>
+                        Presentación comercial opcional
+                        <input id="super-item-presentation-label" type="text" data-super-limit="presentationLabel" placeholder="Ejemplo: Pack x 6">
+                    </label>
+                    <label>
+                        Cantidad por presentación opcional
+                        <input id="super-item-presentation-quantity" type="number" min="0.001" step="0.001" inputmode="decimal" placeholder="Ejemplo: 6">
+                    </label>
+                    <label>
                         Objetivo habitual opcional
                         <input id="super-item-objective" type="number" min="0.001" step="0.001" inputmode="decimal" placeholder="Ejemplo: 2">
                     </label>
@@ -928,6 +937,6 @@
     </section>
 </main>
 
-<script type="module" src="/js/app.js?v=20260716-super-inventory-stage5-ui"></script>
+<script type="module" src="/js/app.js?v=20260716-super-inventory-stage6-ui"></script>
 </body>
 </html>
