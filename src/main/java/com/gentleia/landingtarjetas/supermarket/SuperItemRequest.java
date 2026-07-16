@@ -18,6 +18,9 @@ public record SuperItemRequest(
         @DecimalMin(value = "0.0", inclusive = false, message = "debe ser mayor a 0") BigDecimal habitualObjective,
         @Digits(integer = 7, fraction = 3, message = "debe tener hasta 7 enteros y 3 decimales")
         @DecimalMin(value = "0.0", inclusive = false, message = "debe ser mayor a 0") BigDecimal quickQuantity,
-        BigDecimal currentStock
+        BigDecimal currentStock,
+        @Size(max = SupermarketLimits.ITEM_PRESENTATION_LABEL_MAX_LENGTH, message = "no puede superar {max} caracteres") String commercialPresentationLabel,
+        @Digits(integer = 7, fraction = 3, message = "debe tener hasta 7 enteros y 3 decimales")
+        @DecimalMin(value = "0.0", inclusive = false, message = "debe ser mayor a 0") BigDecimal commercialPresentationQuantity
 ) {
 }

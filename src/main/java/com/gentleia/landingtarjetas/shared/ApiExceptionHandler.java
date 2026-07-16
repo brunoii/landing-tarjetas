@@ -26,6 +26,8 @@ public class ApiExceptionHandler {
             Map.entry("categoryId", "Categoría"),
             Map.entry("checked", "Marcado"),
             Map.entry("code", "Código de barcode"),
+            Map.entry("commercialPresentationLabel", "Presentación comercial"),
+            Map.entry("commercialPresentationQuantity", "Cantidad de presentación"),
             Map.entry("color", "Color"),
             Map.entry("currentInstallment", "Cuota actual"),
             Map.entry("currentStock", "Stock actual"),

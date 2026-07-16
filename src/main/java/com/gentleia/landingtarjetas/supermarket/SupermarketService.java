@@ -92,6 +92,7 @@ public class SupermarketService {
         item.setChecked(Boolean.TRUE.equals(request.checked()));
         item.setNotes(trimToNull(request.notes()));
         applyInventoryConfiguration(item, request);
+        applyCommercialPresentation(item, request);
         return SuperItemResponse.from(itemRepository.save(item));
     }
 
@@ -106,6 +107,7 @@ public class SupermarketService {
         }
         item.setNotes(trimToNull(request.notes()));
         applyInventoryConfiguration(item, request);
+        applyCommercialPresentation(item, request);
         return SuperItemResponse.from(item);
     }
 
@@ -308,6 +310,27 @@ public class SupermarketService {
         item.setQuickQuantity(request.quickQuantity());
     }
 
+    private void applyCommercialPresentation(SuperItem item, SuperItemRequest request) {
+        String presentationLabel = trimToNull(request.commercialPresentationLabel());
+        BigDecimal presentationQuantity = request.commercialPresentationQuantity();
+        if (presentationLabel == null) {
+            if (presentationQuantity != null) {
+                throw new IllegalArgumentException("Presentación comercial: la cantidad requiere una presentación");
+            }
+            item.setCommercialPresentationLabel(null);
+            item.setCommercialPresentationQuantity(null);
+            return;
+        }
+        if (presentationQuantity != null) {
+            validateCommercialPresentationQuantity(presentationQuantity);
+            if (trimToNull(item.getUnit()) == null) {
+                throw new IllegalArgumentException("Presentación comercial: la cantidad requiere una unidad de inventario");
+            }
+        }
+        item.setCommercialPresentationLabel(presentationLabel);
+        item.setCommercialPresentationQuantity(presentationQuantity);
+    }
+
     private void ensureNoGenericStockMutation(SuperItemRequest request) {
         if (request.currentStock() != null) {
             throw new IllegalArgumentException("No se puede modificar el stock desde el contrato genérico del producto");
@@ -317,6 +340,12 @@ public class SupermarketService {
     private void validateHabitualObjective(BigDecimal habitualObjective) {
         if (habitualObjective != null && habitualObjective.signum() <= 0) {
             throw new IllegalArgumentException("Objetivo habitual: debe ser mayor a 0");
+        }
+    }
+
+    private void validateCommercialPresentationQuantity(BigDecimal presentationQuantity) {
+        if (presentationQuantity.signum() <= 0) {
+            throw new IllegalArgumentException("Cantidad de presentación: debe ser mayor a 0");
         }
     }
 }

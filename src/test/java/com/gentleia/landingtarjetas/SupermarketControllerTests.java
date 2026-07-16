@@ -255,6 +255,174 @@ class SupermarketControllerTests {
     }
 
     @Test
+    void legacyItemPayloadKeepsCommercialPresentationAbsentAcrossCreateAndList() throws Exception {
+        SuperCategory almacen = superCategoryRepository.save(new SuperCategory("Almacén"));
+
+        mockMvc.perform(post("/api/super/items")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(itemPayload("Arroz", almacen.getId(), false, "Doble carolina")))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.commercialPresentationLabel").isEmpty())
+                .andExpect(jsonPath("$.commercialPresentationQuantity").isEmpty());
+
+        assertThat(superItemRepository.findAll()).singleElement()
+                .satisfies(item -> {
+                    assertThat(item.getCommercialPresentationLabel()).isNull();
+                    assertThat(item.getCommercialPresentationQuantity()).isNull();
+                });
+
+        mockMvc.perform(get("/api/super/items"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].commercialPresentationLabel").isEmpty())
+                .andExpect(jsonPath("$[0].commercialPresentationQuantity").isEmpty());
+    }
+
+    @Test
+    void validCommercialPresentationIsTrimmedPersistedExposedUpdatedAndCleared() throws Exception {
+        SuperCategory almacen = superCategoryRepository.save(new SuperCategory("Almacén"));
+
+        mockMvc.perform(post("/api/super/items")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(itemPayloadWithCommercialPresentation(
+                                "Yerba", almacen.getId(), false, "Suave", "kg", "1.500", "  Pack x 6  ", "6.000")))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.commercialPresentationLabel").value("Pack x 6"))
+                .andExpect(jsonPath("$.commercialPresentationQuantity").value(6.0));
+
+        SuperItem savedItem = superItemRepository.findAll().get(0);
+        assertThat(savedItem.getCommercialPresentationLabel()).isEqualTo("Pack x 6");
+        assertThat(savedItem.getCommercialPresentationQuantity()).isEqualByComparingTo("6.000");
+
+        mockMvc.perform(get("/api/super/items"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].commercialPresentationLabel").value("Pack x 6"))
+                .andExpect(jsonPath("$[0].commercialPresentationQuantity").value(6.0));
+
+        mockMvc.perform(put("/api/super/items/{id}", savedItem.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(itemPayloadWithCommercialPresentation(
+                                "Yerba", almacen.getId(), false, "Suave", "kg", "1.500", "Botella", "1.250")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.commercialPresentationLabel").value("Botella"))
+                .andExpect(jsonPath("$.commercialPresentationQuantity").value(1.25));
+
+        mockMvc.perform(put("/api/super/items/{id}", savedItem.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(itemPayloadWithBlankCommercialPresentation(
+                                "Yerba", almacen.getId(), false, "Suave", "kg", "1.500")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.commercialPresentationLabel").isEmpty())
+                .andExpect(jsonPath("$.commercialPresentationQuantity").isEmpty());
+
+        assertThat(superItemRepository.findById(savedItem.getId())).isPresent()
+                .get()
+                .satisfies(persisted -> {
+                    assertThat(persisted.getCommercialPresentationLabel()).isNull();
+                    assertThat(persisted.getCommercialPresentationQuantity()).isNull();
+                });
+    }
+
+    @Test
+    void invalidCommercialPresentationRequestsAreRejectedAndDoNotModifyTheItem() throws Exception {
+        SuperCategory almacen = superCategoryRepository.save(new SuperCategory("Almacén"));
+        SuperItem item = new SuperItem("Yerba", almacen);
+        item.setUnit("kg");
+        item.setHabitualObjective(new BigDecimal("1.500"));
+        item.setCommercialPresentationLabel("Pack x 6");
+        item.setCommercialPresentationQuantity(new BigDecimal("6.000"));
+        SuperItem savedItem = superItemRepository.save(item);
+
+        mockMvc.perform(put("/api/super/items/{id}", savedItem.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(itemPayloadWithCommercialPresentation(
+                                "Yerba", almacen.getId(), false, "Suave", "kg", "1.500", "   ", "3.000")))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("Presentación comercial: la cantidad requiere una presentación"));
+        assertCommercialPresentation(savedItem.getId(), "Pack x 6", "6.000");
+
+        mockMvc.perform(put("/api/super/items/{id}", savedItem.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(itemPayloadWithCommercialPresentation(
+                                "Yerba", almacen.getId(), false, "Suave", "kg", "1.500", "Caja", "0")))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.details[?(@ == 'Cantidad de presentación: debe ser mayor a 0')]").exists());
+        assertCommercialPresentation(savedItem.getId(), "Pack x 6", "6.000");
+
+        mockMvc.perform(put("/api/super/items/{id}", savedItem.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(itemPayloadWithCommercialPresentation(
+                                "Yerba", almacen.getId(), false, "Suave", "  ", "1.500", "Caja", "3.000")))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("Presentación comercial: la cantidad requiere una unidad de inventario"));
+        assertCommercialPresentation(savedItem.getId(), "Pack x 6", "6.000");
+
+        mockMvc.perform(put("/api/super/items/{id}", savedItem.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(itemPayloadWithCommercialQuantityOnly(
+                                "Yerba", almacen.getId(), false, "Suave", "kg", "1.500", "3.000")))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("Presentación comercial: la cantidad requiere una presentación"));
+        assertCommercialPresentation(savedItem.getId(), "Pack x 6", "6.000");
+    }
+
+    @Test
+    void commercialPresentationUpdateDoesNotMutateCheckedStockMovementsSuggestionsOrBarcodeAliases() throws Exception {
+        SuperCategory almacen = superCategoryRepository.save(new SuperCategory("Almacén"));
+        SuperItem item = configuredStockItem("Aceite", almacen, "litro", "5.000", "2.000");
+        item.setChecked(true);
+        SuperItem savedItem = superItemRepository.saveAndFlush(item);
+        SuperItemStockMovement movement = superItemStockMovementRepository.save(new SuperItemStockMovement(
+                savedItem,
+                SuperItemStockMovement.MovementType.ADJUSTMENT,
+                null,
+                new BigDecimal("2.000"),
+                null,
+                "Inicial",
+                "MANUAL"
+        ));
+        SuperItemBarcodeAlias alias = superItemBarcodeAliasRepository.saveAndFlush(
+                new SuperItemBarcodeAlias(savedItem, "0075012345678", "EAN_13"));
+
+        mockMvc.perform(get("/api/super/suggested-list"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].name").value("Aceite"))
+                .andExpect(jsonPath("$[0].suggestedQuantity").value(3.0));
+
+        mockMvc.perform(put("/api/super/items/{id}", savedItem.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(itemPayloadWithoutCheckedWithCommercialPresentation(
+                                "Aceite", almacen.getId(), "Clásico", "litro", "5.000", "Bidón", "2.000")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.checked").value(true))
+                .andExpect(jsonPath("$.currentStock").value(2.0))
+                .andExpect(jsonPath("$.commercialPresentationLabel").value("Bidón"))
+                .andExpect(jsonPath("$.commercialPresentationQuantity").value(2.0));
+
+        assertThat(superItemRepository.findById(savedItem.getId())).isPresent()
+                .get()
+                .satisfies(persisted -> {
+                    assertThat(persisted.isChecked()).isTrue();
+                    assertThat(persisted.getCurrentStock()).isEqualByComparingTo("2.000");
+                    assertThat(persisted.getCommercialPresentationLabel()).isEqualTo("Bidón");
+                    assertThat(persisted.getCommercialPresentationQuantity()).isEqualByComparingTo("2.000");
+                });
+        assertThat(superItemStockMovementRepository.findAll()).singleElement()
+                .satisfies(persisted -> assertThat(persisted.getId()).isEqualTo(movement.getId()));
+        assertThat(superItemBarcodeAliasRepository.findById(alias.getId())).isPresent()
+                .get()
+                .satisfies(persisted -> {
+                    assertThat(persisted.isActive()).isTrue();
+                    assertThat(persisted.getActiveCode()).isEqualTo("0075012345678");
+                });
+
+        mockMvc.perform(get("/api/super/suggested-list"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].name").value("Aceite"))
+                .andExpect(jsonPath("$[0].suggestedQuantity").value(3.0))
+                .andExpect(jsonPath("$[0].checked").doesNotExist());
+    }
+
+    @Test
     void validQuickQuantityIsPersistedAndExposed() throws Exception {
         SuperCategory almacen = superCategoryRepository.save(new SuperCategory("Almacén"));
 
@@ -1361,6 +1529,15 @@ class SupermarketControllerTests {
         assertThat(superItemStockMovementRepository.findAll()).hasSize(expectedMovementRows);
     }
 
+    private void assertCommercialPresentation(Long itemId, String expectedLabel, String expectedQuantity) {
+        assertThat(superItemRepository.findById(itemId)).isPresent()
+                .get()
+                .satisfies(persisted -> {
+                    assertThat(persisted.getCommercialPresentationLabel()).isEqualTo(expectedLabel);
+                    assertThat(persisted.getCommercialPresentationQuantity()).isEqualByComparingTo(expectedQuantity);
+                });
+    }
+
     private String barcodeAliasPayload(String code, String format) {
         return """
                 {
@@ -1426,6 +1603,69 @@ class SupermarketControllerTests {
                   "quickQuantity": %s
                 }
                 """.formatted(name, categoryId, checked, notes, unit, habitualObjective, quickQuantity);
+    }
+
+    private String itemPayloadWithCommercialPresentation(String name, Long categoryId, boolean checked, String notes, String unit,
+            String habitualObjective, String commercialPresentationLabel, String commercialPresentationQuantity) {
+        return """
+                {
+                  "name": "%s",
+                  "categoryId": %d,
+                  "checked": %s,
+                  "notes": "%s",
+                  "unit": "%s",
+                  "habitualObjective": %s,
+                  "commercialPresentationLabel": "%s",
+                  "commercialPresentationQuantity": %s
+                }
+                """.formatted(name, categoryId, checked, notes, unit, habitualObjective,
+                commercialPresentationLabel, commercialPresentationQuantity);
+    }
+
+    private String itemPayloadWithBlankCommercialPresentation(String name, Long categoryId, boolean checked, String notes, String unit,
+            String habitualObjective) {
+        return """
+                {
+                  "name": "%s",
+                  "categoryId": %d,
+                  "checked": %s,
+                  "notes": "%s",
+                  "unit": "%s",
+                  "habitualObjective": %s,
+                  "commercialPresentationLabel": "   "
+                }
+                """.formatted(name, categoryId, checked, notes, unit, habitualObjective);
+    }
+
+    private String itemPayloadWithCommercialQuantityOnly(String name, Long categoryId, boolean checked, String notes, String unit,
+            String habitualObjective, String commercialPresentationQuantity) {
+        return """
+                {
+                  "name": "%s",
+                  "categoryId": %d,
+                  "checked": %s,
+                  "notes": "%s",
+                  "unit": "%s",
+                  "habitualObjective": %s,
+                  "commercialPresentationQuantity": %s
+                }
+                """.formatted(name, categoryId, checked, notes, unit, habitualObjective, commercialPresentationQuantity);
+    }
+
+    private String itemPayloadWithoutCheckedWithCommercialPresentation(String name, Long categoryId, String notes, String unit,
+            String habitualObjective, String commercialPresentationLabel, String commercialPresentationQuantity) {
+        return """
+                {
+                  "name": "%s",
+                  "categoryId": %d,
+                  "notes": "%s",
+                  "unit": "%s",
+                  "habitualObjective": %s,
+                  "commercialPresentationLabel": "%s",
+                  "commercialPresentationQuantity": %s
+                }
+                """.formatted(name, categoryId, notes, unit, habitualObjective,
+                commercialPresentationLabel, commercialPresentationQuantity);
     }
 
     private String itemPayloadWithCurrentStock(String name, Long categoryId, boolean checked, String notes, String unit,
