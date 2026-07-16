@@ -1,6 +1,10 @@
 package com.gentleia.landingtarjetas;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.reset;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
@@ -19,17 +23,23 @@ import com.gentleia.landingtarjetas.category.CategoryRepository;
 import com.gentleia.landingtarjetas.supermarket.SuperCategory;
 import com.gentleia.landingtarjetas.supermarket.SuperCategoryRepository;
 import com.gentleia.landingtarjetas.supermarket.SuperItem;
+import com.gentleia.landingtarjetas.supermarket.SuperItemBarcodeAlias;
+import com.gentleia.landingtarjetas.supermarket.SuperItemBarcodeAliasRepository;
 import com.gentleia.landingtarjetas.supermarket.SuperItemRepository;
 import com.gentleia.landingtarjetas.supermarket.SuperItemStockMovement;
 import com.gentleia.landingtarjetas.supermarket.SuperItemStockMovementRepository;
+import com.gentleia.landingtarjetas.supermarket.SupermarketLimits;
 
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.http.MediaType;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 @SpringBootTest
@@ -44,14 +54,22 @@ class SupermarketControllerTests {
     private SuperItemRepository superItemRepository;
     @Autowired
     private SuperItemStockMovementRepository superItemStockMovementRepository;
+    @MockitoSpyBean
+    private SuperItemBarcodeAliasRepository superItemBarcodeAliasRepository;
     @Autowired
     private CategoryRepository categoryRepository;
 
     @BeforeEach
     void cleanDatabase() {
+        superItemBarcodeAliasRepository.deleteAll();
         superItemStockMovementRepository.deleteAll();
         superItemRepository.deleteAll();
         superCategoryRepository.deleteAll();
+    }
+
+    @AfterEach
+    void resetSpies() {
+        reset(superItemBarcodeAliasRepository);
     }
 
     @Test
@@ -966,6 +984,264 @@ class SupermarketControllerTests {
     }
 
     @Test
+    void barcodeLookupAttachSoftRemoveAndInactiveItemsUseTextCodes() throws Exception {
+        SuperCategory almacen = superCategoryRepository.save(new SuperCategory("Almacén"));
+        SuperItem item = superItemRepository.save(new SuperItem("Yerba", almacen));
+        String codeWithLeadingZeros = "0075012345678";
+
+        mockMvc.perform(get("/api/super/barcode-aliases")
+                        .param("code", codeWithLeadingZeros))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.found").value(false))
+                .andExpect(jsonPath("$.code").value(codeWithLeadingZeros));
+
+        mockMvc.perform(post("/api/super/items/{itemId}/barcode-aliases", item.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(barcodeAliasPayload(codeWithLeadingZeros, "EAN_13")))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.code").value(codeWithLeadingZeros))
+                .andExpect(jsonPath("$.format").value("EAN_13"))
+                .andExpect(jsonPath("$.active").value(true))
+                .andExpect(jsonPath("$.itemId").value(item.getId()));
+
+        Long aliasId = superItemBarcodeAliasRepository.findAll().get(0).getId();
+
+        mockMvc.perform(get("/api/super/barcode-aliases")
+                        .param("code", codeWithLeadingZeros))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.found").value(true))
+                .andExpect(jsonPath("$.code").value(codeWithLeadingZeros))
+                .andExpect(jsonPath("$.aliasId").value(aliasId))
+                .andExpect(jsonPath("$.format").value("EAN_13"))
+                .andExpect(jsonPath("$.item.id").value(item.getId()))
+                .andExpect(jsonPath("$.item.name").value("Yerba"));
+
+        mockMvc.perform(delete("/api/super/items/{itemId}/barcode-aliases/{aliasId}", item.getId(), aliasId))
+                .andExpect(status().isNoContent());
+
+        mockMvc.perform(get("/api/super/barcode-aliases")
+                        .param("code", codeWithLeadingZeros))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.found").value(false))
+                .andExpect(jsonPath("$.code").value(codeWithLeadingZeros));
+
+        mockMvc.perform(post("/api/super/items/{itemId}/barcode-aliases", item.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(barcodeAliasPayload(codeWithLeadingZeros, "EAN_13")))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.code").value(codeWithLeadingZeros))
+                .andExpect(jsonPath("$.active").value(true));
+
+        SuperItem inactiveItem = new SuperItem("Harina", almacen);
+        inactiveItem.setActive(false);
+        SuperItem savedInactiveItem = superItemRepository.save(inactiveItem);
+
+        mockMvc.perform(post("/api/super/items/{itemId}/barcode-aliases", savedInactiveItem.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(barcodeAliasPayload("0999888777666", "EAN_13")))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error").value("No se encontró el producto del super"));
+    }
+
+    @Test
+    void barcodeLookupIgnoresAliasesAttachedToSoftDeletedItems() throws Exception {
+        SuperCategory almacen = superCategoryRepository.save(new SuperCategory("Almacén"));
+        SuperItem item = superItemRepository.save(new SuperItem("Yerba", almacen));
+        String code = "0075012345678";
+
+        mockMvc.perform(post("/api/super/items/{itemId}/barcode-aliases", item.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(barcodeAliasPayload(code, "EAN_13")))
+                .andExpect(status().isCreated());
+        Long aliasId = superItemBarcodeAliasRepository.findAll().get(0).getId();
+
+        mockMvc.perform(delete("/api/super/items/{itemId}", item.getId()))
+                .andExpect(status().isNoContent());
+
+        mockMvc.perform(get("/api/super/barcode-aliases")
+                        .param("code", code))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.found").value(false))
+                .andExpect(jsonPath("$.code").value(code));
+        assertThat(superItemBarcodeAliasRepository.findById(aliasId)).isPresent()
+                .get()
+                .satisfies(persisted -> {
+                    assertThat(persisted.isActive()).isFalse();
+                    assertThat(persisted.getActiveCode()).isNull();
+                });
+    }
+
+    @Test
+    void barcodeAliasReservedByInactiveItemCanBeReusedByActiveItem() throws Exception {
+        SuperCategory almacen = superCategoryRepository.save(new SuperCategory("Almacén"));
+        SuperItem inactiveItem = new SuperItem("Yerba", almacen);
+        inactiveItem.setActive(false);
+        SuperItem savedInactiveItem = superItemRepository.save(inactiveItem);
+        SuperItem activeItem = superItemRepository.save(new SuperItem("Aceite", almacen));
+        String code = "0075012345678";
+        SuperItemBarcodeAlias orphanAlias = superItemBarcodeAliasRepository.saveAndFlush(
+                new SuperItemBarcodeAlias(savedInactiveItem, code, "EAN_13"));
+
+        mockMvc.perform(get("/api/super/barcode-aliases")
+                        .param("code", code))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.found").value(false));
+
+        mockMvc.perform(post("/api/super/items/{itemId}/barcode-aliases", activeItem.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(barcodeAliasPayload(code, "EAN_13")))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.code").value(code))
+                .andExpect(jsonPath("$.active").value(true))
+                .andExpect(jsonPath("$.itemId").value(activeItem.getId()));
+
+        mockMvc.perform(get("/api/super/barcode-aliases")
+                        .param("code", code))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.found").value(true))
+                .andExpect(jsonPath("$.item.id").value(activeItem.getId()))
+                .andExpect(jsonPath("$.item.name").value("Aceite"));
+
+        assertThat(superItemBarcodeAliasRepository.findById(orphanAlias.getId())).isPresent()
+                .get()
+                .satisfies(persisted -> {
+                    assertThat(persisted.isActive()).isFalse();
+                    assertThat(persisted.getActiveCode()).isNull();
+                    assertThat(persisted.getDeactivatedAt()).isNotNull();
+                });
+    }
+
+    @Test
+    void barcodeOperationsPreserveInventoryStateAndMovementRows() throws Exception {
+        SuperCategory almacen = superCategoryRepository.save(new SuperCategory("Almacén"));
+        SuperItem item = new SuperItem("Aceite", almacen);
+        item.setChecked(true);
+        item.setCurrentStock(new BigDecimal("4.000"));
+        SuperItem savedItem = superItemRepository.save(item);
+        superItemStockMovementRepository.save(new SuperItemStockMovement(
+                savedItem,
+                SuperItemStockMovement.MovementType.ADJUSTMENT,
+                null,
+                new BigDecimal("4.000"),
+                null,
+                "Inicial",
+                "MANUAL"
+        ));
+
+        mockMvc.perform(get("/api/super/barcode-aliases")
+                        .param("code", "0075012345678"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.found").value(false));
+        assertInventoryState(savedItem.getId(), true, "4.000", 1);
+
+        mockMvc.perform(post("/api/super/items/{itemId}/barcode-aliases", savedItem.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(barcodeAliasPayload("0075012345678", "EAN_13")))
+                .andExpect(status().isCreated());
+        assertInventoryState(savedItem.getId(), true, "4.000", 1);
+
+        Long aliasId = superItemBarcodeAliasRepository.findAll().get(0).getId();
+        mockMvc.perform(get("/api/super/barcode-aliases")
+                        .param("code", "0075012345678"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.found").value(true));
+        assertInventoryState(savedItem.getId(), true, "4.000", 1);
+
+        mockMvc.perform(delete("/api/super/items/{itemId}/barcode-aliases/{aliasId}", savedItem.getId(), aliasId))
+                .andExpect(status().isNoContent());
+        assertInventoryState(savedItem.getId(), true, "4.000", 1);
+    }
+
+    @Test
+    void barcodeDuplicateActiveAliasesAreRejectedAndInactiveDuplicatesCanBeReused() throws Exception {
+        SuperCategory almacen = superCategoryRepository.save(new SuperCategory("Almacén"));
+        SuperItem yerba = superItemRepository.save(new SuperItem("Yerba", almacen));
+        SuperItem aceite = superItemRepository.save(new SuperItem("Aceite", almacen));
+        String code = "0075012345678";
+
+        mockMvc.perform(post("/api/super/items/{itemId}/barcode-aliases", yerba.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(barcodeAliasPayload(code, "EAN_13")))
+                .andExpect(status().isCreated());
+
+        mockMvc.perform(post("/api/super/items/{itemId}/barcode-aliases", aceite.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(barcodeAliasPayload(code, "EAN_13")))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error").value("Ya existe un alias activo para ese código"));
+
+        SuperItemBarcodeAlias inactiveOne = new SuperItemBarcodeAlias(yerba, "0001112223334", "EAN_13");
+        inactiveOne.deactivate();
+        SuperItemBarcodeAlias inactiveTwo = new SuperItemBarcodeAlias(aceite, "0001112223334", "EAN_13");
+        inactiveTwo.deactivate();
+        superItemBarcodeAliasRepository.saveAndFlush(inactiveOne);
+        superItemBarcodeAliasRepository.saveAndFlush(inactiveTwo);
+
+        SuperItemBarcodeAlias activeAlias = new SuperItemBarcodeAlias(aceite, "0001112223334", "EAN_13");
+        superItemBarcodeAliasRepository.saveAndFlush(activeAlias);
+
+        assertThatThrownBy(() -> superItemBarcodeAliasRepository.saveAndFlush(new SuperItemBarcodeAlias(yerba, "0001112223334", "EAN_13")))
+                .isInstanceOf(DataIntegrityViolationException.class);
+    }
+
+    @Test
+    void barcodeDataIntegrityRaceIsTranslatedToConflict() throws Exception {
+        SuperCategory almacen = superCategoryRepository.save(new SuperCategory("Almacén"));
+        SuperItem item = superItemRepository.save(new SuperItem("Yerba", almacen));
+        doThrow(new DataIntegrityViolationException("duplicate active_code race"))
+                .when(superItemBarcodeAliasRepository)
+                .saveAndFlush(any(SuperItemBarcodeAlias.class));
+
+        mockMvc.perform(post("/api/super/items/{itemId}/barcode-aliases", item.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(barcodeAliasPayload("0075012345678", "EAN_13")))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error").value("Ya existe un alias activo para ese código"));
+    }
+
+    @Test
+    void barcodeValidationUsesExplicitLimitsAndLabels() throws Exception {
+        SuperCategory almacen = superCategoryRepository.save(new SuperCategory("Almacén"));
+        SuperItem item = superItemRepository.save(new SuperItem("Yerba", almacen));
+
+        mockMvc.perform(post("/api/super/items/{itemId}/barcode-aliases", item.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(barcodeAliasPayload("   ", "EAN_13")))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.details[?(@ == 'Código de barcode: es obligatorio')]").exists());
+
+        mockMvc.perform(post("/api/super/items/{itemId}/barcode-aliases", item.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(barcodeAliasPayload("1".repeat(SupermarketLimits.BARCODE_CODE_MAX_LENGTH + 1), "EAN_13")))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.details[?(@ == 'Código de barcode: no puede superar "
+                        + SupermarketLimits.BARCODE_CODE_MAX_LENGTH + " caracteres')]").exists());
+
+        mockMvc.perform(post("/api/super/items/{itemId}/barcode-aliases", item.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(barcodeAliasPayload("0075012345678", "X".repeat(SupermarketLimits.BARCODE_FORMAT_MAX_LENGTH + 1))))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.details[?(@ == 'Formato de barcode: no puede superar "
+                        + SupermarketLimits.BARCODE_FORMAT_MAX_LENGTH + " caracteres')]").exists());
+    }
+
+    @Test
+    void barcodeDeleteRejectsAliasesOwnedByAnotherItem() throws Exception {
+        SuperCategory almacen = superCategoryRepository.save(new SuperCategory("Almacén"));
+        SuperItem yerba = superItemRepository.save(new SuperItem("Yerba", almacen));
+        SuperItem aceite = superItemRepository.save(new SuperItem("Aceite", almacen));
+        SuperItemBarcodeAlias alias = superItemBarcodeAliasRepository.save(new SuperItemBarcodeAlias(yerba, "0075012345678", "EAN_13"));
+
+        mockMvc.perform(delete("/api/super/items/{itemId}/barcode-aliases/{aliasId}", aceite.getId(), alias.getId()))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error").value("No se encontró el alias de barcode para ese producto"));
+
+        assertThat(superItemBarcodeAliasRepository.findById(alias.getId())).isPresent()
+                .get()
+                .satisfies(persisted -> assertThat(persisted.isActive()).isTrue());
+    }
+
+    @Test
     void unitValidationUsesSpanishFieldLabelAndMaxLength() throws Exception {
         SuperCategory almacen = superCategoryRepository.save(new SuperCategory("Almacén"));
 
@@ -975,6 +1251,25 @@ class SupermarketControllerTests {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error").value("La validación de la solicitud falló"))
                 .andExpect(jsonPath("$.details[?(@ == 'Unidad: no puede superar 40 caracteres')]").exists());
+    }
+
+    private void assertInventoryState(Long itemId, boolean expectedChecked, String expectedCurrentStock, int expectedMovementRows) {
+        assertThat(superItemRepository.findById(itemId)).isPresent()
+                .get()
+                .satisfies(persisted -> {
+                    assertThat(persisted.isChecked()).isEqualTo(expectedChecked);
+                    assertThat(persisted.getCurrentStock()).isEqualByComparingTo(expectedCurrentStock);
+                });
+        assertThat(superItemStockMovementRepository.findAll()).hasSize(expectedMovementRows);
+    }
+
+    private String barcodeAliasPayload(String code, String format) {
+        return """
+                {
+                  "code": "%s",
+                  "format": "%s"
+                }
+                """.formatted(code, format);
     }
 
     private SuperItem checkedItem(String name, SuperCategory category, boolean checked) {
