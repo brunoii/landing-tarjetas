@@ -757,6 +757,7 @@
                     <th>Categoría</th>
                     <th>Configuración</th>
                     <th>Presentación</th>
+                    <th>Precio ref.</th>
                     <th>Stock</th>
                     <th>Cantidad rápida</th>
                     <th>Notas</th>
@@ -882,6 +883,10 @@
                         <input id="super-item-presentation-quantity" type="number" min="0.001" step="0.001" inputmode="decimal" placeholder="Ejemplo: 6">
                     </label>
                     <label>
+                        Precio ref. opcional
+                        <input id="super-item-presentation-price-pesos" type="number" min="0.01" step="0.01" inputmode="decimal" placeholder="Ejemplo: 1250.50">
+                    </label>
+                    <label>
                         Objetivo habitual opcional
                         <input id="super-item-objective" type="number" min="0.001" step="0.001" inputmode="decimal" placeholder="Ejemplo: 2">
                     </label>
@@ -937,6 +942,6 @@
     </section>
 </main>
 
-<script type="module" src="/js/app.js?v=20260716-super-inventory-stage6-ui"></script>
+<script type="module" src="/js/app.js?v=20260716-super-inventory-stage7-prices-ui"></script>
 </body>
 </html>

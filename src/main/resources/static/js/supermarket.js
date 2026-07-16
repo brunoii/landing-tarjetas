@@ -1,5 +1,5 @@
 import { api } from "./api.js?v=20260716-super-inventory-stage5-api";
-import { escapeHtml, setButtonBusy } from "./utils.js";
+import { escapeHtml, formatPesos, setButtonBusy } from "./utils.js";
 
 let supermarketApi = api;
 let superItems = [];
@@ -103,6 +103,7 @@ export function superItemPayloadFromValues(values) {
     const unit = String(values.unit || "").trim();
     const commercialPresentationLabel = String(values.commercialPresentationLabel || "").trim();
     const commercialPresentationQuantity = String(values.commercialPresentationQuantity || "").trim();
+    const commercialPresentationPricePesos = String(values.commercialPresentationPricePesos || "").trim();
     const habitualObjective = String(values.habitualObjective || "").trim();
     const quickQuantity = String(values.quickQuantity || "").trim();
     const payload = {
@@ -119,6 +120,9 @@ export function superItemPayloadFromValues(values) {
     }
     if (commercialPresentationQuantity) {
         payload.commercialPresentationQuantity = commercialPresentationQuantity;
+    }
+    if (commercialPresentationPricePesos) {
+        payload.commercialPresentationPricePesos = commercialPresentationPricePesos;
     }
     if (habitualObjective) {
         payload.habitualObjective = habitualObjective;
@@ -150,6 +154,12 @@ export function validateSuperItemPayload(payload) {
     }
     if (payload.commercialPresentationQuantity && !payload.commercialPresentationLabel) {
         return "La cantidad de presentación requiere una presentación comercial.";
+    }
+    if (payload.commercialPresentationPricePesos && (!Number.isFinite(Number(payload.commercialPresentationPricePesos)) || Number(payload.commercialPresentationPricePesos) <= 0)) {
+        return "El precio de referencia debe ser mayor que cero.";
+    }
+    if (payload.commercialPresentationPricePesos && !payload.commercialPresentationLabel) {
+        return "El precio de referencia requiere una presentación comercial.";
     }
     return "";
 }
@@ -212,6 +222,13 @@ export function superItemCommercialPresentationLabel(item) {
         return item.commercialPresentationLabel;
     }
     return `${item.commercialPresentationLabel} · ${quantityWithUnit(item.commercialPresentationQuantity, item.unit)}`;
+}
+
+export function superItemCommercialPresentationPriceLabel(item) {
+    if (item.commercialPresentationPricePesos === null || item.commercialPresentationPricePesos === undefined || item.commercialPresentationPricePesos === "") {
+        return "—";
+    }
+    return formatPesos(item.commercialPresentationPricePesos);
 }
 
 export function superMovementTypeLabel(type) {
@@ -566,7 +583,7 @@ function renderSuperItems(items) {
     for (const [categoryName, categoryItems] of groupSuperItems(items)) {
         const groupRow = document.createElement("tr");
         groupRow.className = "super-category-group-row";
-        groupRow.innerHTML = `<th scope="rowgroup" colspan="9">${escapeHtml(categoryName)}</th>`;
+        groupRow.innerHTML = `<th scope="rowgroup" colspan="10">${escapeHtml(categoryName)}</th>`;
         table.append(groupRow);
         categoryItems.forEach((item) => {
             const row = document.createElement("tr");
@@ -594,6 +611,7 @@ function superItemRowHtml(item) {
         <td data-label="Categoría">${escapeHtml(item.categoryName)}</td>
         <td data-label="Configuración">${superItemConfigurationBadgeHtml(item)}</td>
         <td data-label="Presentación">${escapeHtml(superItemCommercialPresentationLabel(item))}</td>
+        <td data-label="Precio ref.">${escapeHtml(superItemCommercialPresentationPriceLabel(item))}</td>
         <td data-label="Stock">${superItemStockHtml(item)}</td>
         <td data-label="Cantidad rápida">${escapeHtml(superItemQuickQuantityLabel(item))}</td>
         <td data-label="Notas">${item.notes ? escapeHtml(item.notes) : "—"}</td>
@@ -646,6 +664,7 @@ async function saveSuperItem() {
         unit: document.querySelector("#super-item-unit")?.value,
         commercialPresentationLabel: document.querySelector("#super-item-presentation-label")?.value,
         commercialPresentationQuantity: document.querySelector("#super-item-presentation-quantity")?.value,
+        commercialPresentationPricePesos: document.querySelector("#super-item-presentation-price-pesos")?.value,
         habitualObjective: document.querySelector("#super-item-objective")?.value,
         quickQuantity: document.querySelector("#super-item-quick-quantity")?.value,
         notes: document.querySelector("#super-item-notes")?.value
@@ -1082,6 +1101,7 @@ function openSuperItemEdit(id) {
     document.querySelector("#super-item-unit").value = item.unit || "";
     document.querySelector("#super-item-presentation-label").value = item.commercialPresentationLabel || "";
     document.querySelector("#super-item-presentation-quantity").value = item.commercialPresentationQuantity || "";
+    document.querySelector("#super-item-presentation-price-pesos").value = item.commercialPresentationPricePesos || "";
     document.querySelector("#super-item-objective").value = item.habitualObjective || "";
     document.querySelector("#super-item-quick-quantity").value = item.quickQuantity || "";
     document.querySelector("#super-item-current-stock").value = item.currentStock ?? "";
