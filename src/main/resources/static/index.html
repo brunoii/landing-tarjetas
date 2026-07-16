@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Panel de tarjetas</title>
-    <link rel="stylesheet" href="/css/styles.css?v=20260715-super-inventory-stage4-ui">
+    <link rel="stylesheet" href="/css/styles.css?v=20260716-super-inventory-stage5-ui">
 </head>
 <body>
 <header class="topbar tab-section" id="tab-summary" data-tab-panel="summary" role="tabpanel" aria-labelledby="primary-tab-summary">
@@ -828,6 +828,19 @@
             <p class="empty-state" id="super-movement-history-empty">Todavía no hay movimientos recientes.</p>
         </section>
 
+        <section class="supermarket-card super-suggested-card" aria-labelledby="super-suggested-title">
+            <div class="section-heading">
+                <div>
+                    <p class="eyebrow">Sugerencias</p>
+                    <h3 id="super-suggested-title">Lista sugerida</h3>
+                </div>
+                <p class="section-note">Sugerencias calculadas con el stock actual. No modifican la lista manual.</p>
+            </div>
+            <p class="filter-summary" id="super-suggested-summary" aria-live="polite">Cargando sugerencias...</p>
+            <div class="super-suggested-list" id="super-suggested-list" aria-live="polite"></div>
+            <p class="empty-state" id="super-suggested-empty">Todavía no hay sugerencias de compra.</p>
+        </section>
+
         <section class="super-generated-card" aria-labelledby="super-generated-title">
             <div class="section-heading">
                 <div>
@@ -915,6 +928,6 @@
     </section>
 </main>
 
-<script type="module" src="/js/app.js?v=20260715-super-inventory-stage4-ui"></script>
+<script type="module" src="/js/app.js?v=20260716-super-inventory-stage5-ui"></script>
 </body>
 </html>
