@@ -314,7 +314,11 @@ public class SupermarketService {
         String presentationLabel = trimToNull(request.commercialPresentationLabel());
         BigDecimal presentationQuantity = request.commercialPresentationQuantity();
         BigDecimal presentationPricePesos = request.commercialPresentationPricePesos();
+        String presentationPriceSourceLabel = trimToNull(request.commercialPresentationPriceSourceLabel());
         if (presentationLabel == null) {
+            if (presentationPriceSourceLabel != null) {
+                throw new IllegalArgumentException("Fuente del precio: requiere precio de presentación");
+            }
             if (presentationQuantity != null) {
                 throw new IllegalArgumentException("Presentación comercial: la cantidad requiere una presentación");
             }
@@ -324,6 +328,7 @@ public class SupermarketService {
             item.setCommercialPresentationLabel(null);
             item.setCommercialPresentationQuantity(null);
             item.setCommercialPresentationPricePesos(null);
+            item.setCommercialPresentationPriceSourceLabel(null);
             return;
         }
         if (presentationQuantity != null) {
@@ -333,9 +338,12 @@ public class SupermarketService {
             }
         }
         BigDecimal normalizedPresentationPricePesos = normalizeCommercialPresentationPrice(presentationPricePesos);
+        String normalizedPresentationPriceSourceLabel = normalizeCommercialPresentationPriceSource(
+                presentationPriceSourceLabel, normalizedPresentationPricePesos);
         item.setCommercialPresentationLabel(presentationLabel);
         item.setCommercialPresentationQuantity(presentationQuantity);
         item.setCommercialPresentationPricePesos(normalizedPresentationPricePesos);
+        item.setCommercialPresentationPriceSourceLabel(normalizedPresentationPriceSourceLabel);
     }
 
     private void ensureNoGenericStockMutation(SuperItemRequest request) {
@@ -364,5 +372,16 @@ public class SupermarketService {
             throw new IllegalArgumentException("Precio de presentación: debe ser mayor a 0");
         }
         return presentationPricePesos.setScale(2);
+    }
+
+    private String normalizeCommercialPresentationPriceSource(String presentationPriceSourceLabel,
+            BigDecimal normalizedPresentationPricePesos) {
+        if (presentationPriceSourceLabel == null) {
+            return null;
+        }
+        if (normalizedPresentationPricePesos == null) {
+            throw new IllegalArgumentException("Fuente del precio: requiere precio de presentación");
+        }
+        return presentationPriceSourceLabel;
     }
 }
