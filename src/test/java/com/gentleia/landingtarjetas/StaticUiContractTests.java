@@ -26,6 +26,8 @@ class StaticUiContractTests {
     private static final String STAGE5_UI_TOKEN = "20260716-super-inventory-stage5-ui";
     private static final String STAGE8_UI_TOKEN = "20260716-super-inventory-stage8-price-source-ui";
     private static final String STAGE9_UI_TOKEN = "20260718-super-inventory-stage9-price-observed-date-ui";
+    private static final String STAGE10_API_TOKEN = "20260718-super-inventory-stage10-price-observations-api";
+    private static final String STAGE10_UI_TOKEN = "20260718-super-inventory-stage10-price-observations-ui";
     private static final String STALE_API_TOKEN = "20260712-security-hardening";
 
     @Test
@@ -36,13 +38,13 @@ class StaticUiContractTests {
 
         assertThat(index).contains("<link rel=\"stylesheet\" href=\"/css/styles.css?v=" + STAGE5_UI_TOKEN + "\">");
         assertThat(index).doesNotContain("<link rel=\"stylesheet\" href=\"/css/styles.css\">");
-        assertThat(index).contains("<script type=\"module\" src=\"/js/app.js?v=" + STAGE9_UI_TOKEN + "\"></script>");
+        assertThat(index).contains("<script type=\"module\" src=\"/js/app.js?v=" + STAGE10_UI_TOKEN + "\"></script>");
         assertThat(index).doesNotContain("/css/styles.css?v=20260711-security-login", "/js/app.js?v=20260711-security-login");
         assertThat(login).contains("<link rel=\"stylesheet\" href=\"/css/styles.css?v=" + FRESH_STATIC_TOKEN + "\">")
                 .contains("/js/login.js?v=" + FRESH_STATIC_TOKEN)
                 .doesNotContain("/css/styles.css?v=20260711-security-login", "/js/login.js?v=20260711-security-login");
         assertThat(app)
-                .contains("./api.js?v=" + STAGE5_API_TOKEN, "./categories.js", "./dashboard.js?v=" + FRESH_STATIC_TOKEN, "./incomes.js?v=" + FRESH_STATIC_TOKEN, "./manual-expenses.js?v=" + FRESH_STATIC_TOKEN, "./navigation.js?v=" + FRESH_STATIC_TOKEN, "./simulator.js?v=" + FRESH_STATIC_TOKEN, "./statements.js?v=" + FRESH_STATIC_TOKEN, "./supermarket.js?v=" + STAGE9_UI_TOKEN, "./transactions.js?v=" + FRESH_STATIC_TOKEN, "./utils.js")
+                .contains("./api.js?v=" + STAGE10_API_TOKEN, "./categories.js", "./dashboard.js?v=" + FRESH_STATIC_TOKEN, "./incomes.js?v=" + FRESH_STATIC_TOKEN, "./manual-expenses.js?v=" + FRESH_STATIC_TOKEN, "./navigation.js?v=" + FRESH_STATIC_TOKEN, "./simulator.js?v=" + FRESH_STATIC_TOKEN, "./statements.js?v=" + FRESH_STATIC_TOKEN, "./supermarket.js?v=" + STAGE10_UI_TOKEN, "./transactions.js?v=" + FRESH_STATIC_TOKEN, "./utils.js")
                 .doesNotContain("./api.js\";")
                 .doesNotContain("./statements.js\";", "20260709-stage-7-polish", "20260710-mobile-slice-2", "20260711-mobile-simulator", "20260711-mobile-draft-responsive", "20260711-mobile-supermarket");
     }
@@ -88,8 +90,8 @@ class StaticUiContractTests {
     @Test
     void directApiImportsUseExpectedCacheVersions() throws IOException {
         Map<String, String> expectedApiImports = Map.of(
-                "js/app.js", "./api.js?v=" + STAGE5_API_TOKEN,
-                "js/supermarket.js", "./api.js?v=" + STAGE5_API_TOKEN,
+                "js/app.js", "./api.js?v=" + STAGE10_API_TOKEN,
+                "js/supermarket.js", "./api.js?v=" + STAGE10_API_TOKEN,
                 "js/incomes.js", "./api.js?v=" + FRESH_STATIC_TOKEN,
                 "js/login.js", "./api.js?v=" + FRESH_STATIC_TOKEN,
                 "js/statements.js", "./api.js?v=" + FRESH_STATIC_TOKEN
@@ -283,7 +285,7 @@ class StaticUiContractTests {
                 "name=\"password\"",
                 "/js/login.js?v=" + FRESH_STATIC_TOKEN
         );
-        assertThat(app).contains("from \"./api.js?v=" + STAGE5_API_TOKEN + "\"")
+        assertThat(app).contains("from \"./api.js?v=" + STAGE10_API_TOKEN + "\"")
                 .doesNotContain(STALE_API_TOKEN)
                 .doesNotContain("from \"./api.js\"");
         assertThat(loginJs).contains("from \"./api.js?v=" + FRESH_STATIC_TOKEN + "\"")
@@ -555,6 +557,10 @@ class StaticUiContractTests {
                 "`/api/super/items/${id}/consumptions`",
                 "quickConsumeSuperItem(id, payload)",
                 "`/api/super/items/${id}/quick-consumptions`",
+                "createSuperItemPriceObservation(id, payload)",
+                "`/api/super/items/${id}/price-observations`",
+                "superPriceObservations(filters = {})",
+                "withQuery(\"/api/super/price-observations\", filters)",
                 "superStockMovements(filters = {})",
                 "withQuery(\"/api/super/movements\", filters)",
                 "lookupSuperItemBarcodeAlias(code)",
@@ -587,6 +593,12 @@ class StaticUiContractTests {
                 "superItemCommercialPresentationPriceSourceLabel",
                 "superItemCommercialPresentationPriceObservedDateLabel",
                 "superItemCommercialPresentationPriceHtml",
+                "superPriceObservationPayloadFromValues",
+                "validateSuperPriceObservationPayload",
+                "superPriceObservationPresentationLabel",
+                "superPriceObservationRowHtml",
+                "submitSuperPriceObservationForm",
+                "loadSuperPriceObservations",
                 "commercialPresentationLabel",
                 "commercialPresentationQuantity",
                 "commercialPresentationPricePesos",
@@ -648,6 +660,13 @@ class StaticUiContractTests {
                 "class=\"super-movement-negative-field\"",
                 "id=\"super-movement-history\"",
                 "id=\"super-movement-history-table\"",
+                "id=\"super-price-observation-form\"",
+                "id=\"super-price-observation-item\"",
+                "id=\"super-price-observation-price-pesos\" type=\"number\" min=\"0.01\" step=\"0.01\"",
+                "id=\"super-price-observation-source-label\" type=\"text\" data-super-limit=\"priceSourceLabel\"",
+                "id=\"super-price-observation-observed-date\" type=\"date\"",
+                "id=\"super-price-observation-table\"",
+                "Registrar observación de precio",
                 "Cantidad",
                 "Confirmar stock negativo"
         );
@@ -681,6 +700,31 @@ class StaticUiContractTests {
                 .replace("superItemCommercialPresentationPriceSourceLabel", "")
                 .replace("superItemCommercialPresentationPriceObservedDateLabel", "")
                 .replace("superItemCommercialPresentationPriceHtml", "")
+                .replace("super-price-observation-form", "")
+                .replace("super-price-observation-item", "")
+                .replace("super-price-observation-price-pesos", "")
+                .replace("super-price-observation-source-label", "")
+                .replace("super-price-observation-observed-date", "")
+                .replace("super-price-observation-table", "")
+                .replace("super-price-observation-empty", "")
+                .replace("super-price-observation-feedback", "")
+                .replace("superPriceObservationPayloadFromValues", "")
+                .replace("validateSuperPriceObservationPayload", "")
+                .replace("superPriceObservationPresentationLabel", "")
+                .replace("superPriceObservationRowHtml", "")
+                .replace("submitSuperPriceObservationForm", "")
+                .replace("loadSuperPriceObservations", "")
+                .replace("renderSuperPriceObservations", "")
+                .replace("renderSuperPriceObservationItemOptions", "")
+                .replace("prefillSuperPriceObservationForm", "")
+                .replace("createSuperItemPriceObservation", "")
+                .replace("superPriceObservations", "")
+                .replace("pricePesos", "")
+                .replace("20260718-super-inventory-stage10-price-observations-api", "")
+                .replace("20260718-super-inventory-stage10-price-observations-ui", "")
+                .replace("price-observations", "")
+                .replace("/api/super/price-observations", "")
+                .replace("Precio", "")
                 .replace("Precio ref.", "");
         assertThat(supermarketUnsupportedScan).doesNotContain(
                 "amount", "price", "prices",
