@@ -57,6 +57,9 @@ public class SuperItem {
     @Column(name = "commercial_presentation_price_pesos", precision = 12, scale = 2)
     private BigDecimal commercialPresentationPricePesos;
 
+    @Column(name = "commercial_presentation_price_source_label", length = SupermarketLimits.ITEM_PRESENTATION_PRICE_SOURCE_LABEL_MAX_LENGTH)
+    private String commercialPresentationPriceSourceLabel;
+
     @Column(nullable = false)
     private boolean active = true;
 
@@ -178,6 +181,14 @@ public class SuperItem {
 
     public void setCommercialPresentationPricePesos(BigDecimal commercialPresentationPricePesos) {
         this.commercialPresentationPricePesos = commercialPresentationPricePesos;
+    }
+
+    public String getCommercialPresentationPriceSourceLabel() {
+        return commercialPresentationPriceSourceLabel;
+    }
+
+    public void setCommercialPresentationPriceSourceLabel(String commercialPresentationPriceSourceLabel) {
+        this.commercialPresentationPriceSourceLabel = commercialPresentationPriceSourceLabel;
     }
 
     public boolean isConfigured() {
