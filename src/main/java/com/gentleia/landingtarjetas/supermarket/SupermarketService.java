@@ -19,17 +19,23 @@ public class SupermarketService {
     private static final String QUICK_SOURCE = "QUICK";
     private static final int DEFAULT_MOVEMENT_LIMIT = 50;
     private static final int MAX_MOVEMENT_LIMIT = 100;
+    private static final int DEFAULT_PRICE_OBSERVATION_LIMIT = 50;
+    private static final int MAX_PRICE_OBSERVATION_LIMIT = 100;
 
     private final SuperCategoryRepository categoryRepository;
     private final SuperItemRepository itemRepository;
     private final SuperItemStockMovementRepository stockMovementRepository;
+    private final SuperItemPriceObservationRepository priceObservationRepository;
     private final SuperItemBarcodeAliasRepository barcodeAliasRepository;
 
     public SupermarketService(SuperCategoryRepository categoryRepository, SuperItemRepository itemRepository,
-            SuperItemStockMovementRepository stockMovementRepository, SuperItemBarcodeAliasRepository barcodeAliasRepository) {
+            SuperItemStockMovementRepository stockMovementRepository,
+            SuperItemPriceObservationRepository priceObservationRepository,
+            SuperItemBarcodeAliasRepository barcodeAliasRepository) {
         this.categoryRepository = categoryRepository;
         this.itemRepository = itemRepository;
         this.stockMovementRepository = stockMovementRepository;
+        this.priceObservationRepository = priceObservationRepository;
         this.barcodeAliasRepository = barcodeAliasRepository;
     }
 
@@ -177,6 +183,32 @@ public class SupermarketService {
                 .toList();
     }
 
+    @Transactional
+    public SuperItemPriceObservationResponse createPriceObservation(Long itemId, SuperItemPriceObservationRequest request) {
+        SuperItem item = getActiveItem(itemId);
+        String presentationLabel = trimToNull(item.getCommercialPresentationLabel());
+        if (presentationLabel == null) {
+            throw new IllegalArgumentException("Observación de precio: requiere presentación comercial");
+        }
+        BigDecimal pricePesos = normalizePriceObservationPrice(request.pricePesos());
+        String sourceLabel = normalizePriceObservationSource(request.sourceLabel());
+        LocalDate observedDate = normalizePriceObservationObservedDate(request.observedDate());
+        return SuperItemPriceObservationResponse.from(priceObservationRepository.save(
+                new SuperItemPriceObservation(item, pricePesos, sourceLabel, observedDate)));
+    }
+
+    @Transactional(readOnly = true)
+    public List<SuperItemPriceObservationResponse> listPriceObservations(Long itemId, int requestedLimit) {
+        int limit = normalizePriceObservationLimit(requestedLimit);
+        PageRequest pageRequest = PageRequest.of(0, limit);
+        List<SuperItemPriceObservation> observations = itemId == null
+                ? priceObservationRepository.findRecent(pageRequest)
+                : priceObservationRepository.findRecentByItemId(itemId, pageRequest);
+        return observations.stream()
+                .map(SuperItemPriceObservationResponse::from)
+                .toList();
+    }
+
     @Transactional(readOnly = true)
     public SuperBarcodeLookupResponse lookupBarcodeAlias(String code) {
         String normalizedCode = normalizeBarcodeCode(code);
@@ -262,6 +294,37 @@ public class SupermarketService {
             return DEFAULT_MOVEMENT_LIMIT;
         }
         return Math.min(requestedLimit, MAX_MOVEMENT_LIMIT);
+    }
+
+    private int normalizePriceObservationLimit(int requestedLimit) {
+        if (requestedLimit <= 0) {
+            return DEFAULT_PRICE_OBSERVATION_LIMIT;
+        }
+        return Math.min(requestedLimit, MAX_PRICE_OBSERVATION_LIMIT);
+    }
+
+    private BigDecimal normalizePriceObservationPrice(BigDecimal pricePesos) {
+        if (pricePesos.signum() <= 0) {
+            throw new IllegalArgumentException("Precio observado: debe ser mayor a 0");
+        }
+        return pricePesos.setScale(2);
+    }
+
+    private String normalizePriceObservationSource(String sourceLabel) {
+        String normalizedSource = trimToNull(sourceLabel);
+        if (normalizedSource != null
+                && normalizedSource.length() > SupermarketLimits.ITEM_PRESENTATION_PRICE_SOURCE_LABEL_MAX_LENGTH) {
+            throw new IllegalArgumentException("Fuente de la observación: no puede superar "
+                    + SupermarketLimits.ITEM_PRESENTATION_PRICE_SOURCE_LABEL_MAX_LENGTH + " caracteres");
+        }
+        return normalizedSource;
+    }
+
+    private LocalDate normalizePriceObservationObservedDate(LocalDate observedDate) {
+        if (observedDate != null && observedDate.isAfter(LocalDate.now())) {
+            throw new IllegalArgumentException("Fecha observada de la observación: no puede ser futura");
+        }
+        return observedDate;
     }
 
     private void ensureUniqueCategoryName(String name, Long currentId) {
