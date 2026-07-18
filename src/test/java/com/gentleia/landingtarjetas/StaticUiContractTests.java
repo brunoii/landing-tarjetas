@@ -24,7 +24,7 @@ class StaticUiContractTests {
     private static final String FRESH_STATIC_TOKEN = "20260713-pending-main";
     private static final String STAGE5_API_TOKEN = "20260716-super-inventory-stage5-api";
     private static final String STAGE5_UI_TOKEN = "20260716-super-inventory-stage5-ui";
-    private static final String STAGE7_UI_TOKEN = "20260716-super-inventory-stage7-prices-ui";
+    private static final String STAGE8_UI_TOKEN = "20260716-super-inventory-stage8-price-source-ui";
     private static final String STALE_API_TOKEN = "20260712-security-hardening";
 
     @Test
@@ -35,13 +35,13 @@ class StaticUiContractTests {
 
         assertThat(index).contains("<link rel=\"stylesheet\" href=\"/css/styles.css?v=" + STAGE5_UI_TOKEN + "\">");
         assertThat(index).doesNotContain("<link rel=\"stylesheet\" href=\"/css/styles.css\">");
-        assertThat(index).contains("<script type=\"module\" src=\"/js/app.js?v=" + STAGE7_UI_TOKEN + "\"></script>");
+        assertThat(index).contains("<script type=\"module\" src=\"/js/app.js?v=" + STAGE8_UI_TOKEN + "\"></script>");
         assertThat(index).doesNotContain("/css/styles.css?v=20260711-security-login", "/js/app.js?v=20260711-security-login");
         assertThat(login).contains("<link rel=\"stylesheet\" href=\"/css/styles.css?v=" + FRESH_STATIC_TOKEN + "\">")
                 .contains("/js/login.js?v=" + FRESH_STATIC_TOKEN)
                 .doesNotContain("/css/styles.css?v=20260711-security-login", "/js/login.js?v=20260711-security-login");
         assertThat(app)
-                .contains("./api.js?v=" + STAGE5_API_TOKEN, "./categories.js", "./dashboard.js?v=" + FRESH_STATIC_TOKEN, "./incomes.js?v=" + FRESH_STATIC_TOKEN, "./manual-expenses.js?v=" + FRESH_STATIC_TOKEN, "./navigation.js?v=" + FRESH_STATIC_TOKEN, "./simulator.js?v=" + FRESH_STATIC_TOKEN, "./statements.js?v=" + FRESH_STATIC_TOKEN, "./supermarket.js?v=" + STAGE7_UI_TOKEN, "./transactions.js?v=" + FRESH_STATIC_TOKEN, "./utils.js")
+                .contains("./api.js?v=" + STAGE5_API_TOKEN, "./categories.js", "./dashboard.js?v=" + FRESH_STATIC_TOKEN, "./incomes.js?v=" + FRESH_STATIC_TOKEN, "./manual-expenses.js?v=" + FRESH_STATIC_TOKEN, "./navigation.js?v=" + FRESH_STATIC_TOKEN, "./simulator.js?v=" + FRESH_STATIC_TOKEN, "./statements.js?v=" + FRESH_STATIC_TOKEN, "./supermarket.js?v=" + STAGE8_UI_TOKEN, "./transactions.js?v=" + FRESH_STATIC_TOKEN, "./utils.js")
                 .doesNotContain("./api.js\";")
                 .doesNotContain("./statements.js\";", "20260709-stage-7-polish", "20260710-mobile-slice-2", "20260711-mobile-simulator", "20260711-mobile-draft-responsive", "20260711-mobile-supermarket");
     }
@@ -499,9 +499,12 @@ class StaticUiContractTests {
                 "id=\"super-item-presentation-label\" type=\"text\" data-super-limit=\"presentationLabel\"",
                 "id=\"super-item-presentation-quantity\" type=\"number\" min=\"0.001\" step=\"0.001\" inputmode=\"decimal\"",
                 "id=\"super-item-presentation-price-pesos\" type=\"number\" min=\"0.01\" step=\"0.01\" inputmode=\"decimal\"",
+                "id=\"super-item-presentation-price-source-label\" type=\"text\" name=\"commercialPresentationPriceSourceLabel\" data-super-limit=\"priceSourceLabel\"",
                 "Presentación comercial opcional",
                 "Cantidad por presentación opcional",
                 "Precio ref. opcional",
+                "Fuente opcional del precio ref.",
+                "Fuente manual opcional para el precio ref.",
                 "Objetivo habitual opcional",
                 "id=\"super-item-objective\" type=\"number\" min=\"0.001\" step=\"0.001\" inputmode=\"decimal\"",
                 "id=\"super-item-quick-quantity\" type=\"number\" min=\"0.001\" step=\"0.001\" inputmode=\"decimal\"",
@@ -577,9 +580,13 @@ class StaticUiContractTests {
                 "superItemQuickQuantityLabel",
                 "superItemCommercialPresentationLabel",
                 "superItemCommercialPresentationPriceLabel",
+                "superItemCommercialPresentationPriceSourceLabel",
+                "superItemCommercialPresentationPriceHtml",
                 "commercialPresentationLabel",
                 "commercialPresentationQuantity",
                 "commercialPresentationPricePesos",
+                "commercialPresentationPriceSourceLabel",
+                "priceSourceLabel",
                 "superMovementTypeLabel",
                 "superMovementSummary",
                 "data-super-action=\"purchase\"",
@@ -654,8 +661,13 @@ class StaticUiContractTests {
         assertDataLabels(supermarket, List.of("Estado", "Producto", "Categoría", "Configuración", "Presentación", "Precio ref.", "Stock", "Cantidad rápida", "Notas", "Acciones"));
         String supermarketUnsupportedScan = supermarket
                 .replace("super-item-presentation-price-pesos", "")
+                .replace("super-item-presentation-price-source-label", "")
                 .replace("commercialPresentationPricePesos", "")
+                .replace("commercialPresentationPriceSourceLabel", "")
+                .replace("priceSourceLabel", "")
                 .replace("superItemCommercialPresentationPriceLabel", "")
+                .replace("superItemCommercialPresentationPriceSourceLabel", "")
+                .replace("superItemCommercialPresentationPriceHtml", "")
                 .replace("Precio ref.", "");
         assertThat(supermarketUnsupportedScan).doesNotContain(
                 "amount", "price", "prices",
@@ -1006,6 +1018,7 @@ class StaticUiContractTests {
                 "itemNotes", javaIntConstant(source, "ITEM_NOTES_MAX_LENGTH"),
                 "itemUnit", javaIntConstant(source, "ITEM_UNIT_MAX_LENGTH"),
                 "presentationLabel", javaIntConstant(source, "ITEM_PRESENTATION_LABEL_MAX_LENGTH"),
+                "priceSourceLabel", javaIntConstant(source, "ITEM_PRESENTATION_PRICE_SOURCE_LABEL_MAX_LENGTH"),
                 "barcodeCode", javaIntConstant(source, "BARCODE_CODE_MAX_LENGTH"),
                 "barcodeFormat", javaIntConstant(source, "BARCODE_FORMAT_MAX_LENGTH")
         );
