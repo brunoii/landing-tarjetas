@@ -243,23 +243,23 @@ Las operaciones de barcode MUST NOT modificar `currentStock`, `checked` ni movim
 
 ### Requirement: Límites explícitos de Etapa 2
 
-El sistema MUST limitar la Etapa 7 a un único precio actual/de referencia nullable, positivo cuando exista y expresado en pesos, asociado solo a la presentación comercial default del `SuperItem`. SHALL NOT introducir OCR, lookup externo, tiendas/comercios, historial de precios, múltiples presentaciones, automatización de compras, automatización de consumo, persistencia de sugerencias, estimación de total de lista sugerida ni mezcla con la lista manual.
-(Previously: la Etapa 6A prohibía cualquier precio junto con tiendas, historial, múltiples presentaciones y automatizaciones.)
+El sistema MUST limitar la Etapa 8 a una única presentación comercial default nullable, un único precio actual/de referencia nullable en pesos y una única fuente manual opcional para ese precio. SHALL NOT introducir entidad tienda/comercio, catálogo de fuentes, historial de precios, múltiples precios, múltiples presentaciones, OCR, lookup externo, automatización de compras o consumo, persistencia de sugerencias, estimación de total de lista sugerida, mezcla con lista manual ni Producto Base/catálogo paralelo.
+(Previously: la Etapa 7 permitía un único precio actual/de referencia sin fuente manual.)
 
 #### Scenario: Lista sugerida automática limitada
 - GIVEN un producto con unidad, objetivo y stock conocido bajo objetivo
-- WHEN se consulta la lista sugerida de Etapa 5
+- WHEN se consulta la lista sugerida
 - THEN el sistema MAY sugerir la diferencia hasta el objetivo
 - AND MUST NOT convertirla en compra, consumo, `checked`, stock, movimiento ni total estimado por precio
 
 #### Scenario: Campos fuera de alcance
-- GIVEN solicitud con OCR, lookup externo, tienda, historial de precios, múltiples presentaciones, compra automática, consumo automático, sugerencia persistida o total estimado de lista sugerida
-- WHEN se procesa en Etapa 7
+- GIVEN solicitud con tienda, historial, múltiples precios/presentaciones, OCR, lookup externo, automatización, sugerencia persistida, total sugerido o Producto Base
+- WHEN se procesa en Etapa 8
 - THEN el sistema MUST tratar esos datos como fuera de contrato
 - AND MUST NOT persistirlos como comportamiento soportado
 
 #### Scenario: Lista manual separada
-- GIVEN un producto con `checked=true` y otro producto elegible para sugerencia
+- GIVEN un producto con `checked=true` y otro elegible para sugerencia
 - WHEN se genera la lista manual o cambia `checked`
 - THEN MUST NOT modificar `currentStock`, sugerencias ni movimientos
 - AND MUST NOT mezclar sugerencias dentro de la lista manual
@@ -297,29 +297,41 @@ El sistema MUST exponer una lista sugerida de compras derivada y read-only, sepa
 
 ### Requirement: Presentación comercial default opcional
 
-El sistema MUST permitir metadatos opcionales y nullable de una única presentación comercial default sobre el `SuperItem` existente. Cuando la presentación exista, MUST incluir texto visible y MAY incluir cantidad contenida; si la cantidad existe, MUST ser positiva y expresarse en la unidad de inventario del producto. El sistema MAY asociar a esa presentación un único precio actual/de referencia nullable, expresado en pesos y positivo cuando esté presente. Ese precio MUST NOT interpretarse como precio por unidad de inventario. El sistema MUST NOT crear tiendas, historial de precios, múltiples presentaciones, catálogo paralelo ni mutaciones colaterales de inventario.
-(Previously: la presentación default no admitía precios.)
+El sistema MUST permitir metadatos opcionales y nullable de una única presentación comercial default sobre el `SuperItem` existente. Cuando la presentación exista, MUST incluir texto visible y MAY incluir cantidad contenida positiva en la unidad de inventario. El sistema MAY asociar a esa presentación un único precio actual/de referencia nullable, positivo, en pesos y no interpretable como precio por unidad. El sistema MAY asociar solo a ese precio `commercialPresentationPriceSourceLabel` nullable; cuando exista, MUST guardarse recortada, limitarse a 120 caracteres y exponerse como etiqueta manual secundaria. La fuente MUST existir solo cuando exista precio; el precio MAY existir sin fuente. Al limpiar precio o presentación, la fuente MUST quedar `null`. El sistema MUST NOT crear tiendas, historial, múltiples presentaciones ni mutaciones colaterales.
+(Previously: la presentación default admitía un único precio actual/de referencia, pero no fuente manual.)
 
-#### Scenario: Producto legacy sin presentación ni precio
-- GIVEN un producto existente sin datos de presentación ni precio
+#### Scenario: Producto legacy sin presentación, precio ni fuente
+- GIVEN un producto existente sin esos datos o un payload legacy que los omite
 - WHEN se crea, actualiza o consulta el producto
 - THEN la operación MUST seguir siendo válida y retrocompatible
-- AND la presentación y el precio MUST exponerse como ausentes o `null`
+- AND presentación, precio y fuente MUST exponerse ausentes o `null`
 
-#### Scenario: Presentación default con precio válido
-- GIVEN un producto con presentación default y precio positivo en pesos
+#### Scenario: Presentación default con precio y fuente válida
+- GIVEN un producto con presentación default, precio positivo y fuente con espacios externos
 - WHEN se crea, actualiza o consulta el producto
-- THEN el sistema MUST persistir y exponer esos metadatos
-- AND el precio MUST quedar asociado a la presentación default, no a la unidad de inventario
+- THEN el sistema MUST persistir y exponer precio y fuente recortada
+- AND la fuente MUST quedar asociada solo a `commercialPresentationPricePesos`
 
-#### Scenario: Presentación o precio inválido
-- GIVEN una solicitud con texto de presentación vacío, cantidad no positiva, cantidad sin unidad de inventario, precio cero, precio negativo o precio sin presentación default
+#### Scenario: Precio válido sin fuente
+- GIVEN un producto con presentación default y precio positivo sin fuente
+- WHEN se crea, actualiza o consulta el producto
+- THEN el sistema MUST aceptar el precio
+- AND `commercialPresentationPriceSourceLabel` MUST ser `null` o ausente
+
+#### Scenario: Fuente inválida o huérfana
+- GIVEN una solicitud con fuente sin precio, fuente sobre 120 caracteres, precio sin presentación o precio no positivo
 - WHEN se procesa la solicitud
 - THEN el sistema MUST rechazarla con error de validación
 - AND MUST NOT modificar el producto persistido
 
-#### Scenario: Precio sin mutaciones colaterales
-- GIVEN un producto con `checked`, `currentStock`, sugerencias, movimientos, barcodes y lista manual existentes
-- WHEN se crea, edita, elimina o consulta el precio actual/de referencia
+#### Scenario: Limpieza por precio o presentación
+- GIVEN un producto con presentación, precio y fuente persistidos
+- WHEN se elimina el precio o se elimina la presentación default
+- THEN la fuente MUST limpiarse a `null`
+- AND MUST NOT quedar fuente huérfana persistida
+
+#### Scenario: Fuente sin mutaciones colaterales
+- GIVEN un producto con `checked`, `currentStock`, movimientos, barcodes, lista manual y lista sugerida existentes
+- WHEN se crea, edita, elimina o consulta la fuente del precio
 - THEN esos datos MUST permanecer sin cambios
-- AND MUST NOT crearse movimiento, sugerencia persistida, alias de barcode ni elemento de lista manual
+- AND MUST NOT crearse movimiento, barcode, sugerencia persistida ni elemento de lista manual
