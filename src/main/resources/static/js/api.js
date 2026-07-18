@@ -242,6 +242,15 @@ export const api = {
             body: JSON.stringify(payload)
         });
     },
+    createSuperItemPriceObservation(id, payload) {
+        return request(`/api/super/items/${id}/price-observations`, {
+            method: "POST",
+            body: JSON.stringify(payload)
+        });
+    },
+    superPriceObservations(filters = {}) {
+        return request(withQuery("/api/super/price-observations", filters));
+    },
     superStockMovements(filters = {}) {
         return request(withQuery("/api/super/movements", filters));
     },

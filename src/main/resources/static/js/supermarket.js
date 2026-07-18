@@ -1,4 +1,4 @@
-import { api } from "./api.js?v=20260716-super-inventory-stage5-api";
+import { api } from "./api.js?v=20260718-super-inventory-stage10-price-observations-api";
 import { escapeHtml, formatPesos, setButtonBusy } from "./utils.js";
 
 let supermarketApi = api;
@@ -54,6 +54,10 @@ export function setupSupermarket({ apiClient = api } = {}) {
     document.querySelector("#super-movement-form")?.addEventListener("submit", submitSuperMovementForm);
     document.querySelector("#super-movement-cancel")?.addEventListener("click", closeSuperMovementModal);
     document.querySelector("#super-movement-close")?.addEventListener("click", closeSuperMovementModal);
+    document.querySelector("#super-price-observation-form")?.addEventListener("submit", submitSuperPriceObservationForm);
+    document.querySelector("#super-price-observation-item")?.addEventListener("change", (event) => {
+        prefillSuperPriceObservationForm(itemById(event.currentTarget.value));
+    });
 
     document.querySelector("#super-items-table")?.addEventListener("change", async (event) => {
         const checkbox = event.target.closest("input[data-super-action='checked']");
@@ -191,6 +195,34 @@ export function validateSuperItemPayload(payload) {
     return "";
 }
 
+export function superPriceObservationPayloadFromValues(values) {
+    const sourceLabel = String(values?.sourceLabel || "").trim().slice(0, SUPER_FIELD_LIMITS.priceSourceLabel);
+    const observedDate = String(values?.observedDate || "").trim();
+    const payload = {
+        pricePesos: String(values?.pricePesos || "").trim()
+    };
+    if (sourceLabel) {
+        payload.sourceLabel = sourceLabel;
+    }
+    if (observedDate) {
+        payload.observedDate = observedDate;
+    }
+    return payload;
+}
+
+export function validateSuperPriceObservationPayload(payload) {
+    if (!Number.isFinite(Number(payload?.pricePesos)) || Number(payload.pricePesos) <= 0) {
+        return "El precio observado debe ser mayor que cero.";
+    }
+    if (payload.observedDate && !isDateOnlyValue(payload.observedDate)) {
+        return "La fecha observada de la observación debe usar formato YYYY-MM-DD.";
+    }
+    if (payload.observedDate && payload.observedDate > todayDateOnlyValue()) {
+        return "La fecha observada de la observación no puede ser futura.";
+    }
+    return "";
+}
+
 function isDateOnlyValue(value) {
     return /^\d{4}-\d{2}-\d{2}$/.test(String(value || ""));
 }
@@ -312,6 +344,26 @@ export function superMovementSummary(movement) {
     return `${superMovementTypeLabel(movement.movementType)} · ${movement.itemName || "Producto"} · ${superMovementQuantityLabel(movement)} · stock ${quantityWithUnit(movement.resultingStock, movement.itemUnit)}`;
 }
 
+export function superPriceObservationPresentationLabel(observation) {
+    const label = String(observation?.presentationLabelSnapshot || "").trim();
+    const quantity = String(observation?.presentationQuantitySnapshot || "").trim();
+    if (!label) {
+        return "—";
+    }
+    return quantity ? `${label} · ${quantity}` : label;
+}
+
+export function superPriceObservationRowHtml(observation) {
+    return `
+        <td data-label="Creada">${escapeHtml(formatMovementDate(observation.createdAt))}</td>
+        <td data-label="Producto">${escapeHtml(observation.itemName || "—")}</td>
+        <td data-label="Presentación">${escapeHtml(superPriceObservationPresentationLabel(observation))}</td>
+        <td data-label="Precio">${escapeHtml(formatPesos(observation.pricePesos))}</td>
+        <td data-label="Fuente">${observation.sourceLabel ? escapeHtml(observation.sourceLabel) : "—"}</td>
+        <td data-label="Observada">${observation.observedDate ? escapeHtml(observation.observedDate) : "—"}</td>
+    `;
+}
+
 export function groupSuperItems(items) {
     const sorted = [...items].sort(compareSuperItems);
     return sorted.reduce((groups, item) => {
@@ -420,9 +472,11 @@ async function loadSupermarket() {
         renderSuperCategories(categories);
         renderSuperCategoryOptions(categories);
         renderSuperBarcodeItemOptions(items);
+        renderSuperPriceObservationItemOptions(items);
         renderSuperItems(items);
         renderSuperSuggestedItems(suggestedItems);
         applySuperBarcodeHighlight(currentBarcodeAlias?.item?.id);
+        await loadSuperPriceObservations();
         await loadSuperMovementHistory();
         clearGeneratedSuperList();
         showSuperFeedback(items.length ? "Lista del super cargada." : "Todavía no hay productos cargados.");
@@ -616,6 +670,24 @@ function renderSuperCategoryOptions(categories) {
 
 function renderSuperBarcodeItemOptions(items) {
     const select = document.querySelector("#super-barcode-item");
+    if (!select) {
+        return;
+    }
+    const currentValue = select.value;
+    select.innerHTML = '<option value="">Seleccionar producto</option>';
+    groupSuperItems(items).forEach((categoryItems, categoryName) => {
+        categoryItems.forEach((item) => {
+            const option = document.createElement("option");
+            option.value = String(item.id);
+            option.textContent = `${item.name} · ${categoryName}`;
+            select.append(option);
+        });
+    });
+    select.value = currentValue;
+}
+
+function renderSuperPriceObservationItemOptions(items) {
+    const select = document.querySelector("#super-price-observation-item");
     if (!select) {
         return;
     }
@@ -1025,6 +1097,77 @@ async function submitSuperMovementForm(event) {
     await runSuperMovementCommand(id, type, payload);
 }
 
+async function submitSuperPriceObservationForm(event) {
+    event?.preventDefault?.();
+    const itemId = Number(document.querySelector("#super-price-observation-item")?.value || 0);
+    const button = document.querySelector("#super-price-observation-form")?.querySelector("button[type='submit']");
+    if (!itemId) {
+        showSuperPriceObservationFeedback("Seleccioná un producto para registrar la observación.", true);
+        return;
+    }
+    const payload = superPriceObservationPayloadFromValues({
+        pricePesos: document.querySelector("#super-price-observation-price-pesos")?.value,
+        sourceLabel: document.querySelector("#super-price-observation-source-label")?.value,
+        observedDate: document.querySelector("#super-price-observation-observed-date")?.value
+    });
+    const validationMessage = validateSuperPriceObservationPayload(payload);
+    if (validationMessage) {
+        showSuperPriceObservationFeedback(validationMessage, true);
+        return;
+    }
+    try {
+        setButtonBusy(button, true, "Registrando...");
+        await supermarketApi.createSuperItemPriceObservation(itemId, payload);
+        document.querySelector("#super-price-observation-form")?.reset?.();
+        await loadSuperPriceObservations();
+        showSuperPriceObservationFeedback("Observación de precio registrada.");
+    } catch (error) {
+        showSuperPriceObservationFeedback(`No se pudo registrar la observación: ${error.message}`, true);
+    } finally {
+        setButtonBusy(button, false);
+    }
+}
+
+async function loadSuperPriceObservations() {
+    if (!supermarketApi.superPriceObservations) {
+        return;
+    }
+    try {
+        const observations = await supermarketApi.superPriceObservations({ limit: 50 });
+        renderSuperPriceObservations(observations);
+    } catch (error) {
+        const empty = document.querySelector("#super-price-observation-empty");
+        if (empty) {
+            empty.hidden = false;
+            empty.textContent = `No se pudieron cargar las observaciones: ${error.message}`;
+        }
+    }
+}
+
+function renderSuperPriceObservations(observations) {
+    const table = document.querySelector("#super-price-observation-table");
+    const empty = document.querySelector("#super-price-observation-empty");
+    if (!table) {
+        return;
+    }
+    table.innerHTML = "";
+    (Array.isArray(observations) ? observations : []).forEach((observation) => {
+        const row = document.createElement("tr");
+        row.innerHTML = superPriceObservationRowHtml(observation);
+        table.append(row);
+    });
+    if (empty) {
+        empty.hidden = Array.isArray(observations) && observations.length > 0;
+        empty.textContent = "Todavía no hay observaciones de precio recientes.";
+    }
+}
+
+function prefillSuperPriceObservationForm(item) {
+    document.querySelector("#super-price-observation-price-pesos").value = item?.commercialPresentationPricePesos || "";
+    document.querySelector("#super-price-observation-source-label").value = item?.commercialPresentationPriceSourceLabel || "";
+    document.querySelector("#super-price-observation-observed-date").value = item?.commercialPresentationPriceObservedDate || "";
+}
+
 async function runSuperMovementCommand(id, type, payload) {
     const button = document.querySelector("#super-movement-submit");
     try {
@@ -1321,6 +1464,10 @@ function showSuperBarcodeFeedback(message, isError = false, isLoading = false) {
 
 function showSuperMovementFeedback(message, isError = false, isLoading = false) {
     showFeedback("#super-movement-feedback", message, isError, isLoading);
+}
+
+function showSuperPriceObservationFeedback(message, isError = false, isLoading = false) {
+    showFeedback("#super-price-observation-feedback", message, isError, isLoading);
 }
 
 function showSuperMovementConflict(message, visible) {

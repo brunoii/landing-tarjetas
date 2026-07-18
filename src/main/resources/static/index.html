@@ -830,6 +830,52 @@
             <p class="empty-state" id="super-movement-history-empty">Todavía no hay movimientos recientes.</p>
         </section>
 
+        <section class="supermarket-card super-price-observation-card" aria-labelledby="super-price-observation-title">
+            <div class="section-heading">
+                <div>
+                    <p class="eyebrow">Precios</p>
+                    <h3 id="super-price-observation-title">Observaciones de precio</h3>
+                </div>
+                <p class="section-note">Registrá una observación manual solo cuando quieras guardar el precio actual en el tiempo.</p>
+            </div>
+            <form class="super-price-observation-form" id="super-price-observation-form" aria-describedby="super-price-observation-feedback">
+                <label>
+                    Producto
+                    <select id="super-price-observation-item" required><option value="">Seleccionar producto</option></select>
+                </label>
+                <label>
+                    Precio observado
+                    <input id="super-price-observation-price-pesos" type="number" min="0.01" step="0.01" inputmode="decimal" required placeholder="Ejemplo: 1250.50">
+                </label>
+                <label>
+                    Fuente opcional
+                    <input id="super-price-observation-source-label" type="text" data-super-limit="priceSourceLabel" placeholder="Ejemplo: Ticket proveedor">
+                </label>
+                <label>
+                    Fecha observada opcional
+                    <input id="super-price-observation-observed-date" type="date">
+                </label>
+                <button type="submit">Registrar observación de precio</button>
+            </form>
+            <p class="form-feedback" id="super-price-observation-feedback" role="status" aria-live="polite"></p>
+            <div class="table-wrap super-price-observation-wrap responsive-card-table">
+                <table>
+                    <thead>
+                    <tr>
+                        <th>Creada</th>
+                        <th>Producto</th>
+                        <th>Presentación</th>
+                        <th>Precio</th>
+                        <th>Fuente</th>
+                        <th>Observada</th>
+                    </tr>
+                    </thead>
+                    <tbody id="super-price-observation-table"></tbody>
+                </table>
+            </div>
+            <p class="empty-state" id="super-price-observation-empty">Todavía no hay observaciones de precio recientes.</p>
+        </section>
+
         <section class="supermarket-card super-suggested-card" aria-labelledby="super-suggested-title">
             <div class="section-heading">
                 <div>
@@ -952,6 +998,6 @@
     </section>
 </main>
 
-<script type="module" src="/js/app.js?v=20260718-super-inventory-stage9-price-observed-date-ui"></script>
+<script type="module" src="/js/app.js?v=20260718-super-inventory-stage10-price-observations-ui"></script>
 </body>
 </html>
