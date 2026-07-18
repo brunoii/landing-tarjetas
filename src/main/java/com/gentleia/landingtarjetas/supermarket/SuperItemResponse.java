@@ -2,6 +2,7 @@ package com.gentleia.landingtarjetas.supermarket;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.LocalDate;
 
 public record SuperItemResponse(
         Long id,
@@ -18,6 +19,7 @@ public record SuperItemResponse(
         BigDecimal commercialPresentationQuantity,
         BigDecimal commercialPresentationPricePesos,
         String commercialPresentationPriceSourceLabel,
+        LocalDate commercialPresentationPriceObservedDate,
         boolean configured,
         Instant createdAt,
         Instant updatedAt,
@@ -39,6 +41,7 @@ public record SuperItemResponse(
                 item.getCommercialPresentationQuantity(),
                 item.getCommercialPresentationPricePesos(),
                 item.getCommercialPresentationPriceSourceLabel(),
+                item.getCommercialPresentationPriceObservedDate(),
                 item.isConfigured(),
                 item.getCreatedAt(),
                 item.getUpdatedAt(),

@@ -15,6 +15,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import java.lang.reflect.Method;
 import java.math.BigDecimal;
+import java.time.LocalDate;
 
 import jakarta.persistence.LockModeType;
 
@@ -322,6 +323,30 @@ class SupermarketControllerTests {
     }
 
     @Test
+    void legacyItemPayloadKeepsCommercialPresentationPriceObservedDateAbsentAcrossCreateAndList() throws Exception {
+        SuperCategory almacen = superCategoryRepository.save(new SuperCategory("Almacén"));
+
+        mockMvc.perform(post("/api/super/items")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(itemPayload("Arroz", almacen.getId(), false, "Doble carolina")))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.commercialPresentationLabel").isEmpty())
+                .andExpect(jsonPath("$.commercialPresentationPricePesos").isEmpty())
+                .andExpect(jsonPath("$.commercialPresentationPriceSourceLabel").isEmpty())
+                .andExpect(jsonPath("$.commercialPresentationPriceObservedDate").isEmpty());
+
+        assertThat(superItemRepository.findAll()).singleElement()
+                .satisfies(item -> assertThat(item.getCommercialPresentationPriceObservedDate()).isNull());
+
+        mockMvc.perform(get("/api/super/items"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].commercialPresentationLabel").isEmpty())
+                .andExpect(jsonPath("$[0].commercialPresentationPricePesos").isEmpty())
+                .andExpect(jsonPath("$[0].commercialPresentationPriceSourceLabel").isEmpty())
+                .andExpect(jsonPath("$[0].commercialPresentationPriceObservedDate").isEmpty());
+    }
+
+    @Test
     void validCommercialPresentationIsTrimmedPersistedExposedUpdatedAndCleared() throws Exception {
         SuperCategory almacen = superCategoryRepository.save(new SuperCategory("Almacén"));
 
@@ -464,6 +489,58 @@ class SupermarketControllerTests {
     }
 
     @Test
+    void validCommercialPresentationPriceObservedDateIsPersistedExposedUpdatedAndCleared() throws Exception {
+        SuperCategory almacen = superCategoryRepository.save(new SuperCategory("Almacén"));
+        String observedDate = LocalDate.now().minusDays(1).toString();
+        String updatedObservedDate = LocalDate.now().toString();
+
+        mockMvc.perform(post("/api/super/items")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(itemPayloadWithCommercialPresentationPriceSourceAndObservedDate(
+                                "Yerba", almacen.getId(), false, "Suave", "  Pack x 6  ", "1250.5",
+                                "  Ticket mayorista  ", observedDate)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.commercialPresentationLabel").value("Pack x 6"))
+                .andExpect(jsonPath("$.commercialPresentationPricePesos").value(1250.5))
+                .andExpect(jsonPath("$.commercialPresentationPriceSourceLabel").value("Ticket mayorista"))
+                .andExpect(jsonPath("$.commercialPresentationPriceObservedDate").value(observedDate));
+
+        SuperItem savedItem = superItemRepository.findAll().get(0);
+        assertThat(savedItem.getCommercialPresentationPricePesos()).isEqualByComparingTo("1250.50");
+        assertThat(savedItem.getCommercialPresentationPriceSourceLabel()).isEqualTo("Ticket mayorista");
+        assertThat(savedItem.getCommercialPresentationPriceObservedDate()).isEqualTo(LocalDate.parse(observedDate));
+
+        mockMvc.perform(get("/api/super/items"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].commercialPresentationPricePesos").value(1250.5))
+                .andExpect(jsonPath("$[0].commercialPresentationPriceSourceLabel").value("Ticket mayorista"))
+                .andExpect(jsonPath("$[0].commercialPresentationPriceObservedDate").value(observedDate));
+
+        mockMvc.perform(put("/api/super/items/{id}", savedItem.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(itemPayloadWithCommercialPresentationPriceSourceAndObservedDate(
+                                "Yerba", almacen.getId(), false, "Suave", "Botella", "999.99", "Lista impresa",
+                                updatedObservedDate)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.commercialPresentationLabel").value("Botella"))
+                .andExpect(jsonPath("$.commercialPresentationPricePesos").value(999.99))
+                .andExpect(jsonPath("$.commercialPresentationPriceSourceLabel").value("Lista impresa"))
+                .andExpect(jsonPath("$.commercialPresentationPriceObservedDate").value(updatedObservedDate));
+
+        mockMvc.perform(put("/api/super/items/{id}", savedItem.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(itemPayloadWithCommercialPresentation(
+                                "Yerba", almacen.getId(), false, "Suave", "kg", "1.500", "Botella", "1.000")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.commercialPresentationLabel").value("Botella"))
+                .andExpect(jsonPath("$.commercialPresentationPricePesos").isEmpty())
+                .andExpect(jsonPath("$.commercialPresentationPriceSourceLabel").isEmpty())
+                .andExpect(jsonPath("$.commercialPresentationPriceObservedDate").isEmpty());
+
+        assertCommercialPresentationPriceSourceAndDate(savedItem.getId(), "Botella", null, null, null);
+    }
+
+    @Test
     void commercialPresentationPriceWithoutSourceRemainsValidAndExposesNullSource() throws Exception {
         SuperCategory almacen = superCategoryRepository.save(new SuperCategory("Almacén"));
 
@@ -473,13 +550,67 @@ class SupermarketControllerTests {
                                 "Yerba", almacen.getId(), false, "Suave", "Pack x 6", "1250.50")))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.commercialPresentationPricePesos").value(1250.5))
-                .andExpect(jsonPath("$.commercialPresentationPriceSourceLabel").isEmpty());
+                .andExpect(jsonPath("$.commercialPresentationPriceSourceLabel").isEmpty())
+                .andExpect(jsonPath("$.commercialPresentationPriceObservedDate").isEmpty());
 
         assertThat(superItemRepository.findAll()).singleElement()
                 .satisfies(item -> {
                     assertThat(item.getCommercialPresentationPricePesos()).isEqualByComparingTo("1250.50");
                     assertThat(item.getCommercialPresentationPriceSourceLabel()).isNull();
+                    assertThat(item.getCommercialPresentationPriceObservedDate()).isNull();
                 });
+    }
+
+    @Test
+    void invalidCommercialPresentationPriceObservedDateRequestsAreRejectedAndDoNotModifyTheItem() throws Exception {
+        SuperCategory almacen = superCategoryRepository.save(new SuperCategory("Almacén"));
+        String existingObservedDate = LocalDate.now().minusDays(2).toString();
+        String futureObservedDate = LocalDate.now().plusDays(1).toString();
+        SuperItem item = new SuperItem("Yerba", almacen);
+        item.setCommercialPresentationLabel("Pack x 6");
+        item.setCommercialPresentationPricePesos(new BigDecimal("1250.50"));
+        item.setCommercialPresentationPriceSourceLabel("Ticket mayorista");
+        item.setCommercialPresentationPriceObservedDate(LocalDate.parse(existingObservedDate));
+        SuperItem savedItem = superItemRepository.save(item);
+
+        mockMvc.perform(put("/api/super/items/{id}", savedItem.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(itemPayloadWithCommercialPresentationPriceSourceAndObservedDate(
+                                "Yerba", almacen.getId(), false, "Suave", "Pack x 6", "1250.50", "Lista impresa",
+                                futureObservedDate)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("Fecha observada del precio: no puede ser futura"));
+        assertCommercialPresentationPriceSourceAndDate(savedItem.getId(), "Pack x 6", "1250.50", "Ticket mayorista",
+                existingObservedDate);
+
+        mockMvc.perform(put("/api/super/items/{id}", savedItem.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(itemPayloadWithCommercialObservedDateOnly(
+                                "Yerba", almacen.getId(), false, "Suave", "Pack x 6", LocalDate.now().toString())))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("Fecha observada del precio: requiere precio de presentación"));
+        assertCommercialPresentationPriceSourceAndDate(savedItem.getId(), "Pack x 6", "1250.50", "Ticket mayorista",
+                existingObservedDate);
+
+        mockMvc.perform(put("/api/super/items/{id}", savedItem.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(itemPayloadWithCommercialObservedDateOnly(
+                                "Yerba", almacen.getId(), false, "Suave", "   ", LocalDate.now().toString())))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("Fecha observada del precio: requiere precio de presentación"));
+        assertCommercialPresentationPriceSourceAndDate(savedItem.getId(), "Pack x 6", "1250.50", "Ticket mayorista",
+                existingObservedDate);
+
+        mockMvc.perform(put("/api/super/items/{id}", savedItem.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(itemPayloadWithCommercialPresentationPriceSourceAndObservedDate(
+                                "Yerba", almacen.getId(), false, "Suave", "Pack x 6", "1250.50", "Lista impresa",
+                                "18-07-2026")))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("El cuerpo de la solicitud no es válido"))
+                .andExpect(jsonPath("$.details[?(@ == 'Fecha observada del precio: use el formato date-only YYYY-MM-DD')]").exists());
+        assertCommercialPresentationPriceSourceAndDate(savedItem.getId(), "Pack x 6", "1250.50", "Ticket mayorista",
+                existingObservedDate);
     }
 
     @Test
@@ -548,6 +679,49 @@ class SupermarketControllerTests {
     }
 
     @Test
+    void clearingCommercialPresentationPriceOrPresentationClearsPriceSourceAndObservedDate() throws Exception {
+        SuperCategory almacen = superCategoryRepository.save(new SuperCategory("Almacén"));
+        String observedDate = LocalDate.now().toString();
+        SuperItem item = new SuperItem("Yerba", almacen);
+        item.setCommercialPresentationLabel("Pack x 6");
+        item.setCommercialPresentationPricePesos(new BigDecimal("1250.50"));
+        item.setCommercialPresentationPriceSourceLabel("Ticket mayorista");
+        item.setCommercialPresentationPriceObservedDate(LocalDate.parse(observedDate));
+        SuperItem savedItem = superItemRepository.save(item);
+
+        mockMvc.perform(put("/api/super/items/{id}", savedItem.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(itemPayloadWithCommercialPresentation(
+                                "Yerba", almacen.getId(), false, "Suave", "kg", "1.500", "Pack x 6", "6.000")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.commercialPresentationLabel").value("Pack x 6"))
+                .andExpect(jsonPath("$.commercialPresentationPricePesos").isEmpty())
+                .andExpect(jsonPath("$.commercialPresentationPriceSourceLabel").isEmpty())
+                .andExpect(jsonPath("$.commercialPresentationPriceObservedDate").isEmpty());
+        assertCommercialPresentationPriceSourceAndDate(savedItem.getId(), "Pack x 6", null, null, null);
+
+        mockMvc.perform(put("/api/super/items/{id}", savedItem.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(itemPayloadWithCommercialPresentationPriceSourceAndObservedDate(
+                                "Yerba", almacen.getId(), false, "Suave", "Botella", "999.99", "Lista impresa",
+                                observedDate)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.commercialPresentationPriceSourceLabel").value("Lista impresa"))
+                .andExpect(jsonPath("$.commercialPresentationPriceObservedDate").value(observedDate));
+
+        mockMvc.perform(put("/api/super/items/{id}", savedItem.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(itemPayloadWithBlankCommercialPresentation(
+                                "Yerba", almacen.getId(), false, "Suave", "kg", "1.500")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.commercialPresentationLabel").isEmpty())
+                .andExpect(jsonPath("$.commercialPresentationPricePesos").isEmpty())
+                .andExpect(jsonPath("$.commercialPresentationPriceSourceLabel").isEmpty())
+                .andExpect(jsonPath("$.commercialPresentationPriceObservedDate").isEmpty());
+        assertCommercialPresentationPriceSourceAndDate(savedItem.getId(), null, null, null, null);
+    }
+
+    @Test
     void commercialPresentationPriceSourceUpdateDoesNotMutateCheckedStockMovementsSuggestionsOrBarcodeAliases() throws Exception {
         SuperCategory almacen = superCategoryRepository.save(new SuperCategory("Almacén"));
         SuperItem item = configuredStockItem("Aceite", almacen, "litro", "5.000", "2.000");
@@ -611,6 +785,78 @@ class SupermarketControllerTests {
                 .andExpect(jsonPath("$[0].checked").doesNotExist())
                 .andExpect(jsonPath("$[0].commercialPresentationPricePesos").doesNotExist())
                 .andExpect(jsonPath("$[0].commercialPresentationPriceSourceLabel").doesNotExist());
+    }
+
+    @Test
+    void commercialPresentationPriceObservedDateUpdateDoesNotMutateCheckedStockMovementsSuggestionsOrBarcodeAliases() throws Exception {
+        SuperCategory almacen = superCategoryRepository.save(new SuperCategory("Almacén"));
+        String updatedObservedDate = LocalDate.now().toString();
+        SuperItem item = configuredStockItem("Aceite", almacen, "litro", "5.000", "2.000");
+        item.setChecked(true);
+        item.setCommercialPresentationLabel("Botella");
+        item.setCommercialPresentationPricePesos(new BigDecimal("1500.00"));
+        item.setCommercialPresentationPriceSourceLabel("Ticket inicial");
+        item.setCommercialPresentationPriceObservedDate(LocalDate.now().minusDays(1));
+        SuperItem savedItem = superItemRepository.saveAndFlush(item);
+        SuperItemStockMovement movement = superItemStockMovementRepository.save(new SuperItemStockMovement(
+                savedItem,
+                SuperItemStockMovement.MovementType.ADJUSTMENT,
+                null,
+                new BigDecimal("2.000"),
+                null,
+                "Inicial",
+                "MANUAL"
+        ));
+        SuperItemBarcodeAlias alias = superItemBarcodeAliasRepository.saveAndFlush(
+                new SuperItemBarcodeAlias(savedItem, "0075012345678", "EAN_13"));
+
+        mockMvc.perform(get("/api/super/suggested-list"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].name").value("Aceite"))
+                .andExpect(jsonPath("$[0].suggestedQuantity").value(3.0));
+
+        mockMvc.perform(put("/api/super/items/{id}", savedItem.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(itemPayloadWithoutCheckedWithCommercialPresentationPriceSourceAndObservedDate(
+                                "Aceite", almacen.getId(), "Clásico", "litro", "5.000", "Bidón", "2.000", "1750",
+                                "  Lista impresa  ", updatedObservedDate)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.checked").value(true))
+                .andExpect(jsonPath("$.currentStock").value(2.0))
+                .andExpect(jsonPath("$.commercialPresentationLabel").value("Bidón"))
+                .andExpect(jsonPath("$.commercialPresentationQuantity").value(2.0))
+                .andExpect(jsonPath("$.commercialPresentationPricePesos").value(1750.0))
+                .andExpect(jsonPath("$.commercialPresentationPriceSourceLabel").value("Lista impresa"))
+                .andExpect(jsonPath("$.commercialPresentationPriceObservedDate").value(updatedObservedDate));
+
+        assertThat(superItemRepository.findById(savedItem.getId())).isPresent()
+                .get()
+                .satisfies(persisted -> {
+                    assertThat(persisted.isChecked()).isTrue();
+                    assertThat(persisted.getCurrentStock()).isEqualByComparingTo("2.000");
+                    assertThat(persisted.getCommercialPresentationLabel()).isEqualTo("Bidón");
+                    assertThat(persisted.getCommercialPresentationQuantity()).isEqualByComparingTo("2.000");
+                    assertThat(persisted.getCommercialPresentationPricePesos()).isEqualByComparingTo("1750.00");
+                    assertThat(persisted.getCommercialPresentationPriceSourceLabel()).isEqualTo("Lista impresa");
+                    assertThat(persisted.getCommercialPresentationPriceObservedDate()).isEqualTo(LocalDate.parse(updatedObservedDate));
+                });
+        assertThat(superItemStockMovementRepository.findAll()).singleElement()
+                .satisfies(persisted -> assertThat(persisted.getId()).isEqualTo(movement.getId()));
+        assertThat(superItemBarcodeAliasRepository.findById(alias.getId())).isPresent()
+                .get()
+                .satisfies(persisted -> {
+                    assertThat(persisted.isActive()).isTrue();
+                    assertThat(persisted.getActiveCode()).isEqualTo("0075012345678");
+                });
+
+        mockMvc.perform(get("/api/super/suggested-list"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].name").value("Aceite"))
+                .andExpect(jsonPath("$[0].suggestedQuantity").value(3.0))
+                .andExpect(jsonPath("$[0].checked").doesNotExist())
+                .andExpect(jsonPath("$[0].commercialPresentationPricePesos").doesNotExist())
+                .andExpect(jsonPath("$[0].commercialPresentationPriceSourceLabel").doesNotExist())
+                .andExpect(jsonPath("$[0].commercialPresentationPriceObservedDate").doesNotExist());
     }
 
     @Test
@@ -1959,6 +2205,26 @@ class SupermarketControllerTests {
                 });
     }
 
+    private void assertCommercialPresentationPriceSourceAndDate(Long itemId, String expectedLabel, String expectedPrice,
+            String expectedSource, String expectedObservedDate) {
+        assertThat(superItemRepository.findById(itemId)).isPresent()
+                .get()
+                .satisfies(persisted -> {
+                    assertThat(persisted.getCommercialPresentationLabel()).isEqualTo(expectedLabel);
+                    if (expectedPrice == null) {
+                        assertThat(persisted.getCommercialPresentationPricePesos()).isNull();
+                    } else {
+                        assertThat(persisted.getCommercialPresentationPricePesos()).isEqualByComparingTo(expectedPrice);
+                    }
+                    assertThat(persisted.getCommercialPresentationPriceSourceLabel()).isEqualTo(expectedSource);
+                    if (expectedObservedDate == null) {
+                        assertThat(persisted.getCommercialPresentationPriceObservedDate()).isNull();
+                    } else {
+                        assertThat(persisted.getCommercialPresentationPriceObservedDate()).isEqualTo(LocalDate.parse(expectedObservedDate));
+                    }
+                });
+    }
+
     private String barcodeAliasPayload(String code, String format) {
         return """
                 {
@@ -2109,6 +2375,38 @@ class SupermarketControllerTests {
                 commercialPresentationPricePesos, "   ");
     }
 
+    private String itemPayloadWithCommercialPresentationPriceSourceAndObservedDate(String name, Long categoryId, boolean checked,
+            String notes, String commercialPresentationLabel, String commercialPresentationPricePesos,
+            String commercialPresentationPriceSourceLabel, String commercialPresentationPriceObservedDate) {
+        return """
+                {
+                  "name": "%s",
+                  "categoryId": %d,
+                  "checked": %s,
+                  "notes": "%s",
+                  "commercialPresentationLabel": "%s",
+                  "commercialPresentationPricePesos": %s,
+                  "commercialPresentationPriceSourceLabel": "%s",
+                  "commercialPresentationPriceObservedDate": "%s"
+                }
+                """.formatted(name, categoryId, checked, notes, commercialPresentationLabel, commercialPresentationPricePesos,
+                commercialPresentationPriceSourceLabel, commercialPresentationPriceObservedDate);
+    }
+
+    private String itemPayloadWithCommercialObservedDateOnly(String name, Long categoryId, boolean checked, String notes,
+            String commercialPresentationLabel, String commercialPresentationPriceObservedDate) {
+        return """
+                {
+                  "name": "%s",
+                  "categoryId": %d,
+                  "checked": %s,
+                  "notes": "%s",
+                  "commercialPresentationLabel": "%s",
+                  "commercialPresentationPriceObservedDate": "%s"
+                }
+                """.formatted(name, categoryId, checked, notes, commercialPresentationLabel, commercialPresentationPriceObservedDate);
+    }
+
     private String itemPayloadWithCommercialSourceOnly(String name, Long categoryId, boolean checked, String notes,
             String commercialPresentationLabel, String commercialPresentationPriceSourceLabel) {
         return """
@@ -2188,6 +2486,28 @@ class SupermarketControllerTests {
                 """.formatted(name, categoryId, notes, unit, habitualObjective,
                 commercialPresentationLabel, commercialPresentationQuantity, commercialPresentationPricePesos,
                 commercialPresentationPriceSourceLabel);
+    }
+
+    private String itemPayloadWithoutCheckedWithCommercialPresentationPriceSourceAndObservedDate(String name, Long categoryId,
+            String notes, String unit, String habitualObjective, String commercialPresentationLabel,
+            String commercialPresentationQuantity, String commercialPresentationPricePesos, String commercialPresentationPriceSourceLabel,
+            String commercialPresentationPriceObservedDate) {
+        return """
+                {
+                  "name": "%s",
+                  "categoryId": %d,
+                  "notes": "%s",
+                  "unit": "%s",
+                  "habitualObjective": %s,
+                  "commercialPresentationLabel": "%s",
+                  "commercialPresentationQuantity": %s,
+                  "commercialPresentationPricePesos": %s,
+                  "commercialPresentationPriceSourceLabel": "%s",
+                  "commercialPresentationPriceObservedDate": "%s"
+                }
+                """.formatted(name, categoryId, notes, unit, habitualObjective,
+                commercialPresentationLabel, commercialPresentationQuantity, commercialPresentationPricePesos,
+                commercialPresentationPriceSourceLabel, commercialPresentationPriceObservedDate);
     }
 
     private String itemPayloadWithCurrentStock(String name, Long categoryId, boolean checked, String notes, String unit,

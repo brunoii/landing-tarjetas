@@ -2,6 +2,7 @@ package com.gentleia.landingtarjetas.supermarket;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.LocalDate;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -59,6 +60,9 @@ public class SuperItem {
 
     @Column(name = "commercial_presentation_price_source_label", length = SupermarketLimits.ITEM_PRESENTATION_PRICE_SOURCE_LABEL_MAX_LENGTH)
     private String commercialPresentationPriceSourceLabel;
+
+    @Column(name = "commercial_presentation_price_observed_date")
+    private LocalDate commercialPresentationPriceObservedDate;
 
     @Column(nullable = false)
     private boolean active = true;
@@ -189,6 +193,14 @@ public class SuperItem {
 
     public void setCommercialPresentationPriceSourceLabel(String commercialPresentationPriceSourceLabel) {
         this.commercialPresentationPriceSourceLabel = commercialPresentationPriceSourceLabel;
+    }
+
+    public LocalDate getCommercialPresentationPriceObservedDate() {
+        return commercialPresentationPriceObservedDate;
+    }
+
+    public void setCommercialPresentationPriceObservedDate(LocalDate commercialPresentationPriceObservedDate) {
+        this.commercialPresentationPriceObservedDate = commercialPresentationPriceObservedDate;
     }
 
     public boolean isConfigured() {
