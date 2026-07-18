@@ -27,6 +27,7 @@ import com.gentleia.landingtarjetas.supermarket.SuperItem;
 import com.gentleia.landingtarjetas.supermarket.SuperItemBarcodeAlias;
 import com.gentleia.landingtarjetas.supermarket.SuperItemBarcodeAliasRepository;
 import com.gentleia.landingtarjetas.supermarket.SuperItemRepository;
+import com.gentleia.landingtarjetas.supermarket.SuperItemPriceObservationRepository;
 import com.gentleia.landingtarjetas.supermarket.SuperItemStockMovement;
 import com.gentleia.landingtarjetas.supermarket.SuperItemStockMovementRepository;
 import com.gentleia.landingtarjetas.supermarket.SupermarketLimits;
@@ -54,6 +55,8 @@ class SupermarketControllerTests {
     @Autowired
     private SuperItemRepository superItemRepository;
     @Autowired
+    private SuperItemPriceObservationRepository superItemPriceObservationRepository;
+    @Autowired
     private SuperItemStockMovementRepository superItemStockMovementRepository;
     @MockitoSpyBean
     private SuperItemBarcodeAliasRepository superItemBarcodeAliasRepository;
@@ -63,6 +66,7 @@ class SupermarketControllerTests {
     @BeforeEach
     void cleanDatabase() {
         superItemBarcodeAliasRepository.deleteAll();
+        superItemPriceObservationRepository.deleteAll();
         superItemStockMovementRepository.deleteAll();
         superItemRepository.deleteAll();
         superCategoryRepository.deleteAll();
@@ -1424,6 +1428,249 @@ class SupermarketControllerTests {
     }
 
     @Test
+    void manualPriceObservationPersistsSnapshotAndDoesNotMutateInventoryState() throws Exception {
+        SuperCategory almacen = superCategoryRepository.save(new SuperCategory("Almacén"));
+        SuperItem item = configuredStockItem("Aceite", almacen, "litro", "5.000", "2.000");
+        item.setChecked(true);
+        item.setCommercialPresentationLabel("Botella");
+        item.setCommercialPresentationQuantity(new BigDecimal("1.500"));
+        item.setCommercialPresentationPricePesos(new BigDecimal("1500.00"));
+        item.setCommercialPresentationPriceSourceLabel("Ticket inicial");
+        item.setCommercialPresentationPriceObservedDate(LocalDate.now().minusDays(1));
+        SuperItem savedItem = superItemRepository.saveAndFlush(item);
+        SuperItemStockMovement movement = superItemStockMovementRepository.save(new SuperItemStockMovement(
+                savedItem,
+                SuperItemStockMovement.MovementType.ADJUSTMENT,
+                null,
+                new BigDecimal("2.000"),
+                null,
+                "Inicial",
+                "MANUAL"
+        ));
+        SuperItemBarcodeAlias alias = superItemBarcodeAliasRepository.saveAndFlush(
+                new SuperItemBarcodeAlias(savedItem, "0075012345678", "EAN_13"));
+        String observedDate = LocalDate.now().toString();
+
+        mockMvc.perform(post("/api/super/items/{id}/price-observations", savedItem.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(priceObservationPayload("1699.9", "  Ticket proveedor  ", observedDate)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.itemId").value(savedItem.getId()))
+                .andExpect(jsonPath("$.itemName").value("Aceite"))
+                .andExpect(jsonPath("$.pricePesos").value(1699.9))
+                .andExpect(jsonPath("$.sourceLabel").value("Ticket proveedor"))
+                .andExpect(jsonPath("$.observedDate").value(observedDate))
+                .andExpect(jsonPath("$.presentationLabelSnapshot").value("Botella"))
+                .andExpect(jsonPath("$.presentationQuantitySnapshot").value(1.5))
+                .andExpect(jsonPath("$.createdAt").isNotEmpty());
+
+        assertThat(superItemPriceObservationRepository.findAll()).singleElement()
+                .satisfies(observation -> {
+                    assertThat(observation.getItem().getId()).isEqualTo(savedItem.getId());
+                    assertThat(observation.getPricePesos()).isEqualByComparingTo("1699.90");
+                    assertThat(observation.getPricePesos().scale()).isEqualTo(2);
+                    assertThat(observation.getSourceLabel()).isEqualTo("Ticket proveedor");
+                    assertThat(observation.getObservedDate()).isEqualTo(LocalDate.parse(observedDate));
+                    assertThat(observation.getPresentationLabelSnapshot()).isEqualTo("Botella");
+                    assertThat(observation.getPresentationQuantitySnapshot()).isEqualByComparingTo("1.500");
+                    assertThat(observation.getCreatedAt()).isNotNull();
+                });
+        assertThat(superItemRepository.findById(savedItem.getId())).isPresent()
+                .get()
+                .satisfies(persisted -> {
+                    assertThat(persisted.isChecked()).isTrue();
+                    assertThat(persisted.getCurrentStock()).isEqualByComparingTo("2.000");
+                    assertThat(persisted.getCommercialPresentationPricePesos()).isEqualByComparingTo("1500.00");
+                    assertThat(persisted.getCommercialPresentationPriceSourceLabel()).isEqualTo("Ticket inicial");
+                });
+        assertThat(superItemStockMovementRepository.findAll()).singleElement()
+                .satisfies(persisted -> assertThat(persisted.getId()).isEqualTo(movement.getId()));
+        assertThat(superItemBarcodeAliasRepository.findById(alias.getId())).isPresent()
+                .get()
+                .satisfies(persisted -> assertThat(persisted.isActive()).isTrue());
+
+        mockMvc.perform(get("/api/super/suggested-list"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].name").value("Aceite"))
+                .andExpect(jsonPath("$[0].suggestedQuantity").value(3.0));
+    }
+
+    @Test
+    void priceObservationsListRecentGlobalAndByItemWithSafeLimits() throws Exception {
+        SuperCategory almacen = superCategoryRepository.save(new SuperCategory("Almacén"));
+        SuperItem yerba = itemWithCommercialPresentation("Yerba", almacen, "Pack x 6", "6.000");
+        SuperItem savedYerba = superItemRepository.saveAndFlush(yerba);
+        SuperItem aceite = itemWithCommercialPresentation("Aceite", almacen, "Botella", null);
+        SuperItem savedAceite = superItemRepository.saveAndFlush(aceite);
+
+        for (int index = 0; index < 105; index++) {
+            mockMvc.perform(post("/api/super/items/{id}/price-observations", savedYerba.getId())
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(priceObservationPayload(String.valueOf(1000 + index), null, null)))
+                    .andExpect(status().isCreated());
+        }
+        mockMvc.perform(post("/api/super/items/{id}/price-observations", savedAceite.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(priceObservationPayload("2500", "Lista", null)))
+                .andExpect(status().isCreated());
+
+        mockMvc.perform(get("/api/super/price-observations"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(50))
+                .andExpect(jsonPath("$[0].itemId").value(savedAceite.getId()))
+                .andExpect(jsonPath("$[0].itemName").value("Aceite"))
+                .andExpect(jsonPath("$[0].pricePesos").value(2500.0))
+                .andExpect(jsonPath("$[0].presentationLabelSnapshot").value("Botella"));
+
+        mockMvc.perform(get("/api/super/price-observations")
+                        .param("itemId", savedYerba.getId().toString())
+                        .param("limit", "2"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(2))
+                .andExpect(jsonPath("$[0].itemId").value(savedYerba.getId()))
+                .andExpect(jsonPath("$[0].pricePesos").value(1104.0))
+                .andExpect(jsonPath("$[1].pricePesos").value(1103.0));
+
+        mockMvc.perform(get("/api/super/price-observations")
+                        .param("limit", "200"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(100));
+
+        mockMvc.perform(get("/api/super/price-observations")
+                        .param("limit", "0"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(50));
+    }
+
+    @Test
+    void invalidPriceObservationRequestsAreRejectedWithoutMutatingItemOrObservations() throws Exception {
+        SuperCategory almacen = superCategoryRepository.save(new SuperCategory("Almacén"));
+        SuperItem activeWithoutPresentation = superItemRepository.saveAndFlush(new SuperItem("Arroz", almacen));
+        SuperItem inactive = itemWithCommercialPresentation("Inactivo", almacen, "Caja", null);
+        inactive.setActive(false);
+        SuperItem savedInactive = superItemRepository.saveAndFlush(inactive);
+        SuperItem valid = itemWithCommercialPresentation("Yerba", almacen, "Pack x 6", "6.000");
+        valid.setChecked(true);
+        SuperItem savedValid = superItemRepository.saveAndFlush(valid);
+
+        mockMvc.perform(post("/api/super/items/{id}/price-observations", 999999L)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(priceObservationPayload("1250.50", null, null)))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error").value("No se encontró el producto del super"));
+        mockMvc.perform(post("/api/super/items/{id}/price-observations", savedInactive.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(priceObservationPayload("1250.50", null, null)))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error").value("No se encontró el producto del super"));
+        mockMvc.perform(post("/api/super/items/{id}/price-observations", activeWithoutPresentation.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(priceObservationPayload("1250.50", null, null)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("Observación de precio: requiere presentación comercial"));
+        mockMvc.perform(post("/api/super/items/{id}/price-observations", savedValid.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(priceObservationPayload("0", null, null)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.details[?(@ == 'Precio observado: debe ser mayor a 0')]").exists());
+        mockMvc.perform(post("/api/super/items/{id}/price-observations", savedValid.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(priceObservationPayload("1250.50", "Lista", LocalDate.now().plusDays(1).toString())))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("Fecha observada de la observación: no puede ser futura"));
+
+        assertThat(superItemPriceObservationRepository.findAll()).isEmpty();
+        assertThat(superItemRepository.findById(savedValid.getId())).isPresent()
+                .get()
+                .satisfies(persisted -> {
+                    assertThat(persisted.isChecked()).isTrue();
+                    assertThat(persisted.getCommercialPresentationLabel()).isEqualTo("Pack x 6");
+                    assertThat(persisted.getCommercialPresentationQuantity()).isEqualByComparingTo("6.000");
+                });
+    }
+
+    @Test
+    void sourceLabelIsTrimmedAndRejectedWhenLongWithoutCollateralMutation() throws Exception {
+        SuperCategory almacen = superCategoryRepository.save(new SuperCategory("Almacén"));
+        SuperItem item = itemWithCommercialPresentation("Yerba", almacen, "Pack x 6", "6.000");
+        item.setCurrentStock(new BigDecimal("4.000"));
+        SuperItem savedItem = superItemRepository.saveAndFlush(item);
+        SuperItemStockMovement movement = superItemStockMovementRepository.save(new SuperItemStockMovement(
+                savedItem,
+                SuperItemStockMovement.MovementType.ADJUSTMENT,
+                null,
+                new BigDecimal("4.000"),
+                null,
+                "Inicial",
+                "MANUAL"
+        ));
+
+        mockMvc.perform(post("/api/super/items/{id}/price-observations", savedItem.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(priceObservationPayload("1250.50", "  Ticket mayorista  ", null)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.sourceLabel").value("Ticket mayorista"));
+
+        assertThat(superItemPriceObservationRepository.findAll()).singleElement()
+                .satisfies(observation -> assertThat(observation.getSourceLabel()).isEqualTo("Ticket mayorista"));
+
+        mockMvc.perform(post("/api/super/items/{id}/price-observations", savedItem.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(priceObservationPayload("1300.00", "x".repeat(SupermarketLimits.ITEM_PRESENTATION_PRICE_SOURCE_LABEL_MAX_LENGTH + 1), null)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("Fuente de la observación: no puede superar 120 caracteres"));
+
+        assertThat(superItemPriceObservationRepository.findAll()).hasSize(1);
+        assertThat(superItemRepository.findById(savedItem.getId())).isPresent()
+                .get()
+                .satisfies(persisted -> assertThat(persisted.getCurrentStock()).isEqualByComparingTo("4.000"));
+        assertThat(superItemStockMovementRepository.findAll()).singleElement()
+                .satisfies(persisted -> assertThat(persisted.getId()).isEqualTo(movement.getId()));
+    }
+
+    @Test
+    void itemCreateUpdateAndPresentationClearingDoNotCreateOrMutatePriceObservations() throws Exception {
+        SuperCategory almacen = superCategoryRepository.save(new SuperCategory("Almacén"));
+
+        mockMvc.perform(post("/api/super/items")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(itemPayloadWithCommercialPresentationPriceSourceAndObservedDate(
+                                "Yerba", almacen.getId(), false, "Suave", "Pack x 6", "1250.50", "Ticket",
+                                LocalDate.now().toString())))
+                .andExpect(status().isCreated());
+        SuperItem savedItem = superItemRepository.findAll().get(0);
+        assertThat(superItemPriceObservationRepository.findAll()).isEmpty();
+
+        mockMvc.perform(post("/api/super/items/{id}/price-observations", savedItem.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(priceObservationPayload("1250.50", "Ticket", LocalDate.now().toString())))
+                .andExpect(status().isCreated());
+        Long observationId = superItemPriceObservationRepository.findAll().get(0).getId();
+
+        mockMvc.perform(put("/api/super/items/{id}", savedItem.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(itemPayloadWithCommercialPresentationPriceSourceAndObservedDate(
+                                "Yerba", almacen.getId(), false, "Suave", "Botella", "999.99", "Lista",
+                                LocalDate.now().minusDays(1).toString())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.commercialPresentationLabel").value("Botella"));
+        mockMvc.perform(put("/api/super/items/{id}", savedItem.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(itemPayloadWithBlankCommercialPresentation(
+                                "Yerba", almacen.getId(), false, "Suave", "kg", "1.500")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.commercialPresentationLabel").isEmpty());
+
+        assertThat(superItemPriceObservationRepository.findAll()).singleElement()
+                .satisfies(observation -> {
+                    assertThat(observation.getId()).isEqualTo(observationId);
+                    assertThat(observation.getPresentationLabelSnapshot()).isEqualTo("Pack x 6");
+                    assertThat(observation.getPricePesos()).isEqualByComparingTo("1250.50");
+                    assertThat(observation.getSourceLabel()).isEqualTo("Ticket");
+                });
+    }
+
+    @Test
     void stockCommandsUsePessimisticWriteLockRepositoryMethod() throws Exception {
         Method method = SuperItemRepository.class.getMethod("findActiveByIdForStockCommand", Long.class);
 
@@ -2246,6 +2493,30 @@ class SupermarketControllerTests {
         item.setHabitualObjective(new BigDecimal(habitualObjective));
         item.setCurrentStock(new BigDecimal(currentStock));
         return item;
+    }
+
+    private SuperItem itemWithCommercialPresentation(String name, SuperCategory category, String presentationLabel,
+            String presentationQuantity) {
+        SuperItem item = new SuperItem(name, category);
+        item.setCommercialPresentationLabel(presentationLabel);
+        if (presentationQuantity != null) {
+            item.setCommercialPresentationQuantity(new BigDecimal(presentationQuantity));
+        }
+        return item;
+    }
+
+    private String priceObservationPayload(String pricePesos, String sourceLabel, String observedDate) {
+        String sourceEntry = sourceLabel == null ? "" : """
+                  "sourceLabel": "%s",
+                """.formatted(sourceLabel);
+        String observedDateEntry = observedDate == null ? "" : """
+                  "observedDate": "%s",
+                """.formatted(observedDate);
+        return """
+                {
+                %s%s  "pricePesos": %s
+                }
+                """.formatted(sourceEntry, observedDateEntry, pricePesos);
     }
 
     private String itemPayload(String name, Long categoryId, boolean checked, String notes) {
