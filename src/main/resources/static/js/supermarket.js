@@ -106,6 +106,7 @@ export function superItemPayloadFromValues(values) {
     const commercialPresentationQuantity = String(values.commercialPresentationQuantity || "").trim();
     const commercialPresentationPricePesos = String(values.commercialPresentationPricePesos || "").trim();
     const commercialPresentationPriceSourceLabel = String(values.commercialPresentationPriceSourceLabel || "").trim();
+    const commercialPresentationPriceObservedDate = String(values.commercialPresentationPriceObservedDate || "").trim();
     const habitualObjective = String(values.habitualObjective || "").trim();
     const quickQuantity = String(values.quickQuantity || "").trim();
     const payload = {
@@ -128,6 +129,9 @@ export function superItemPayloadFromValues(values) {
     }
     if (commercialPresentationPriceSourceLabel) {
         payload.commercialPresentationPriceSourceLabel = commercialPresentationPriceSourceLabel;
+    }
+    if (commercialPresentationPriceObservedDate) {
+        payload.commercialPresentationPriceObservedDate = commercialPresentationPriceObservedDate;
     }
     if (habitualObjective) {
         payload.habitualObjective = habitualObjective;
@@ -169,10 +173,33 @@ export function validateSuperItemPayload(payload) {
     if (payload.commercialPresentationPriceSourceLabel && !payload.commercialPresentationLabel) {
         return "La fuente del precio requiere una presentación comercial.";
     }
+    if (payload.commercialPresentationPriceObservedDate && !payload.commercialPresentationPricePesos) {
+        return "La fecha observada del precio requiere un precio de referencia.";
+    }
+    if (payload.commercialPresentationPriceObservedDate && !payload.commercialPresentationLabel) {
+        return "La fecha observada del precio requiere una presentación comercial.";
+    }
+    if (payload.commercialPresentationPriceObservedDate && !isDateOnlyValue(payload.commercialPresentationPriceObservedDate)) {
+        return "La fecha observada del precio debe usar formato YYYY-MM-DD.";
+    }
+    if (payload.commercialPresentationPriceObservedDate && payload.commercialPresentationPriceObservedDate > todayDateOnlyValue()) {
+        return "La fecha observada del precio no puede ser futura.";
+    }
     if (payload.commercialPresentationPricePesos && !payload.commercialPresentationLabel) {
         return "El precio de referencia requiere una presentación comercial.";
     }
     return "";
+}
+
+function isDateOnlyValue(value) {
+    return /^\d{4}-\d{2}-\d{2}$/.test(String(value || ""));
+}
+
+function todayDateOnlyValue() {
+    const today = new Date();
+    const month = String(today.getMonth() + 1).padStart(2, "0");
+    const day = String(today.getDate()).padStart(2, "0");
+    return `${today.getFullYear()}-${month}-${day}`;
 }
 
 export function normalizeSuperBarcodeCode(value) {
@@ -247,10 +274,21 @@ export function superItemCommercialPresentationPriceSourceLabel(item) {
     return sourceLabel ? `Fuente: ${sourceLabel}` : "";
 }
 
+export function superItemCommercialPresentationPriceObservedDateLabel(item) {
+    const observedDate = String(item.commercialPresentationPriceObservedDate || "").trim();
+    return observedDate ? `Observado: ${observedDate}` : "";
+}
+
 export function superItemCommercialPresentationPriceHtml(item) {
     const value = `<span>${escapeHtml(superItemCommercialPresentationPriceLabel(item))}</span>`;
-    const sourceText = superItemCommercialPresentationPriceSourceLabel(item);
-    return sourceText ? `${value}<small class="super-fuente-precio">${escapeHtml(sourceText)}</small>` : value;
+    const secondaryTexts = [
+        superItemCommercialPresentationPriceSourceLabel(item),
+        superItemCommercialPresentationPriceObservedDateLabel(item)
+    ].filter(Boolean);
+    if (secondaryTexts.length === 0) {
+        return value;
+    }
+    return `${value}${secondaryTexts.map((text) => `<small class="super-fuente-precio">${escapeHtml(text)}</small>`).join("")}`;
 }
 
 export function superMovementTypeLabel(type) {
@@ -688,6 +726,7 @@ async function saveSuperItem() {
         commercialPresentationQuantity: document.querySelector("#super-item-presentation-quantity")?.value,
         commercialPresentationPricePesos: document.querySelector("#super-item-presentation-price-pesos")?.value,
         commercialPresentationPriceSourceLabel: document.querySelector("#super-item-presentation-price-source-label")?.value,
+        commercialPresentationPriceObservedDate: document.querySelector("#super-item-presentation-price-observed-date")?.value,
         habitualObjective: document.querySelector("#super-item-objective")?.value,
         quickQuantity: document.querySelector("#super-item-quick-quantity")?.value,
         notes: document.querySelector("#super-item-notes")?.value
@@ -1126,6 +1165,7 @@ function openSuperItemEdit(id) {
     document.querySelector("#super-item-presentation-quantity").value = item.commercialPresentationQuantity || "";
     document.querySelector("#super-item-presentation-price-pesos").value = item.commercialPresentationPricePesos || "";
     document.querySelector("#super-item-presentation-price-source-label").value = item.commercialPresentationPriceSourceLabel || "";
+    document.querySelector("#super-item-presentation-price-observed-date").value = item.commercialPresentationPriceObservedDate || "";
     document.querySelector("#super-item-objective").value = item.habitualObjective || "";
     document.querySelector("#super-item-quick-quantity").value = item.quickQuantity || "";
     document.querySelector("#super-item-current-stock").value = item.currentStock ?? "";
