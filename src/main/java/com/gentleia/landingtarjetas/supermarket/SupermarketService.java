@@ -2,6 +2,7 @@ package com.gentleia.landingtarjetas.supermarket;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.List;
 
 import org.springframework.dao.DataIntegrityViolationException;
@@ -315,9 +316,13 @@ public class SupermarketService {
         BigDecimal presentationQuantity = request.commercialPresentationQuantity();
         BigDecimal presentationPricePesos = request.commercialPresentationPricePesos();
         String presentationPriceSourceLabel = trimToNull(request.commercialPresentationPriceSourceLabel());
+        LocalDate presentationPriceObservedDate = request.commercialPresentationPriceObservedDate();
         if (presentationLabel == null) {
             if (presentationPriceSourceLabel != null) {
                 throw new IllegalArgumentException("Fuente del precio: requiere precio de presentación");
+            }
+            if (presentationPriceObservedDate != null) {
+                throw new IllegalArgumentException("Fecha observada del precio: requiere precio de presentación");
             }
             if (presentationQuantity != null) {
                 throw new IllegalArgumentException("Presentación comercial: la cantidad requiere una presentación");
@@ -329,6 +334,7 @@ public class SupermarketService {
             item.setCommercialPresentationQuantity(null);
             item.setCommercialPresentationPricePesos(null);
             item.setCommercialPresentationPriceSourceLabel(null);
+            item.setCommercialPresentationPriceObservedDate(null);
             return;
         }
         if (presentationQuantity != null) {
@@ -340,10 +346,13 @@ public class SupermarketService {
         BigDecimal normalizedPresentationPricePesos = normalizeCommercialPresentationPrice(presentationPricePesos);
         String normalizedPresentationPriceSourceLabel = normalizeCommercialPresentationPriceSource(
                 presentationPriceSourceLabel, normalizedPresentationPricePesos);
+        LocalDate normalizedPresentationPriceObservedDate = normalizeCommercialPresentationPriceObservedDate(
+                presentationPriceObservedDate, normalizedPresentationPricePesos);
         item.setCommercialPresentationLabel(presentationLabel);
         item.setCommercialPresentationQuantity(presentationQuantity);
         item.setCommercialPresentationPricePesos(normalizedPresentationPricePesos);
         item.setCommercialPresentationPriceSourceLabel(normalizedPresentationPriceSourceLabel);
+        item.setCommercialPresentationPriceObservedDate(normalizedPresentationPriceObservedDate);
     }
 
     private void ensureNoGenericStockMutation(SuperItemRequest request) {
@@ -383,5 +392,19 @@ public class SupermarketService {
             throw new IllegalArgumentException("Fuente del precio: requiere precio de presentación");
         }
         return presentationPriceSourceLabel;
+    }
+
+    private LocalDate normalizeCommercialPresentationPriceObservedDate(LocalDate presentationPriceObservedDate,
+            BigDecimal normalizedPresentationPricePesos) {
+        if (presentationPriceObservedDate == null) {
+            return null;
+        }
+        if (normalizedPresentationPricePesos == null) {
+            throw new IllegalArgumentException("Fecha observada del precio: requiere precio de presentación");
+        }
+        if (presentationPriceObservedDate.isAfter(LocalDate.now())) {
+            throw new IllegalArgumentException("Fecha observada del precio: no puede ser futura");
+        }
+        return presentationPriceObservedDate;
     }
 }

@@ -1,5 +1,6 @@
 package com.gentleia.landingtarjetas.shared;
 
+import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
 import java.util.List;
 import java.util.Map;
@@ -30,6 +31,7 @@ public class ApiExceptionHandler {
             Map.entry("commercialPresentationQuantity", "Cantidad de presentación"),
             Map.entry("commercialPresentationPricePesos", "Precio de presentación"),
             Map.entry("commercialPresentationPriceSourceLabel", "Fuente del precio"),
+            Map.entry("commercialPresentationPriceObservedDate", "Fecha observada del precio"),
             Map.entry("color", "Color"),
             Map.entry("currentInstallment", "Cuota actual"),
             Map.entry("currentStock", "Stock actual"),
@@ -115,13 +117,27 @@ public class ApiExceptionHandler {
     }
 
     private List<String> unreadableMessageDetails(HttpMessageNotReadableException exception) {
-        Throwable cause = exception.getMostSpecificCause();
-        if (cause instanceof InvalidFormatException invalidFormatException && !invalidFormatException.getPath().isEmpty()) {
+        InvalidFormatException invalidFormatException = findInvalidFormatException(exception);
+        if (invalidFormatException != null && !invalidFormatException.getPath().isEmpty()) {
             String field = invalidFormatException.getPath()
                     .get(invalidFormatException.getPath().size() - 1)
                     .getFieldName();
+            if (LocalDate.class.equals(invalidFormatException.getTargetType())) {
+                return List.of(fieldLabel(field) + ": use el formato date-only YYYY-MM-DD");
+            }
             return List.of(fieldLabel(field) + ": valor inválido");
         }
         return List.of("Revise que el JSON esté bien formado y que los valores sean válidos");
+    }
+
+    private InvalidFormatException findInvalidFormatException(Throwable throwable) {
+        Throwable current = throwable;
+        while (current != null) {
+            if (current instanceof InvalidFormatException invalidFormatException) {
+                return invalidFormatException;
+            }
+            current = current.getCause();
+        }
+        return null;
     }
 }
