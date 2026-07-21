@@ -759,6 +759,7 @@ try {
     const previousSupermarketConfirm = globalThis.confirm;
     const previousSupermarketNavigator = globalThis.navigator;
     const previousSupermarketOpen = globalThis.open;
+    const previousSupermarketConsole = globalThis.console;
     const supermarketConfirmMessages = [];
     globalThis.document = supermarketDom.document;
     globalThis.confirm = (message) => {
@@ -844,11 +845,33 @@ try {
         assert.equal(supermarketDom.elements.get("#super-price-observation-source-label").value, "Ticket proveedor");
         assert.equal(supermarketDom.elements.get("#super-price-observation-observed-date").value, "2026-07-18");
 
+        supermarketDom.elements.get("#super-price-observation-price-source").value = "7";
+        supermarketDom.elements.get("#super-price-observation-item").value = "11";
+        await supermarketDom.elements.get("#super-price-observation-item").change();
+        assert.equal(supermarketDom.elements.get("#super-price-observation-price-source").value, "");
+        assert.equal(supermarketDom.elements.get("#super-price-observation-source-label").value, "");
+
         supermarketDom.elements.get("#super-price-observation-price-pesos").value = "0";
         const invalidObservationCallStart = supermarketDom.api.calls.length;
         await supermarketDom.elements.get("#super-price-observation-form").submit();
         assert.equal(supermarketDom.api.calls.length, invalidObservationCallStart);
         assert.equal(supermarketDom.elements.get("#super-price-observation-feedback").textContent, "El precio observado debe ser mayor que cero.");
+
+        supermarketDom.elements.get("#super-price-observation-item").value = "11";
+        supermarketDom.elements.get("#super-price-observation-price-pesos").value = "950";
+        supermarketDom.elements.get("#super-price-observation-price-source").value = "";
+        supermarketDom.elements.get("#super-price-observation-source-label").value = "";
+        supermarketDom.elements.get("#super-price-observation-observed-date").value = "";
+        const switchedItemObservationCallStart = supermarketDom.api.calls.length;
+        await supermarketDom.elements.get("#super-price-observation-form").submit();
+        assert.deepEqual(supermarketDom.api.calls.slice(switchedItemObservationCallStart), [
+            {
+                method: "createSuperItemPriceObservation",
+                id: 11,
+                payload: { pricePesos: "950" }
+            },
+            { method: "superPriceObservations", filters: { limit: 50 } }
+        ]);
 
         supermarketDom.elements.get("#super-price-observation-item").value = "10";
         supermarketDom.elements.get("#super-price-observation-price-pesos").value = "1500.25";
@@ -1247,6 +1270,42 @@ try {
         assert.equal(supermarketDom.elements.get("#super-generated-list").textContent, "Generá la lista para ver los productos marcados actuales.");
         assert.equal(supermarketDom.elements.get("#super-download-list").disabled, true);
 
+        const degradedSupermarketDom = fakeSupermarketDom();
+        const degradedWarnings = [];
+        const previousConsole = globalThis.console;
+        degradedSupermarketDom.api.superPriceSources = async () => {
+            degradedSupermarketDom.api.calls.push({ method: "superPriceSources" });
+            throw new Error("Price source API caída");
+        };
+        globalThis.document = degradedSupermarketDom.document;
+        globalThis.console = {
+            ...(previousConsole || {}),
+            warn(...args) {
+                degradedWarnings.push(args);
+                previousConsole?.warn?.(...args);
+            }
+        };
+        setupSupermarket({ apiClient: degradedSupermarketDom.api });
+        await flushAsyncWork();
+        assert.deepEqual(degradedSupermarketDom.api.calls.slice(0, 6), [
+            { method: "superCategories" },
+            { method: "superItems" },
+            { method: "superSuggestedList" },
+            { method: "superPriceSources" },
+            { method: "superPriceObservations", filters: { limit: 50 } },
+            { method: "superStockMovements", filters: { limit: 50 } }
+        ]);
+        assert.match(degradedSupermarketDom.elements.get("#super-category-list").children[0].innerHTML, /Almacén/);
+        assert.match(degradedSupermarketDom.elements.get("#super-items-table").children[1].innerHTML, /Arroz/);
+        assert.equal(degradedSupermarketDom.elements.get("#super-suggested-summary").textContent, "1 producto sugerido para reponer.");
+        assert.equal(degradedSupermarketDom.elements.get("#super-feedback").textContent, "Lista del super cargada. Fuentes de precio no disponibles por ahora.");
+        assert.equal(degradedSupermarketDom.elements.get("#super-price-observation-price-source").innerHTML, '<option value="">Sin fuente reutilizable</option>');
+        assert.equal(degradedSupermarketDom.elements.get("#super-price-source-feedback").textContent, "");
+        assert.equal(degradedWarnings.length, 1);
+        assert.match(String(degradedWarnings[0][0]), /Price sources unavailable during initial-load/);
+        assert.match(String(degradedWarnings[0][1]?.message), /Price source API caída/);
+        globalThis.console = previousConsole;
+        globalThis.document = supermarketDom.document;
     } finally {
         if (previousSupermarketDocument === undefined) {
             delete globalThis.document;
@@ -1266,6 +1325,11 @@ try {
             delete globalThis.open;
         } else {
             globalThis.open = previousSupermarketOpen;
+        }
+        if (previousSupermarketConsole === undefined) {
+            delete globalThis.console;
+        } else {
+            globalThis.console = previousSupermarketConsole;
         }
     }
 
