@@ -259,8 +259,8 @@ El sistema MUST permitir crear y listar fuentes de precio activas reutilizables 
 
 ### Requirement: Límites explícitos de Etapa 2
 
-El sistema MUST limitar la Etapa 11 a una presentación default nullable, un precio actual/de referencia nullable en pesos, fuente manual opcional del producto como texto libre, fecha observada manual opcional date-only, observaciones manuales append-only y catálogo mínimo de fuentes solo para esas observaciones. SHALL NOT introducir edición/borrado/renombrado/desactivación UI de fuentes, tiendas/comercios, comparación, gráficos, múltiples precios/presentaciones, OCR, lookup externo, scraping, automatización, sugerencias persistidas, total sugerido, mezcla con lista manual ni Producto Base/catálogo.
-(Previously: Etapa 10 prohibía catálogo de fuentes; Etapa 11 permite solo un catálogo mínimo para observaciones manuales.)
+El sistema MUST limitar la Etapa 12 a una presentación default nullable, un precio actual/de referencia nullable en pesos, fuente opcional del producto como `commercialPresentationPriceSourceId` reutilizable activo o `commercialPresentationPriceSourceLabel` libre, fecha observada manual opcional date-only, observaciones manuales append-only y catálogo mínimo de fuentes reutilizable solo mediante el flujo existente de listado/alta inline de Etapa 11. SHALL NOT introducir administración de fuentes, edición/borrado/renombrado/desactivación UI de fuentes, tiendas/comercios, comparación, gráficos, múltiples precios/presentaciones, OCR, barcode, ticket, foto, scraping, automatización, sugerencias persistidas, total sugerido, mezcla con lista manual ni alcance de Etapa 15.
+(Previously: Etapa 11 permitía catálogo mínimo solo para observaciones manuales y mantenía la fuente del precio actual del producto como texto libre.)
 
 #### Scenario: Lista sugerida automática limitada
 - GIVEN un producto con unidad, objetivo y stock conocido bajo objetivo
@@ -269,16 +269,16 @@ El sistema MUST limitar la Etapa 11 a una presentación default nullable, un pre
 - AND MUST NOT convertirla en compra, consumo, `checked`, stock, movimiento, total por precio ni observación
 
 #### Scenario: Campos fuera de alcance
-- GIVEN solicitud con administración de fuentes, tienda, comercio, dirección, ubicación, comparación, múltiples precios/presentaciones, OCR, lookup externo, scraping, automatización, total sugerido o Producto Base
-- WHEN se procesa en Etapa 11
+- GIVEN una solicitud con administración de fuentes, tienda, comercio, comparación, OCR, barcode, ticket, foto o alcance de Etapa 15
+- WHEN se procesa en Etapa 12
 - THEN el sistema MUST tratarlos fuera de contrato
 - AND MUST NOT persistirlos como comportamiento soportado
 
-#### Scenario: Lista manual separada
-- GIVEN un producto con `checked=true` y otro elegible para sugerencia
-- WHEN se genera la lista manual, cambia `checked`, o se crea/lista una fuente u observación
-- THEN MUST NOT modificar `currentStock`, sugerencias ni movimientos
-- AND MUST NOT mezclar sugerencias en la lista manual
+#### Scenario: Reuso acotado al flujo existente
+- GIVEN un usuario que necesita una fuente reutilizable para el precio actual del producto
+- WHEN crea o elige una fuente
+- THEN el sistema MUST reutilizar solo el catálogo y alta inline ya existentes en Etapa 11
+- AND MUST NOT abrir una nueva superficie de administración
 
 ### Requirement: Lista sugerida read-only separada
 
@@ -313,39 +313,44 @@ El sistema MUST exponer una lista sugerida de compras derivada y read-only, sepa
 
 ### Requirement: Presentación comercial default opcional
 
-El sistema MUST permitir una única presentación comercial default nullable. La presentación MUST tener texto visible y MAY tener cantidad positiva. El sistema MAY asociarle un único precio actual/de referencia nullable, positivo, en pesos y no interpretable como precio por unidad. Solo ese precio MAY tener `commercialPresentationPriceSourceLabel` nullable, recortada, de hasta 120 caracteres, y `commercialPresentationPriceObservedDate` nullable, manual y date-only/`LocalDate`. La fecha MUST existir solo con presentación y precio; el precio MAY existir sin fecha. Fechas futuras MUST rechazarse. Al limpiar precio o presentación, fuente y fecha MUST quedar `null`. Crear, actualizar, cambiar o limpiar precio, fuente, fecha o presentación MUST NOT crear ni mutar observaciones existentes.
-(Previously: prohibía cualquier historial y no distinguía observaciones manuales append-only.)
+El sistema MUST permitir una única presentación comercial default nullable. La presentación MUST tener texto visible y MAY tener cantidad positiva. El sistema MAY asociarle un único precio actual/de referencia nullable, positivo, en pesos y no interpretable como precio por unidad. Solo ese precio MAY tener `commercialPresentationPriceSourceId` nullable, `commercialPresentationPriceSourceLabel` nullable, recortada, de hasta 120 caracteres, y `commercialPresentationPriceObservedDate` nullable, manual y date-only/`LocalDate`. La fuente opcional MUST seguir una regla cerrada: `{id only}`, `{label only}` o `{neither}` son válidos; `{id + label}` es inválido. Con `commercialPresentationPriceSourceId`, el sistema MUST resolver una fuente activa y copiar su nombre a `commercialPresentationPriceSourceLabel`. Con texto libre u objetos legacy, `commercialPresentationPriceSourceId` MUST permanecer `null`. Sin fuente, `commercialPresentationPriceSourceId` y `commercialPresentationPriceSourceLabel` MUST permanecer `null`. La fecha MUST existir solo con presentación y precio; el precio MAY existir sin fecha ni fuente. Fechas futuras MUST rechazarse. Al limpiar precio o presentación, `commercialPresentationPriceSourceId`, `commercialPresentationPriceSourceLabel` y `commercialPresentationPriceObservedDate` MUST quedar `null`. Crear, actualizar, cambiar o limpiar precio, fuente, fecha o presentación MUST NOT crear ni mutar observaciones existentes.
+(Previously: solo permitía `commercialPresentationPriceSourceLabel` libre para el precio actual del producto.)
 
-#### Scenario: Producto legacy sin datos comerciales
-- GIVEN un producto existente sin esos datos o un payload legacy que los omite
-- WHEN se crea, actualiza o consulta el producto
-- THEN la operación MUST ser retrocompatible y presentación, precio, fuente y fecha MUST exponerse ausentes o `null`
+#### Scenario: Producto legacy sin backfill
+- GIVEN un producto existente con precio actual, `commercialPresentationPriceSourceLabel` libre y `commercialPresentationPriceSourceId=null`
+- WHEN se consulta o actualiza sin cambiar la fuente
+- THEN el sistema MUST preservarlo como válido sin backfill
+- AND MUST mantener `commercialPresentationPriceSourceId=null`
 
-#### Scenario: Precio, fuente y fecha válida
-- GIVEN un producto con presentación default, precio positivo, fuente con espacios externos y fecha observada no futura
-- WHEN se crea, actualiza o consulta el producto
-- THEN el sistema MUST persistir y exponer precio, fuente recortada y fecha date-only sin crear observación
+#### Scenario: Precio con fuente reutilizable válida
+- GIVEN un producto con presentación default, precio positivo y una fuente activa existente
+- WHEN se crea o actualiza con `commercialPresentationPriceSourceId`
+- THEN el sistema MUST persistir esa relación nullable y copiar el nombre activo a `commercialPresentationPriceSourceLabel`
+- AND MUST NOT requerir texto libre adicional
 
-#### Scenario: Precio sin fuente ni fecha
-- GIVEN un producto con presentación default y precio positivo sin fuente ni fecha
-- WHEN se crea, actualiza o consulta el producto
-- THEN el sistema MUST aceptar el precio y fuente y fecha MUST ser `null` o ausentes
+#### Scenario: Precio con fuente libre válida
+- GIVEN un producto con presentación default y precio positivo
+- WHEN se crea o actualiza con `commercialPresentationPriceSourceLabel` libre y sin id
+- THEN el sistema MUST aceptarlo como texto libre recortado
+- AND MUST persistir `commercialPresentationPriceSourceId=null`
 
-#### Scenario: Datos comerciales inválidos
-- GIVEN una solicitud con fuente sin precio, fecha sin presentación o precio, fecha futura, fuente sobre 120 caracteres, precio sin presentación o precio no positivo
+#### Scenario: Precio válido sin fuente
+- GIVEN un producto con presentación default y precio positivo
+- WHEN se crea o actualiza sin `commercialPresentationPriceSourceId` ni `commercialPresentationPriceSourceLabel`
+- THEN el sistema MUST aceptarlo como válido dentro de Etapa 12
+- AND MUST persistir ambos campos de fuente en `null`
+
+#### Scenario: Fuente inválida por XOR o id inactivo
+- GIVEN una solicitud con `commercialPresentationPriceSourceId` junto con `commercialPresentationPriceSourceLabel`, o con un id inexistente/inactivo
 - WHEN se procesa la solicitud
 - THEN el sistema MUST rechazarla con error de validación
 - AND MUST NOT modificar el producto persistido
 
 #### Scenario: Limpieza por precio o presentación
-- GIVEN un producto con presentación, precio, fuente, fecha y observaciones persistidas
+- GIVEN un producto con presentación, precio, fuente reusable o libre, fecha y observaciones persistidas
 - WHEN se elimina el precio o la presentación default
-- THEN fuente y fecha MUST limpiarse a `null` y las observaciones MUST permanecer intactas
-
-#### Scenario: Fuente y fecha sin mutaciones colaterales
-- GIVEN un producto con `checked`, `currentStock`, movimientos, barcodes, lista manual, lista sugerida y observaciones existentes
-- WHEN se crea, edita, elimina o consulta la fuente, fecha, precio o presentación
-- THEN esos datos MUST permanecer sin cambios y MUST NOT crearse movimiento, barcode, sugerencia persistida, elemento manual ni observación
+- THEN `commercialPresentationPriceSourceId`, `commercialPresentationPriceSourceLabel` y `commercialPresentationPriceObservedDate` MUST limpiarse a `null`
+- AND las observaciones MUST permanecer intactas
 
 ### Requirement: Observaciones manuales de precio append-only
 
