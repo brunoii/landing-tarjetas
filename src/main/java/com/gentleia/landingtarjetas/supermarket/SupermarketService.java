@@ -410,10 +410,11 @@ public class SupermarketService {
         String presentationLabel = trimToNull(request.commercialPresentationLabel());
         BigDecimal presentationQuantity = request.commercialPresentationQuantity();
         BigDecimal presentationPricePesos = request.commercialPresentationPricePesos();
+        Long presentationPriceSourceId = request.commercialPresentationPriceSourceId();
         String presentationPriceSourceLabel = trimToNull(request.commercialPresentationPriceSourceLabel());
         LocalDate presentationPriceObservedDate = request.commercialPresentationPriceObservedDate();
         if (presentationLabel == null) {
-            if (presentationPriceSourceLabel != null) {
+            if (presentationPriceSourceId != null || presentationPriceSourceLabel != null) {
                 throw new IllegalArgumentException("Fuente del precio: requiere precio de presentación");
             }
             if (presentationPriceObservedDate != null) {
@@ -428,6 +429,7 @@ public class SupermarketService {
             item.setCommercialPresentationLabel(null);
             item.setCommercialPresentationQuantity(null);
             item.setCommercialPresentationPricePesos(null);
+            item.setCommercialPresentationPriceSource(null);
             item.setCommercialPresentationPriceSourceLabel(null);
             item.setCommercialPresentationPriceObservedDate(null);
             return;
@@ -439,14 +441,15 @@ public class SupermarketService {
             }
         }
         BigDecimal normalizedPresentationPricePesos = normalizeCommercialPresentationPrice(presentationPricePesos);
-        String normalizedPresentationPriceSourceLabel = normalizeCommercialPresentationPriceSource(
-                presentationPriceSourceLabel, normalizedPresentationPricePesos);
+        CommercialPresentationPriceSource resolvedPresentationPriceSource = resolveCommercialPresentationPriceSource(
+                presentationPriceSourceId, presentationPriceSourceLabel, normalizedPresentationPricePesos);
         LocalDate normalizedPresentationPriceObservedDate = normalizeCommercialPresentationPriceObservedDate(
                 presentationPriceObservedDate, normalizedPresentationPricePesos);
         item.setCommercialPresentationLabel(presentationLabel);
         item.setCommercialPresentationQuantity(presentationQuantity);
         item.setCommercialPresentationPricePesos(normalizedPresentationPricePesos);
-        item.setCommercialPresentationPriceSourceLabel(normalizedPresentationPriceSourceLabel);
+        item.setCommercialPresentationPriceSource(resolvedPresentationPriceSource.priceSource());
+        item.setCommercialPresentationPriceSourceLabel(resolvedPresentationPriceSource.sourceLabel());
         item.setCommercialPresentationPriceObservedDate(normalizedPresentationPriceObservedDate);
     }
 
@@ -478,13 +481,31 @@ public class SupermarketService {
         return presentationPricePesos.setScale(2);
     }
 
-    private String normalizeCommercialPresentationPriceSource(String presentationPriceSourceLabel,
-            BigDecimal normalizedPresentationPricePesos) {
+    private CommercialPresentationPriceSource resolveCommercialPresentationPriceSource(Long presentationPriceSourceId,
+            String presentationPriceSourceLabel, BigDecimal normalizedPresentationPricePesos) {
+        String normalizedPresentationPriceSourceLabel = normalizeCommercialPresentationTextSource(
+                presentationPriceSourceLabel, normalizedPresentationPricePesos, "Fuente del precio");
+        if (presentationPriceSourceId != null && normalizedPresentationPriceSourceLabel != null) {
+            throw new IllegalArgumentException(
+                    "Fuente del precio: use commercialPresentationPriceSourceId o commercialPresentationPriceSourceLabel, no ambos");
+        }
+        if (presentationPriceSourceId == null) {
+            return new CommercialPresentationPriceSource(null, normalizedPresentationPriceSourceLabel);
+        }
+        if (normalizedPresentationPricePesos == null) {
+            throw new IllegalArgumentException("Fuente del precio: requiere precio de presentación");
+        }
+        SuperPriceSource priceSource = getActivePriceSource(presentationPriceSourceId);
+        return new CommercialPresentationPriceSource(priceSource, priceSource.getName());
+    }
+
+    private String normalizeCommercialPresentationTextSource(String presentationPriceSourceLabel,
+            BigDecimal normalizedPresentationPricePesos, String fieldLabel) {
         if (presentationPriceSourceLabel == null) {
             return null;
         }
         if (normalizedPresentationPricePesos == null) {
-            throw new IllegalArgumentException("Fuente del precio: requiere precio de presentación");
+            throw new IllegalArgumentException(fieldLabel + ": requiere precio de presentación");
         }
         return presentationPriceSourceLabel;
     }
@@ -502,16 +523,14 @@ public class SupermarketService {
         }
         return presentationPriceObservedDate;
     }
-    private record PriceObservationSource(SuperPriceSource priceSource, String sourceLabel) {
-    }
-}
     private SuperPriceSource getActivePriceSource(Long id) {
         return priceSourceRepository.findByIdAndActiveTrue(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "No se encontró la fuente de precio activa"));
     }
 
     private PriceObservationSource resolvePriceObservationSource(Long priceSourceId, String sourceLabel) {
-        String normalizedSourceLabel = normalizePriceObservationSource(sourceLabel);
+        String normalizedSourceLabel = normalizeCommercialPresentationTextSource(
+                normalizePriceObservationSource(sourceLabel), BigDecimal.ONE, "Fuente de la observación");
         if (priceSourceId != null && normalizedSourceLabel != null) {
             throw new IllegalArgumentException("Observación de precio: use priceSourceId o sourceLabel, no ambos");
         }
@@ -521,3 +540,10 @@ public class SupermarketService {
         SuperPriceSource priceSource = getActivePriceSource(priceSourceId);
         return new PriceObservationSource(priceSource, priceSource.getName());
     }
+
+    private record PriceObservationSource(SuperPriceSource priceSource, String sourceLabel) {
+    }
+
+    private record CommercialPresentationPriceSource(SuperPriceSource priceSource, String sourceLabel) {
+    }
+}

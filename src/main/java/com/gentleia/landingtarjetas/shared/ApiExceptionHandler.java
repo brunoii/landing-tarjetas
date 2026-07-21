@@ -37,6 +37,7 @@ public class ApiExceptionHandler {
             Map.entry("commercialPresentationLabel", "Presentación comercial"),
             Map.entry("commercialPresentationQuantity", "Cantidad de presentación"),
             Map.entry("commercialPresentationPricePesos", "Precio de presentación"),
+            Map.entry("commercialPresentationPriceSourceId", "Fuente del precio"),
             Map.entry("commercialPresentationPriceSourceLabel", "Fuente del precio"),
             Map.entry("commercialPresentationPriceObservedDate", "Fecha observada del precio"),
             Map.entry("color", "Color"),
