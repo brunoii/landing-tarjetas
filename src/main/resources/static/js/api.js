@@ -242,6 +242,15 @@ export const api = {
             body: JSON.stringify(payload)
         });
     },
+    superPriceSources() {
+        return request("/api/super/price-sources");
+    },
+    createSuperPriceSource(payload) {
+        return request("/api/super/price-sources", {
+            method: "POST",
+            body: JSON.stringify(payload)
+        });
+    },
     createSuperItemPriceObservation(id, payload) {
         return request(`/api/super/items/${id}/price-observations`, {
             method: "POST",

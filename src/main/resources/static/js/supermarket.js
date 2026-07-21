@@ -1,8 +1,9 @@
-import { api } from "./api.js?v=20260718-super-inventory-stage10-price-observations-api";
+import { api } from "./api.js?v=20260718-super-inventory-stage11-price-sources-api";
 import { escapeHtml, formatPesos, setButtonBusy } from "./utils.js";
 
 let supermarketApi = api;
 let superItems = [];
+let superPriceSources = [];
 let editingItemId = null;
 let editingItemOriginalStock = null;
 let editingCategoryId = null;
@@ -23,6 +24,7 @@ export const SUPER_FIELD_LIMITS = Object.freeze({
 
 export function setupSupermarket({ apiClient = api } = {}) {
     supermarketApi = apiClient;
+    superPriceSources = [];
     editingItemId = null;
     editingItemOriginalStock = null;
     editingCategoryId = null;
@@ -55,6 +57,7 @@ export function setupSupermarket({ apiClient = api } = {}) {
     document.querySelector("#super-movement-cancel")?.addEventListener("click", closeSuperMovementModal);
     document.querySelector("#super-movement-close")?.addEventListener("click", closeSuperMovementModal);
     document.querySelector("#super-price-observation-form")?.addEventListener("submit", submitSuperPriceObservationForm);
+    document.querySelector("#super-price-source-form")?.addEventListener("submit", submitSuperPriceSourceForm);
     document.querySelector("#super-price-observation-item")?.addEventListener("change", (event) => {
         prefillSuperPriceObservationForm(itemById(event.currentTarget.value));
     });
@@ -196,18 +199,34 @@ export function validateSuperItemPayload(payload) {
 }
 
 export function superPriceObservationPayloadFromValues(values) {
+    const priceSourceId = Number(values?.priceSourceId || 0);
     const sourceLabel = String(values?.sourceLabel || "").trim().slice(0, SUPER_FIELD_LIMITS.priceSourceLabel);
     const observedDate = String(values?.observedDate || "").trim();
     const payload = {
         pricePesos: String(values?.pricePesos || "").trim()
     };
-    if (sourceLabel) {
+    if (priceSourceId > 0) {
+        payload.priceSourceId = priceSourceId;
+    } else if (sourceLabel) {
         payload.sourceLabel = sourceLabel;
     }
     if (observedDate) {
         payload.observedDate = observedDate;
     }
     return payload;
+}
+
+export function superPriceSourcePayloadFromValues(values) {
+    return {
+        name: String(values?.name || "").trim().slice(0, SUPER_FIELD_LIMITS.priceSourceLabel)
+    };
+}
+
+export function validateSuperPriceSourcePayload(payload) {
+    if (!payload?.name) {
+        return "El nombre de la fuente de precio es obligatorio.";
+    }
+    return "";
 }
 
 export function validateSuperPriceObservationPayload(payload) {
@@ -463,16 +482,19 @@ async function loadSupermarket() {
     try {
         showSuperFeedback("Cargando lista del super...", false, true);
         showSuperSuggestedLoading();
-        const [categories, items, suggestedItems] = await Promise.all([
+        const [categories, items, suggestedItems, priceSources] = await Promise.all([
             supermarketApi.superCategories(),
             supermarketApi.superItems(),
-            supermarketApi.superSuggestedList()
+            supermarketApi.superSuggestedList(),
+            supermarketApi.superPriceSources()
         ]);
         superItems = items;
+        superPriceSources = Array.isArray(priceSources) ? priceSources : [];
         renderSuperCategories(categories);
         renderSuperCategoryOptions(categories);
         renderSuperBarcodeItemOptions(items);
         renderSuperPriceObservationItemOptions(items);
+        renderSuperPriceSources();
         renderSuperItems(items);
         renderSuperSuggestedItems(suggestedItems);
         applySuperBarcodeHighlight(currentBarcodeAlias?.item?.id);
@@ -700,6 +722,33 @@ function renderSuperPriceObservationItemOptions(items) {
             option.textContent = `${item.name} · ${categoryName}`;
             select.append(option);
         });
+    });
+    select.value = currentValue;
+}
+
+async function loadSuperPriceSources(selectedSourceId = "") {
+    if (!supermarketApi.superPriceSources) {
+        superPriceSources = [];
+        renderSuperPriceSources(selectedSourceId);
+        return;
+    }
+    const priceSources = await supermarketApi.superPriceSources();
+    superPriceSources = Array.isArray(priceSources) ? priceSources : [];
+    renderSuperPriceSources(selectedSourceId);
+}
+
+function renderSuperPriceSources(selectedSourceId = "") {
+    const select = document.querySelector("#super-price-observation-price-source");
+    if (!select) {
+        return;
+    }
+    const currentValue = selectedSourceId ? String(selectedSourceId) : select.value;
+    select.innerHTML = '<option value="">Sin fuente reutilizable</option>';
+    (Array.isArray(superPriceSources) ? superPriceSources : []).forEach((source) => {
+        const option = document.createElement("option");
+        option.value = String(source.id);
+        option.textContent = source.name;
+        select.append(option);
     });
     select.value = currentValue;
 }
@@ -1107,6 +1156,7 @@ async function submitSuperPriceObservationForm(event) {
     }
     const payload = superPriceObservationPayloadFromValues({
         pricePesos: document.querySelector("#super-price-observation-price-pesos")?.value,
+        priceSourceId: document.querySelector("#super-price-observation-price-source")?.value,
         sourceLabel: document.querySelector("#super-price-observation-source-label")?.value,
         observedDate: document.querySelector("#super-price-observation-observed-date")?.value
     });
@@ -1123,6 +1173,32 @@ async function submitSuperPriceObservationForm(event) {
         showSuperPriceObservationFeedback("Observación de precio registrada.");
     } catch (error) {
         showSuperPriceObservationFeedback(`No se pudo registrar la observación: ${error.message}`, true);
+    } finally {
+        setButtonBusy(button, false);
+    }
+}
+
+async function submitSuperPriceSourceForm(event) {
+    event?.preventDefault?.();
+    const form = document.querySelector("#super-price-source-form");
+    const button = form?.querySelector("button[type='submit']");
+    const payload = superPriceSourcePayloadFromValues({
+        name: document.querySelector("#super-price-source-name")?.value
+    });
+    const validationMessage = validateSuperPriceSourcePayload(payload);
+    if (validationMessage) {
+        showSuperPriceSourceFeedback(validationMessage, true);
+        return;
+    }
+    try {
+        setButtonBusy(button, true, "Creando...");
+        const createdSource = await supermarketApi.createSuperPriceSource(payload);
+        form?.reset?.();
+        await loadSuperPriceSources(createdSource?.id);
+        await loadSuperPriceObservations();
+        showSuperPriceSourceFeedback("Fuente de precio creada.");
+    } catch (error) {
+        showSuperPriceSourceFeedback(`No se pudo crear la fuente de precio: ${error.message}`, true);
     } finally {
         setButtonBusy(button, false);
     }
@@ -1468,6 +1544,10 @@ function showSuperMovementFeedback(message, isError = false, isLoading = false) 
 
 function showSuperPriceObservationFeedback(message, isError = false, isLoading = false) {
     showFeedback("#super-price-observation-feedback", message, isError, isLoading);
+}
+
+function showSuperPriceSourceFeedback(message, isError = false, isLoading = false) {
+    showFeedback("#super-price-source-feedback", message, isError, isLoading);
 }
 
 function showSuperMovementConflict(message, visible) {

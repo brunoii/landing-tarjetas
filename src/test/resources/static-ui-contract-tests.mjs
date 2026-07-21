@@ -14,6 +14,8 @@ const stage8UiToken = "20260716-super-inventory-stage8-price-source-ui";
 const stage9UiToken = "20260718-super-inventory-stage9-price-observed-date-ui";
 const stage10ApiToken = "20260718-super-inventory-stage10-price-observations-api";
 const stage10UiToken = "20260718-super-inventory-stage10-price-observations-ui";
+const stage11ApiToken = "20260718-super-inventory-stage11-price-sources-api";
+const stage11UiToken = "20260718-super-inventory-stage11-price-sources-ui";
 const staleApiToken = "20260712-security-hardening";
 
 await rm(moduleRoot, { force: true, recursive: true });
@@ -82,6 +84,8 @@ try {
         superItemCommercialPresentationPriceLabel,
         superItemCommercialPresentationPriceObservedDateLabel,
         superItemCommercialPresentationPriceSourceLabel,
+        superPriceSourcePayloadFromValues,
+        validateSuperPriceSourcePayload,
         superPriceObservationPayloadFromValues,
         validateSuperPriceObservationPayload,
         superPriceObservationPresentationLabel,
@@ -164,27 +168,32 @@ try {
     assert.match(indexHtml, /id="super-price-observation-form"/);
     assert.match(indexHtml, /id="super-price-observation-item"/);
     assert.match(indexHtml, /id="super-price-observation-price-pesos"[^>]+type="number"[^>]+min="0\.01"[^>]+step="0\.01"/);
+    assert.match(indexHtml, /id="super-price-observation-price-source"/);
     assert.match(indexHtml, /id="super-price-observation-source-label"[^>]+type="text"[^>]+data-super-limit="priceSourceLabel"/);
+    assert.match(indexHtml, /id="super-price-source-form"/);
+    assert.match(indexHtml, /id="super-price-source-name"[^>]+type="text"[^>]+data-super-limit="priceSourceLabel"/);
+    assert.match(indexHtml, /id="super-price-source-feedback"/);
     assert.match(indexHtml, /id="super-price-observation-observed-date"[^>]+type="date"/);
     assert.match(indexHtml, /id="super-price-observation-table"/);
     assert.match(indexHtml, /Registrar observación de precio/);
+    assert.match(indexHtml, /Crear fuente de precio/);
     assert.match(indexHtml, /Cantidad/);
     assert.match(indexHtml, /Confirmar stock negativo/);
     assert.ok(indexHtml.includes(`/css/styles.css?v=${stage5UiToken}`));
-    assert.ok(indexHtml.includes(`/js/app.js?v=${stage10UiToken}`));
+    assert.ok(indexHtml.includes(`/js/app.js?v=${stage11UiToken}`));
     assert.ok(loginHtml.includes(`/css/styles.css?v=${freshStaticToken}`));
     assert.ok(loginHtml.includes(`/js/login.js?v=${freshStaticToken}`));
     assert.doesNotMatch(indexHtml, /\/css\/styles\.css\?v=20260711-security-login|\/js\/app\.js\?v=20260711-security-login/);
     assert.doesNotMatch(loginHtml, /\/css\/styles\.css\?v=20260711-security-login|\/js\/login\.js\?v=20260711-security-login/);
-    assert.ok(appSource.includes(`from "./api.js?v=${stage10ApiToken}"`));
+    assert.ok(appSource.includes(`from "./api.js?v=${stage11ApiToken}"`));
     assert.doesNotMatch(appSource, new RegExp(staleApiToken));
     assert.doesNotMatch(appSource, /from "\.\/api\.js"/);
     assert.ok(loginSource.includes(`from "./api.js?v=${freshStaticToken}"`));
     assert.doesNotMatch(loginSource, new RegExp(staleApiToken));
     assert.doesNotMatch(loginSource, /from "\.\/api\.js"/);
     const expectedApiImports = new Map([
-        ["app.js", `./api.js?v=${stage10ApiToken}`],
-        ["supermarket.js", `./api.js?v=${stage10ApiToken}`],
+        ["app.js", `./api.js?v=${stage11ApiToken}`],
+        ["supermarket.js", `./api.js?v=${stage11ApiToken}`],
         ["incomes.js", `./api.js?v=${freshStaticToken}`],
         ["login.js", `./api.js?v=${freshStaticToken}`],
         ["statements.js", `./api.js?v=${freshStaticToken}`]
@@ -207,7 +216,7 @@ try {
     for (const moduleName of ["dashboard", "incomes", "manual-expenses", "navigation", "simulator", "statements", "transactions"]) {
         assert.ok(appSource.includes(`./${moduleName}.js?v=${freshStaticToken}`), `${moduleName}.js should preserve origin/main cache token`);
     }
-    assert.ok(appSource.includes(`./supermarket.js?v=${stage10UiToken}`));
+    assert.ok(appSource.includes(`./supermarket.js?v=${stage11UiToken}`));
     assert.doesNotMatch(appSource, /20260709-stage-7-polish|20260710-mobile-slice-2|20260711-mobile-simulator|20260711-mobile-draft-responsive|20260711-mobile-supermarket/);
     assert.doesNotMatch(appSource, /from "\.\/statements\.js";/);
     const primaryTabButtons = extractPrimaryTabButtons(indexHtml);
@@ -365,6 +374,8 @@ try {
         await api.purchaseSuperItem(9, { quantity: "2.000", notes: "Reposición" });
         await api.consumeSuperItem(9, { quantity: "1.000", notes: "Cena", allowNegativeStock: false });
         await api.quickConsumeSuperItem(9, { allowNegativeStock: false });
+        await api.superPriceSources();
+        await api.createSuperPriceSource({ name: "Ticket proveedor" });
         await api.createSuperItemPriceObservation(9, { pricePesos: "1250.50", sourceLabel: "Ticket proveedor", observedDate: "2026-07-18" });
         await api.superPriceObservations({ itemId: 9, limit: 50 });
         await api.superStockMovements({ itemId: 9, limit: 25 });
@@ -405,6 +416,8 @@ try {
         ["/api/super/items/9/purchases", "POST"],
         ["/api/super/items/9/consumptions", "POST"],
         ["/api/super/items/9/quick-consumptions", "POST"],
+        ["/api/super/price-sources", "GET"],
+        ["/api/super/price-sources", "POST"],
         ["/api/super/items/9/price-observations", "POST"],
         ["/api/super/price-observations?itemId=9&limit=50", "GET"],
         ["/api/super/movements?itemId=9&limit=25", "GET"],
@@ -423,9 +436,10 @@ try {
     assert.deepEqual(JSON.parse(apiCalls[19].options.body), { quantity: "2.000", notes: "Reposición" });
     assert.deepEqual(JSON.parse(apiCalls[20].options.body), { quantity: "1.000", notes: "Cena", allowNegativeStock: false });
     assert.deepEqual(JSON.parse(apiCalls[21].options.body), { allowNegativeStock: false });
-    assert.deepEqual(JSON.parse(apiCalls[22].options.body), { pricePesos: "1250.50", sourceLabel: "Ticket proveedor", observedDate: "2026-07-18" });
-    assert.deepEqual(JSON.parse(apiCalls[26].options.body), { code: "0075012345678", format: "EAN_13" });
-    assert.deepEqual(JSON.parse(apiCalls[28].options.body), { checked: true });
+    assert.deepEqual(JSON.parse(apiCalls[23].options.body), { name: "Ticket proveedor" });
+    assert.deepEqual(JSON.parse(apiCalls[24].options.body), { pricePesos: "1250.50", sourceLabel: "Ticket proveedor", observedDate: "2026-07-18" });
+    assert.deepEqual(JSON.parse(apiCalls[28].options.body), { code: "0075012345678", format: "EAN_13" });
+    assert.deepEqual(JSON.parse(apiCalls[30].options.body), { checked: true });
 
     const previousConflictFetch = globalThis.fetch;
     globalThis.fetch = async () => ({
@@ -641,7 +655,17 @@ try {
     assert.equal(validateSuperItemPayload({ name: "Leche", categoryId: 4, commercialPresentationLabel: "Pack", commercialPresentationPricePesos: "1250.50" }), "");
     assert.equal(validateSuperItemPayload({ name: "Leche", categoryId: 4, commercialPresentationLabel: "Pack", commercialPresentationPricePesos: "1250.50", commercialPresentationPriceObservedDate: "2026-07-18" }), "");
     assert.equal(validateSuperItemPayload(superItemPayloadFromValues({ name: "Leche", categoryId: "4" })), "");
-    assert.deepEqual(superPriceObservationPayloadFromValues({ pricePesos: " 1250.50 ", sourceLabel: ` ${"Ticket proveedor largo ".repeat(8)} `, observedDate: " 2026-07-18 " }), {
+    assert.deepEqual(superPriceSourcePayloadFromValues({ name: ` ${"Ticket proveedor largo ".repeat(8)} ` }), {
+        name: `${"Ticket proveedor largo ".repeat(8)}`.trim().slice(0, SUPER_FIELD_LIMITS.priceSourceLabel)
+    });
+    assert.equal(validateSuperPriceSourcePayload(superPriceSourcePayloadFromValues({ name: " " })), "El nombre de la fuente de precio es obligatorio.");
+    assert.equal(validateSuperPriceSourcePayload(superPriceSourcePayloadFromValues({ name: "Ticket proveedor" })), "");
+    assert.deepEqual(superPriceObservationPayloadFromValues({ pricePesos: " 1250.50 ", priceSourceId: "7", sourceLabel: " Texto libre ignorado ", observedDate: " 2026-07-18 " }), {
+        pricePesos: "1250.50",
+        priceSourceId: 7,
+        observedDate: "2026-07-18"
+    });
+    assert.deepEqual(superPriceObservationPayloadFromValues({ pricePesos: " 1250.50 ", priceSourceId: "", sourceLabel: ` ${"Ticket proveedor largo ".repeat(8)} `, observedDate: " 2026-07-18 " }), {
         pricePesos: "1250.50",
         sourceLabel: `${"Ticket proveedor largo ".repeat(8)}`.trim().slice(0, SUPER_FIELD_LIMITS.priceSourceLabel),
         observedDate: "2026-07-18"
@@ -691,6 +715,9 @@ try {
     assert.doesNotMatch(supermarketSource, /commercialPresentationPriceObservedAt|observedAt|ObservedAt|datetime|timestamp/);
     assert.doesNotMatch(supermarketSource, /priceHistory|price-history|price history|historial de precios|historial del precio/);
     assert.match(supermarketSource, /superPriceObservationPayloadFromValues/);
+    assert.match(supermarketSource, /superPriceSourcePayloadFromValues/);
+    assert.match(supermarketSource, /createSuperPriceSource/);
+    assert.match(supermarketSource, /superPriceSources/);
     assert.match(supermarketSource, /createSuperItemPriceObservation/);
     assert.match(supermarketSource, /superPriceObservations/);
     assert.match(supermarketSource, /data-super-action="history"/);
@@ -748,7 +775,7 @@ try {
     try {
         setupSupermarket({ apiClient: supermarketDom.api });
         await flushAsyncWork();
-        assert.deepEqual(supermarketDom.api.calls.slice(0, 4), [{ method: "superCategories" }, { method: "superItems" }, { method: "superSuggestedList" }, { method: "superPriceObservations", filters: { limit: 50 } }]);
+        assert.deepEqual(supermarketDom.api.calls.slice(0, 5), [{ method: "superCategories" }, { method: "superItems" }, { method: "superSuggestedList" }, { method: "superPriceSources" }, { method: "superPriceObservations", filters: { limit: 50 } }]);
         assert.equal(supermarketDom.elements.get("#super-suggested-list").innerHTML.includes("Comprar 2.000 kg"), true);
         assert.equal(supermarketDom.elements.get("#super-suggested-list").innerHTML.includes("Arroz"), true);
         assert.equal(supermarketDom.elements.get("#super-suggested-empty").hidden, true);
@@ -765,6 +792,7 @@ try {
         assert.equal(supermarketDom.elements.get("#super-item-presentation-label").maxLength, SUPER_FIELD_LIMITS.presentationLabel);
         assert.equal(supermarketDom.elements.get("#super-item-presentation-price-source-label").maxLength, SUPER_FIELD_LIMITS.priceSourceLabel);
         assert.equal(supermarketDom.elements.get("#super-price-observation-source-label").maxLength, SUPER_FIELD_LIMITS.priceSourceLabel);
+        assert.equal(supermarketDom.elements.get("#super-price-source-name").maxLength, SUPER_FIELD_LIMITS.priceSourceLabel);
         assert.equal(supermarketDom.elements.get("#super-item-presentation-price-observed-date").maxLength, -1);
         assert.equal(supermarketDom.elements.get("#super-barcode-code").maxLength, SUPER_FIELD_LIMITS.barcodeCode);
         assert.equal(supermarketDom.elements.get("#super-barcode-format").maxLength, SUPER_FIELD_LIMITS.barcodeFormat);
@@ -799,6 +827,9 @@ try {
         assertResponsiveCardLabels(supermarketDom.elements.get("#super-items-table").children[1].innerHTML, ["Estado", "Producto", "Categoría", "Configuración", "Presentación", "Precio ref.", "Stock", "Cantidad rápida", "Notas", "Acciones"]);
         assertResponsiveCardLabels(supermarketDom.elements.get("#super-category-list").children[0].innerHTML, ["Categoría", "Acciones"]);
         assert.match(supermarketDom.elements.get("#super-price-observation-item").innerHTML, /Arroz/);
+        assert.match(supermarketDom.elements.get("#super-price-observation-price-source").innerHTML, /Sin fuente reutilizable/);
+        assert.match(supermarketDom.elements.get("#super-price-observation-price-source").innerHTML, /Ticket proveedor/);
+        assert.match(supermarketDom.elements.get("#super-price-observation-price-source").innerHTML, /Lista mayorista/);
         assert.equal(supermarketDom.elements.get("#super-price-observation-table").children.length, 2);
         assert.match(supermarketDom.elements.get("#super-price-observation-table").children[0].innerHTML, /Arroz/);
         assert.match(supermarketDom.elements.get("#super-price-observation-table").children[0].innerHTML, /Pack x 6 · 6\.000/);
@@ -809,6 +840,7 @@ try {
         supermarketDom.elements.get("#super-price-observation-item").value = "10";
         await supermarketDom.elements.get("#super-price-observation-item").change();
         assert.equal(supermarketDom.elements.get("#super-price-observation-price-pesos").value, "1250.50");
+        assert.equal(supermarketDom.elements.get("#super-price-observation-price-source").value, "");
         assert.equal(supermarketDom.elements.get("#super-price-observation-source-label").value, "Ticket proveedor");
         assert.equal(supermarketDom.elements.get("#super-price-observation-observed-date").value, "2026-07-18");
 
@@ -818,7 +850,9 @@ try {
         assert.equal(supermarketDom.api.calls.length, invalidObservationCallStart);
         assert.equal(supermarketDom.elements.get("#super-price-observation-feedback").textContent, "El precio observado debe ser mayor que cero.");
 
+        supermarketDom.elements.get("#super-price-observation-item").value = "10";
         supermarketDom.elements.get("#super-price-observation-price-pesos").value = "1500.25";
+        supermarketDom.elements.get("#super-price-observation-price-source").value = "7";
         supermarketDom.elements.get("#super-price-observation-source-label").value = ` ${"Ticket proveedor largo ".repeat(8)} `;
         supermarketDom.elements.get("#super-price-observation-observed-date").value = "2026-07-18";
         const createObservationCallStart = supermarketDom.api.calls.length;
@@ -829,13 +863,41 @@ try {
                 id: 10,
                 payload: {
                     pricePesos: "1500.25",
-                    sourceLabel: `${"Ticket proveedor largo ".repeat(8)}`.trim().slice(0, SUPER_FIELD_LIMITS.priceSourceLabel),
+                    priceSourceId: 7,
                     observedDate: "2026-07-18"
                 }
             },
             { method: "superPriceObservations", filters: { limit: 50 } }
         ]);
         assert.equal(supermarketDom.elements.get("#super-price-observation-feedback").textContent, "Observación de precio registrada.");
+
+        supermarketDom.elements.get("#super-price-source-name").value = "  Lista nueva ";
+        const createPriceSourceCallStart = supermarketDom.api.calls.length;
+        await supermarketDom.elements.get("#super-price-source-form").submit();
+        assert.deepEqual(supermarketDom.api.calls.slice(createPriceSourceCallStart), [
+            { method: "createSuperPriceSource", payload: { name: "Lista nueva" } },
+            { method: "superPriceSources" },
+            { method: "superPriceObservations", filters: { limit: 50 } }
+        ]);
+        assert.equal(supermarketDom.elements.get("#super-price-observation-price-source").value, "9");
+        assert.equal(supermarketDom.elements.get("#super-price-source-feedback").textContent, "Fuente de precio creada.");
+        assert.match(supermarketDom.elements.get("#super-price-observation-price-source").innerHTML, /Lista nueva/);
+
+        supermarketDom.elements.get("#super-price-observation-item").value = "10";
+        supermarketDom.elements.get("#super-price-observation-price-pesos").value = "1600";
+        supermarketDom.elements.get("#super-price-observation-price-source").value = "";
+        supermarketDom.elements.get("#super-price-observation-source-label").value = "  Ticket libre ";
+        supermarketDom.elements.get("#super-price-observation-observed-date").value = "";
+        const createFreeTextObservationCallStart = supermarketDom.api.calls.length;
+        await supermarketDom.elements.get("#super-price-observation-form").submit();
+        assert.deepEqual(supermarketDom.api.calls.slice(createFreeTextObservationCallStart), [
+            {
+                method: "createSuperItemPriceObservation",
+                id: 10,
+                payload: { pricePesos: "1600", sourceLabel: "Ticket libre" }
+            },
+            { method: "superPriceObservations", filters: { limit: 50 } }
+        ]);
 
         supermarketDom.elements.get("#super-barcode-code").value = "  0075012345678  ";
         const barcodeFoundCallStart = supermarketDom.api.calls.length;
@@ -987,6 +1049,7 @@ try {
             "superCategories",
             "superItems",
             "superSuggestedList",
+            "superPriceSources",
             "superPriceObservations",
             "superStockMovements"
         ]);
@@ -1024,7 +1087,8 @@ try {
             "adjustSuperItemStock",
             "superCategories",
             "superItems",
-            "superSuggestedList"
+            "superSuggestedList",
+            "superPriceSources"
         ]);
         assert.equal(supermarketDom.elements.get("#super-feedback").textContent, "Producto guardado, pero no se pudo ajustar el stock: Stock API no disponible. Además, no se pudo refrescar la lista: Refresh API caída");
         assert.doesNotMatch(supermarketDom.elements.get("#super-feedback").textContent, /No se pudo guardar el producto/);
@@ -1125,6 +1189,7 @@ try {
             "superCategories",
             "superItems",
             "superSuggestedList",
+            "superPriceSources",
             "superPriceObservations",
             "superStockMovements"
         ]);
@@ -1161,7 +1226,8 @@ try {
             "adjustSuperItemStock",
             "superCategories",
             "superItems",
-            "superSuggestedList"
+            "superSuggestedList",
+            "superPriceSources"
         ]);
         assert.equal(supermarketDom.elements.get("#super-feedback").textContent, "Producto guardado, pero no se pudo ajustar el stock: Timeout de stock. Además, no se pudo refrescar la lista: Refresh API caída");
         assert.doesNotMatch(supermarketDom.elements.get("#super-feedback").textContent, /No se pudo guardar el producto/);
@@ -1180,6 +1246,7 @@ try {
         assertSupermarketMutationAfter(supermarketDom, uncheckAllCallStart, { method: "uncheckAllSuperItems" });
         assert.equal(supermarketDom.elements.get("#super-generated-list").textContent, "Generá la lista para ver los productos marcados actuales.");
         assert.equal(supermarketDom.elements.get("#super-download-list").disabled, true);
+
     } finally {
         if (previousSupermarketDocument === undefined) {
             delete globalThis.document;
@@ -2188,9 +2255,13 @@ function fakeAppDom() {
         "#super-price-observation-form",
         "#super-price-observation-item",
         "#super-price-observation-price-pesos",
+        "#super-price-observation-price-source",
         "#super-price-observation-source-label",
         "#super-price-observation-observed-date",
         "#super-price-observation-feedback",
+        "#super-price-source-form",
+        "#super-price-source-name",
+        "#super-price-source-feedback",
         "#super-price-observation-table",
         "#super-price-observation-empty",
         "#logout-form",
@@ -2213,7 +2284,7 @@ function fakeAppDom() {
     elements.get("#super-barcode-code").dataset.superLimit = "barcodeCode";
     elements.get("#super-barcode-format").dataset.superLimit = "barcodeFormat";
     elements.get("#statement-files").files = [];
-    for (const selector of ["#category-form", "#missing-transaction-form", "#income-form", "#manual-expense-form", "#simulator-form", "#super-category-form", "#super-item-form", "#super-barcode-form", "#super-price-observation-form"]) {
+    for (const selector of ["#category-form", "#missing-transaction-form", "#income-form", "#manual-expense-form", "#simulator-form", "#super-category-form", "#super-item-form", "#super-barcode-form", "#super-price-observation-form", "#super-price-source-form"]) {
         elements.get(selector).reset = function resetForm() {
             this.resetCount += 1;
         };
@@ -2861,6 +2932,7 @@ function fakeSupermarketDom() {
         "#super-item-current-stock",
         "#super-price-observation-price-pesos",
         "#super-price-observation-source-label",
+        "#super-price-source-name",
         "#super-price-observation-observed-date",
         "#super-barcode-code",
         "#super-barcode-format"
@@ -2873,6 +2945,8 @@ function fakeSupermarketDom() {
     elements.get("#super-item-presentation-label").dataset.superLimit = "presentationLabel";
     elements.get("#super-item-presentation-price-source-label").dataset.superLimit = "priceSourceLabel";
     elements.get("#super-price-observation-source-label").dataset.superLimit = "priceSourceLabel";
+    elements.get("#super-price-source-name").dataset.superLimit = "priceSourceLabel";
+    elements.get("#super-price-source-name").dataset.superLimit = "priceSourceLabel";
     elements.get("#super-item-notes").dataset.superLimit = "itemNotes";
     elements.get("#super-barcode-code").dataset.superLimit = "barcodeCode";
     elements.get("#super-barcode-format").dataset.superLimit = "barcodeFormat";
@@ -2880,7 +2954,11 @@ function fakeSupermarketDom() {
     elements.set("#super-price-observation-form", fakeSuperPriceObservationForm(elements));
     elements.set("#super-price-observation-form button[type='submit']", elements.get("#super-price-observation-form").submitButton);
     elements.set("#super-price-observation-item", fakeClickableSelect());
+    elements.set("#super-price-observation-price-source", fakeSelect());
     elements.set("#super-price-observation-feedback", fakeElement());
+    elements.set("#super-price-source-form", fakeSuperPriceSourceForm(elements));
+    elements.set("#super-price-source-form button[type='submit']", elements.get("#super-price-source-form").submitButton);
+    elements.set("#super-price-source-feedback", fakeElement());
     elements.set("#super-price-observation-table", fakeIncomeTable());
     elements.set("#super-price-observation-empty", fakeElement());
     elements.set("#super-barcode-form", fakeSuperBarcodeForm(elements));
@@ -2951,6 +3029,10 @@ function fakeSupermarketDom() {
     const priceObservations = [
         { id: 301, itemId: 10, itemName: "Arroz", pricePesos: "1250.50", sourceLabel: "Ticket proveedor", observedDate: "2026-07-18", presentationLabelSnapshot: "Pack x 6", presentationQuantitySnapshot: "6.000", createdAt: "2026-07-18T12:30:00" },
         { id: 302, itemId: 11, itemName: "Banana", pricePesos: "900.00", sourceLabel: null, observedDate: null, presentationLabelSnapshot: "Unidad", presentationQuantitySnapshot: null, createdAt: "2026-07-17T11:00:00" }
+    ];
+    const priceSources = [
+        { id: 7, name: "Ticket proveedor", active: true },
+        { id: 8, name: "Lista mayorista", active: true }
     ];
     const api = {
         calls,
@@ -3032,6 +3114,16 @@ function fakeSupermarketDom() {
         async createSuperItemPriceObservation(id, payload) {
             calls.push({ method: "createSuperItemPriceObservation", id, payload });
             return { id: 399, itemId: Number(id), itemName: "Arroz", ...payload, presentationLabelSnapshot: "Pack x 6", presentationQuantitySnapshot: "6.000", createdAt: "2026-07-18T13:00:00" };
+        },
+        async superPriceSources() {
+            calls.push({ method: "superPriceSources" });
+            return priceSources;
+        },
+        async createSuperPriceSource(payload) {
+            calls.push({ method: "createSuperPriceSource", payload });
+            const source = { id: 9, name: payload.name, active: true };
+            priceSources.push(source);
+            return source;
         },
         async superPriceObservations(filters = {}) {
             calls.push({ method: "superPriceObservations", filters });
@@ -3169,9 +3261,23 @@ function fakeSuperPriceObservationForm(elements) {
     };
     form.reset = function resetSuperPriceObservationForm() {
         this.resetCount += 1;
-        for (const selector of ["#super-price-observation-item", "#super-price-observation-price-pesos", "#super-price-observation-source-label", "#super-price-observation-observed-date"]) {
+        for (const selector of ["#super-price-observation-item", "#super-price-observation-price-pesos", "#super-price-observation-price-source", "#super-price-observation-source-label", "#super-price-observation-observed-date"]) {
             elements.get(selector).value = "";
         }
+    };
+    return form;
+}
+
+function fakeSuperPriceSourceForm(elements) {
+    const form = fakeForm(elements);
+    form.submitButton = fakeButton("Crear fuente");
+    form.querySelector = (selector) => {
+        assert.equal(selector, "button[type='submit']");
+        return form.submitButton;
+    };
+    form.reset = function resetSuperPriceSourceForm() {
+        this.resetCount += 1;
+        elements.get("#super-price-source-name").value = "";
     };
     return form;
 }
@@ -3425,7 +3531,7 @@ function fakeInput(value = "") {
 }
 
 function supermarketLimitFields(elements) {
-    return ["#super-category-name", "#super-item-name", "#super-item-unit", "#super-item-notes", "#super-item-presentation-label", "#super-item-presentation-price-source-label", "#super-price-observation-source-label", "#super-barcode-code", "#super-barcode-format"].map((selector) => elements.get(selector));
+    return ["#super-category-name", "#super-item-name", "#super-item-unit", "#super-item-notes", "#super-item-presentation-label", "#super-item-presentation-price-source-label", "#super-price-observation-source-label", "#super-price-source-name", "#super-barcode-code", "#super-barcode-format"].map((selector) => elements.get(selector));
 }
 
 function assertNoUnsupportedSuperInventorySemantics(source) {
@@ -3445,12 +3551,26 @@ function assertNoUnsupportedSuperInventorySemantics(source) {
         .replaceAll("super-price-observation-item", "")
         .replaceAll("super-price-observation-price-pesos", "")
         .replaceAll("super-price-observation-source-label", "")
+        .replaceAll("super-price-observation-price-source", "")
+        .replaceAll("super-price-source-form", "")
+        .replaceAll("super-price-source-name", "")
+        .replaceAll("super-price-source-feedback", "")
         .replaceAll("super-price-observation-observed-date", "")
         .replaceAll("super-price-observation-table", "")
         .replaceAll("super-price-observation-empty", "")
         .replaceAll("super-price-observation-feedback", "")
         .replaceAll("superPriceObservationPayloadFromValues", "")
         .replaceAll("validateSuperPriceObservationPayload", "")
+        .replaceAll("superPriceSourcePayloadFromValues", "")
+        .replaceAll("validateSuperPriceSourcePayload", "")
+        .replaceAll("submitSuperPriceSourceForm", "")
+        .replaceAll("loadSuperPriceSources", "")
+        .replaceAll("renderSuperPriceSources", "")
+        .replaceAll("createSuperPriceSource", "")
+        .replaceAll("superPriceSources", "")
+        .replaceAll("priceSourceId", "")
+        .replaceAll("priceSource", "")
+        .replaceAll("SuperPriceSource", "")
         .replaceAll("superPriceObservationPresentationLabel", "")
         .replaceAll("superPriceObservationRowHtml", "")
         .replaceAll("submitSuperPriceObservationForm", "")
@@ -3463,8 +3583,13 @@ function assertNoUnsupportedSuperInventorySemantics(source) {
         .replaceAll("pricePesos", "")
         .replaceAll("20260718-super-inventory-stage10-price-observations-api", "")
         .replaceAll("20260718-super-inventory-stage10-price-observations-ui", "")
+        .replaceAll("20260718-super-inventory-stage11-price-sources-api", "")
+        .replaceAll("20260718-super-inventory-stage11-price-sources-ui", "")
         .replaceAll("price-observations", "")
+        .replaceAll("price-source", "")
+        .replaceAll("price-sources", "")
         .replaceAll("/api/super/price-observations", "")
+        .replaceAll("/api/super/price-sources", "")
         .replaceAll("Precio", "")
         .replaceAll("Precio ref.", "");
     const unsupportedTerms = [
@@ -3480,6 +3605,13 @@ function assertNoUnsupportedSuperInventorySemantics(source) {
         "store",
         "shop",
         "shops",
+        "commerce",
+        "comparison",
+        "chart",
+        "charts",
+        "scraping",
+        "automation",
+        "total",
         "presentations",
         "multiplePresentations",
         "autoPurchase",
@@ -3499,7 +3631,7 @@ function assertSupermarketMutationAfter(supermarketDom, startIndex, expected) {
 
 function assertSupermarketMutationsAfter(supermarketDom, startIndex, expected) {
     const callsAfterAction = supermarketDom.api.calls.slice(startIndex);
-    const mutationCalls = callsAfterAction.filter((call) => !["superCategories", "superItems", "superSuggestedList", "superStockMovements", "superPriceObservations"].includes(call.method));
+    const mutationCalls = callsAfterAction.filter((call) => !["superCategories", "superItems", "superSuggestedList", "superStockMovements", "superPriceSources", "superPriceObservations"].includes(call.method));
     assert.deepEqual(mutationCalls, expected);
 }
 
