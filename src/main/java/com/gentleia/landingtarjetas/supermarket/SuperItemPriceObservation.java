@@ -19,7 +19,8 @@ import jakarta.persistence.Table;
 @Entity
 @Table(name = "super_item_price_observations", indexes = {
         @Index(name = "idx_super_price_observations_created_id", columnList = "created_at, id"),
-        @Index(name = "idx_super_price_observations_item_created_id", columnList = "item_id, created_at, id")
+        @Index(name = "idx_super_price_observations_item_created_id", columnList = "item_id, created_at, id"),
+        @Index(name = "idx_super_price_observations_price_source", columnList = "price_source_id")
 })
 public class SuperItemPriceObservation {
 
@@ -37,6 +38,10 @@ public class SuperItemPriceObservation {
     @Column(length = SupermarketLimits.ITEM_PRESENTATION_PRICE_SOURCE_LABEL_MAX_LENGTH)
     private String sourceLabel;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "price_source_id")
+    private SuperPriceSource priceSource;
+
     @Column
     private LocalDate observedDate;
 
@@ -53,9 +58,15 @@ public class SuperItemPriceObservation {
     }
 
     public SuperItemPriceObservation(SuperItem item, BigDecimal pricePesos, String sourceLabel, LocalDate observedDate) {
+        this(item, pricePesos, sourceLabel, observedDate, null);
+    }
+
+    public SuperItemPriceObservation(SuperItem item, BigDecimal pricePesos, String sourceLabel, LocalDate observedDate,
+            SuperPriceSource priceSource) {
         this.item = item;
         this.pricePesos = pricePesos;
         this.sourceLabel = sourceLabel;
+        this.priceSource = priceSource;
         this.observedDate = observedDate;
         this.presentationLabelSnapshot = item.getCommercialPresentationLabel();
         this.presentationQuantitySnapshot = item.getCommercialPresentationQuantity();
@@ -80,6 +91,10 @@ public class SuperItemPriceObservation {
 
     public String getSourceLabel() {
         return sourceLabel;
+    }
+
+    public SuperPriceSource getPriceSource() {
+        return priceSource;
     }
 
     public LocalDate getObservedDate() {

@@ -11,6 +11,7 @@ public interface SuperItemPriceObservationRepository extends JpaRepository<Super
     @Query("""
             select observation from SuperItemPriceObservation observation
             join fetch observation.item item
+            left join fetch observation.priceSource priceSource
             order by observation.createdAt desc, observation.id desc
             """)
     List<SuperItemPriceObservation> findRecent(Pageable pageable);
@@ -18,6 +19,7 @@ public interface SuperItemPriceObservationRepository extends JpaRepository<Super
     @Query("""
             select observation from SuperItemPriceObservation observation
             join fetch observation.item item
+            left join fetch observation.priceSource priceSource
             where item.id = :itemId
             order by observation.createdAt desc, observation.id desc
             """)

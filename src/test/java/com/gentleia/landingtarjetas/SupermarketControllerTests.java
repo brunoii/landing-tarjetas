@@ -1708,6 +1708,133 @@ class SupermarketControllerTests {
     }
 
     @Test
+    void priceObservationWithReusableSourceCopiesSnapshotAndDoesNotMutateInventoryOrProductPriceSource() throws Exception {
+        SuperCategory almacen = superCategoryRepository.save(new SuperCategory("Almacén"));
+        SuperItem item = configuredStockItem("Aceite", almacen, "litro", "5.000", "2.000");
+        item.setChecked(true);
+        item.setCommercialPresentationLabel("Botella");
+        item.setCommercialPresentationPricePesos(new BigDecimal("1500.00"));
+        item.setCommercialPresentationPriceSourceLabel("Ticket inicial");
+        SuperItem savedItem = superItemRepository.saveAndFlush(item);
+        SuperItemStockMovement movement = superItemStockMovementRepository.save(new SuperItemStockMovement(
+                savedItem,
+                SuperItemStockMovement.MovementType.ADJUSTMENT,
+                null,
+                new BigDecimal("2.000"),
+                null,
+                "Inicial",
+                "MANUAL"
+        ));
+        SuperItemBarcodeAlias alias = superItemBarcodeAliasRepository.saveAndFlush(
+                new SuperItemBarcodeAlias(savedItem, "0075012345678", "EAN_13"));
+
+        mockMvc.perform(post("/api/super/price-sources")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(priceSourcePayload("Lista proveedor")))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.name").value("Lista proveedor"));
+        Long priceSourceId = superPriceSourceRepository.findAll().get(0).getId();
+
+        mockMvc.perform(post("/api/super/items/{id}/price-observations", savedItem.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(priceObservationPayloadWithPriceSource("1699.90", priceSourceId, LocalDate.now().toString())))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.itemId").value(savedItem.getId()))
+                .andExpect(jsonPath("$.priceSourceId").value(priceSourceId))
+                .andExpect(jsonPath("$.sourceLabel").value("Lista proveedor"))
+                .andExpect(jsonPath("$.presentationLabelSnapshot").value("Botella"));
+
+        assertThat(superItemPriceObservationRepository.findAll()).singleElement()
+                .satisfies(observation -> {
+                    assertThat(observation.getPriceSource()).isNotNull();
+                    assertThat(observation.getPriceSource().getId()).isEqualTo(priceSourceId);
+                    assertThat(observation.getSourceLabel()).isEqualTo("Lista proveedor");
+                });
+        assertThat(superItemRepository.findById(savedItem.getId())).isPresent()
+                .get()
+                .satisfies(persisted -> {
+                    assertThat(persisted.isChecked()).isTrue();
+                    assertThat(persisted.getCurrentStock()).isEqualByComparingTo("2.000");
+                    assertThat(persisted.getCommercialPresentationPricePesos()).isEqualByComparingTo("1500.00");
+                    assertThat(persisted.getCommercialPresentationPriceSourceLabel()).isEqualTo("Ticket inicial");
+                });
+        assertThat(superItemStockMovementRepository.findAll()).singleElement()
+                .satisfies(persisted -> assertThat(persisted.getId()).isEqualTo(movement.getId()));
+        assertThat(superItemBarcodeAliasRepository.findById(alias.getId())).isPresent()
+                .get()
+                .satisfies(persisted -> assertThat(persisted.isActive()).isTrue());
+    }
+
+    @Test
+    void priceObservationWithFreeTextOrNoSourceKeepsNullablePriceSourceAndLegacyRowsListSafely() throws Exception {
+        SuperCategory almacen = superCategoryRepository.save(new SuperCategory("Almacén"));
+        SuperItem item = itemWithCommercialPresentation("Yerba", almacen, "Pack x 6", "6.000");
+        SuperItem savedItem = superItemRepository.saveAndFlush(item);
+
+        mockMvc.perform(post("/api/super/items/{id}/price-observations", savedItem.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(priceObservationPayload("1250.50", "  Ticket suelto  ", null)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.priceSourceId").isEmpty())
+                .andExpect(jsonPath("$.sourceLabel").value("Ticket suelto"));
+
+        mockMvc.perform(post("/api/super/items/{id}/price-observations", savedItem.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(priceObservationPayload("1300.00", null, null)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.priceSourceId").isEmpty())
+                .andExpect(jsonPath("$.sourceLabel").isEmpty());
+        superItemPriceObservationRepository.saveAndFlush(new SuperItemPriceObservation(
+                savedItem, new BigDecimal("1400.00"), "Legacy ticket", null));
+
+        assertThat(superItemPriceObservationRepository.findAll())
+                .hasSize(3)
+                .allSatisfy(observation -> assertThat(observation.getPriceSource()).isNull());
+
+        mockMvc.perform(get("/api/super/price-observations")
+                        .param("limit", "10"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(3))
+                .andExpect(jsonPath("$[0].priceSourceId").isEmpty())
+                .andExpect(jsonPath("$[1].priceSourceId").isEmpty())
+                .andExpect(jsonPath("$[2].priceSourceId").isEmpty());
+    }
+
+    @Test
+    void invalidPriceObservationSourceCombinationsAreRejectedWithoutPersistingObservations() throws Exception {
+        SuperCategory almacen = superCategoryRepository.save(new SuperCategory("Almacén"));
+        SuperItem item = itemWithCommercialPresentation("Yerba", almacen, "Pack x 6", "6.000");
+        SuperItem savedItem = superItemRepository.saveAndFlush(item);
+        SuperPriceSource activeSource = superPriceSourceRepository.save(new SuperPriceSource("Lista activa"));
+        SuperPriceSource inactiveSource = new SuperPriceSource("Lista inactiva");
+        inactiveSource.setActive(false);
+        SuperPriceSource savedInactiveSource = superPriceSourceRepository.saveAndFlush(inactiveSource);
+
+        mockMvc.perform(post("/api/super/items/{id}/price-observations", savedItem.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(priceObservationPayloadWithBothSources("1250.50", activeSource.getId(), "Ticket", null)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("Observación de precio: use priceSourceId o sourceLabel, no ambos"));
+
+        mockMvc.perform(post("/api/super/items/{id}/price-observations", savedItem.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(priceObservationPayloadWithPriceSource("1250.50", 999999L, null)))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error").value("No se encontró la fuente de precio activa"));
+
+        mockMvc.perform(post("/api/super/items/{id}/price-observations", savedItem.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(priceObservationPayloadWithPriceSource("1250.50", savedInactiveSource.getId(), null)))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error").value("No se encontró la fuente de precio activa"));
+
+        assertThat(superItemPriceObservationRepository.findAll()).isEmpty();
+        assertThat(superItemRepository.findById(savedItem.getId())).isPresent()
+                .get()
+                .satisfies(persisted -> assertThat(persisted.getCommercialPresentationLabel()).isEqualTo("Pack x 6"));
+    }
+
+    @Test
     void itemCreateUpdateAndPresentationClearingDoNotCreateOrMutatePriceObservations() throws Exception {
         SuperCategory almacen = superCategoryRepository.save(new SuperCategory("Almacén"));
 
@@ -2596,6 +2723,32 @@ class SupermarketControllerTests {
                 %s%s  "pricePesos": %s
                 }
                 """.formatted(sourceEntry, observedDateEntry, pricePesos);
+    }
+
+    private String priceObservationPayloadWithPriceSource(String pricePesos, Long priceSourceId, String observedDate) {
+        String observedDateEntry = observedDate == null ? "" : """
+                  "observedDate": "%s",
+                """.formatted(observedDate);
+        return """
+                {
+                  "priceSourceId": %d,
+                %s  "pricePesos": %s
+                }
+                """.formatted(priceSourceId, observedDateEntry, pricePesos);
+    }
+
+    private String priceObservationPayloadWithBothSources(String pricePesos, Long priceSourceId, String sourceLabel,
+            String observedDate) {
+        String observedDateEntry = observedDate == null ? "" : """
+                  "observedDate": "%s",
+                """.formatted(observedDate);
+        return """
+                {
+                  "priceSourceId": %d,
+                  "sourceLabel": "%s",
+                %s  "pricePesos": %s
+                }
+                """.formatted(priceSourceId, sourceLabel, observedDateEntry, pricePesos);
     }
 
     private String priceSourcePayload(String name) {
