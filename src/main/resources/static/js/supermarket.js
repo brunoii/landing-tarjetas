@@ -1,4 +1,4 @@
-import { api } from "./api.js?v=20260718-super-inventory-stage11-price-sources-api";
+import { api } from "./api.js?v=20260721-super-inventory-stage12-reference-price-source-ui-api";
 import { escapeHtml, formatPesos, setButtonBusy } from "./utils.js";
 
 let supermarketApi = api;
@@ -58,6 +58,8 @@ export function setupSupermarket({ apiClient = api } = {}) {
     document.querySelector("#super-movement-close")?.addEventListener("click", closeSuperMovementModal);
     document.querySelector("#super-price-observation-form")?.addEventListener("submit", submitSuperPriceObservationForm);
     document.querySelector("#super-price-source-form")?.addEventListener("submit", submitSuperPriceSourceForm);
+    document.querySelector("#super-item-presentation-price-source")?.addEventListener("change", () => syncSuperItemPriceSourceInputs("reusable"));
+    document.querySelector("#super-item-presentation-price-source-label")?.addEventListener("input", () => syncSuperItemPriceSourceInputs("manual"));
     document.querySelector("#super-price-observation-item")?.addEventListener("change", (event) => {
         prefillSuperPriceObservationForm(itemById(event.currentTarget.value));
     });
@@ -108,6 +110,7 @@ function superFieldLimitAttribute(fieldName) {
 
 export function superItemPayloadFromValues(values) {
     const categoryId = Number(values.categoryId || 0);
+    const commercialPresentationPriceSourceId = Number(values.commercialPresentationPriceSourceId || 0);
     const unit = String(values.unit || "").trim();
     const commercialPresentationLabel = String(values.commercialPresentationLabel || "").trim();
     const commercialPresentationQuantity = String(values.commercialPresentationQuantity || "").trim();
@@ -134,7 +137,9 @@ export function superItemPayloadFromValues(values) {
     if (commercialPresentationPricePesos) {
         payload.commercialPresentationPricePesos = commercialPresentationPricePesos;
     }
-    if (commercialPresentationPriceSourceLabel) {
+    if (commercialPresentationPriceSourceId > 0) {
+        payload.commercialPresentationPriceSourceId = commercialPresentationPriceSourceId;
+    } else if (commercialPresentationPriceSourceLabel) {
         payload.commercialPresentationPriceSourceLabel = commercialPresentationPriceSourceLabel;
     }
     if (commercialPresentationPriceObservedDate) {
@@ -174,6 +179,15 @@ export function validateSuperItemPayload(payload) {
     if (payload.commercialPresentationPricePesos && (!Number.isFinite(Number(payload.commercialPresentationPricePesos)) || Number(payload.commercialPresentationPricePesos) <= 0)) {
         return "El precio de referencia debe ser mayor que cero.";
     }
+    if (payload.commercialPresentationPriceSourceId && payload.commercialPresentationPriceSourceLabel) {
+        return "Elegí una fuente reutilizable o una manual, no ambas.";
+    }
+    if (payload.commercialPresentationPriceSourceId && !payload.commercialPresentationPricePesos) {
+        return "La fuente del precio requiere un precio de referencia.";
+    }
+    if (payload.commercialPresentationPriceSourceId && !payload.commercialPresentationLabel) {
+        return "La fuente del precio requiere una presentación comercial.";
+    }
     if (payload.commercialPresentationPriceSourceLabel && !payload.commercialPresentationPricePesos) {
         return "La fuente del precio requiere un precio de referencia.";
     }
@@ -196,6 +210,48 @@ export function validateSuperItemPayload(payload) {
         return "El precio de referencia requiere una presentación comercial.";
     }
     return "";
+}
+
+function selectedPriceSourceId(value) {
+    const id = Number(value || 0);
+    return id > 0 ? String(id) : "";
+}
+
+function currentSuperItemPriceSourceState() {
+    const sourceSelect = document.querySelector("#super-item-presentation-price-source");
+    const sourceLabelInput = document.querySelector("#super-item-presentation-price-source-label");
+    return {
+        sourceSelect,
+        sourceLabelInput,
+        selectedPriceSourceId: selectedPriceSourceId(sourceSelect?.value),
+        sourceLabel: String(sourceLabelInput?.value || "").trim()
+    };
+}
+
+export function syncSuperItemPriceSourceInputs(preferredMode = "") {
+    const { sourceSelect, sourceLabelInput, selectedPriceSourceId, sourceLabel } = currentSuperItemPriceSourceState();
+    const sourceHelp = document.querySelector("#super-item-presentation-price-source-help");
+    if (!sourceSelect || !sourceLabelInput) {
+        return;
+    }
+    if (preferredMode === "manual" && sourceLabel) {
+        sourceSelect.value = "";
+    } else if (preferredMode === "reusable" && selectedPriceSourceId) {
+        sourceLabelInput.value = "";
+    } else if (selectedPriceSourceId) {
+        sourceLabelInput.value = "";
+    } else if (sourceLabel) {
+        sourceSelect.value = "";
+    }
+    sourceSelect.disabled = Boolean(sourceLabel);
+    sourceLabelInput.disabled = Boolean(selectedPriceSourceId);
+    if (sourceHelp) {
+        sourceHelp.textContent = selectedPriceSourceId
+            ? "Fuente reutilizable opcional del precio ref."
+            : sourceLabel
+                ? "Fuente manual opcional para el precio ref."
+                : "Use una fuente reutilizable o una manual. Nunca ambas.";
+    }
 }
 
 export function superPriceObservationPayloadFromValues(values) {
@@ -494,7 +550,7 @@ async function loadSupermarket() {
         renderSuperCategoryOptions(categories);
         renderSuperBarcodeItemOptions(items);
         renderSuperPriceObservationItemOptions(items);
-        renderSuperPriceSources();
+        refreshSuperItemPriceSourceOptions();
         renderSuperItems(items);
         renderSuperSuggestedItems(suggestedItems);
         applySuperBarcodeHighlight(currentBarcodeAlias?.item?.id);
@@ -727,10 +783,40 @@ function renderSuperPriceObservationItemOptions(items) {
     select.value = currentValue;
 }
 
+export function renderSuperItemPriceSourceOptions(selectedSourceId = "", selectedSourceLabel = "") {
+    const select = document.querySelector("#super-item-presentation-price-source");
+    if (!select) {
+        return;
+    }
+    const currentValue = selectedSourceId ? String(selectedSourceId) : select.value;
+    select.innerHTML = '<option value="">Sin fuente reutilizable</option>';
+    let hasCurrentSource = false;
+    (Array.isArray(superPriceSources) ? superPriceSources : []).forEach((source) => {
+        const option = document.createElement("option");
+        option.value = String(source.id);
+        option.textContent = source.name;
+        select.append(option);
+        hasCurrentSource = hasCurrentSource || option.value === currentValue;
+    });
+    if (currentValue && !hasCurrentSource) {
+        const option = document.createElement("option");
+        option.value = currentValue;
+        option.textContent = selectedSourceLabel || `Fuente #${currentValue} no cargada`;
+        select.append(option);
+    }
+    select.value = currentValue;
+}
+
+export function refreshSuperItemPriceSourceOptions(selectedSourceId = "") {
+    renderSuperPriceSources(selectedSourceId);
+    renderSuperItemPriceSourceOptions(selectedSourceId);
+    syncSuperItemPriceSourceInputs();
+}
+
 async function loadSuperPriceSources(selectedSourceId = "") {
     const result = await loadSuperPriceSourcesSafely({ context: "refresh" });
     superPriceSources = result.priceSources;
-    renderSuperPriceSources(selectedSourceId);
+    refreshSuperItemPriceSourceOptions(selectedSourceId);
     return result.error;
 }
 
@@ -859,6 +945,7 @@ async function saveSuperItem() {
         commercialPresentationLabel: document.querySelector("#super-item-presentation-label")?.value,
         commercialPresentationQuantity: document.querySelector("#super-item-presentation-quantity")?.value,
         commercialPresentationPricePesos: document.querySelector("#super-item-presentation-price-pesos")?.value,
+        commercialPresentationPriceSourceId: document.querySelector("#super-item-presentation-price-source")?.value,
         commercialPresentationPriceSourceLabel: document.querySelector("#super-item-presentation-price-source-label")?.value,
         commercialPresentationPriceObservedDate: document.querySelector("#super-item-presentation-price-observed-date")?.value,
         habitualObjective: document.querySelector("#super-item-objective")?.value,
@@ -1208,6 +1295,7 @@ async function submitSuperPriceSourceForm(event) {
         const createdSource = await supermarketApi.createSuperPriceSource(payload);
         form?.reset?.();
         const refreshError = await loadSuperPriceSources(createdSource?.id);
+        syncSuperItemPriceSourceInputs();
         await loadSuperPriceObservations();
         showSuperPriceSourceFeedback(refreshError
             ? "Fuente de precio creada. La lista de fuentes se actualizará cuando vuelva a estar disponible."
@@ -1259,8 +1347,8 @@ function renderSuperPriceObservations(observations) {
 
 function prefillSuperPriceObservationForm(item) {
     document.querySelector("#super-price-observation-price-pesos").value = item?.commercialPresentationPricePesos || "";
-    document.querySelector("#super-price-observation-price-source").value = "";
-    document.querySelector("#super-price-observation-source-label").value = item?.commercialPresentationPriceSourceLabel || "";
+    document.querySelector("#super-price-observation-price-source").value = selectedPriceSourceId(item?.commercialPresentationPriceSourceId);
+    document.querySelector("#super-price-observation-source-label").value = item?.commercialPresentationPriceSourceId ? "" : item?.commercialPresentationPriceSourceLabel || "";
     document.querySelector("#super-price-observation-observed-date").value = item?.commercialPresentationPriceObservedDate || "";
 }
 
@@ -1403,12 +1491,15 @@ function openSuperItemEdit(id) {
     document.querySelector("#super-item-presentation-label").value = item.commercialPresentationLabel || "";
     document.querySelector("#super-item-presentation-quantity").value = item.commercialPresentationQuantity || "";
     document.querySelector("#super-item-presentation-price-pesos").value = item.commercialPresentationPricePesos || "";
-    document.querySelector("#super-item-presentation-price-source-label").value = item.commercialPresentationPriceSourceLabel || "";
+    renderSuperItemPriceSourceOptions(selectedPriceSourceId(item.commercialPresentationPriceSourceId), item.commercialPresentationPriceSourceLabel);
+    document.querySelector("#super-item-presentation-price-source").value = selectedPriceSourceId(item.commercialPresentationPriceSourceId);
+    document.querySelector("#super-item-presentation-price-source-label").value = item.commercialPresentationPriceSourceId ? "" : item.commercialPresentationPriceSourceLabel || "";
     document.querySelector("#super-item-presentation-price-observed-date").value = item.commercialPresentationPriceObservedDate || "";
     document.querySelector("#super-item-objective").value = item.habitualObjective || "";
     document.querySelector("#super-item-quick-quantity").value = item.quickQuantity || "";
     document.querySelector("#super-item-current-stock").value = item.currentStock ?? "";
     document.querySelector("#super-item-notes").value = item.notes || "";
+    syncSuperItemPriceSourceInputs();
     document.querySelector("#super-item-submit").textContent = "Guardar producto";
     document.querySelector("#super-item-cancel-edit").hidden = false;
     document.querySelector("#super-item-name")?.focus?.();
@@ -1418,6 +1509,10 @@ function resetSuperItemForm() {
     editingItemId = null;
     editingItemOriginalStock = null;
     document.querySelector("#super-item-form")?.reset();
+    const sourceSelect = document.querySelector("#super-item-presentation-price-source");
+    if (sourceSelect) {
+        sourceSelect.value = "";
+    }
     const submit = document.querySelector("#super-item-submit");
     if (submit) {
         submit.textContent = "Crear producto";
@@ -1426,6 +1521,7 @@ function resetSuperItemForm() {
     if (cancel) {
         cancel.hidden = true;
     }
+    syncSuperItemPriceSourceInputs();
 }
 
 function currentEditingItem() {

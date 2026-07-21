@@ -946,8 +946,16 @@
                     </label>
                     <label>
                         Fuente opcional del precio ref.
+                        <select id="super-item-presentation-price-source" name="commercialPresentationPriceSourceId">
+                            <option value="">Sin fuente reutilizable</option>
+                        </select>
+                        <span class="form-help">Fuente reutilizable opcional del precio ref.</span>
+                    </label>
+                    <label>
+                        Fuente manual opcional del precio ref.
                         <input id="super-item-presentation-price-source-label" type="text" name="commercialPresentationPriceSourceLabel" data-super-limit="priceSourceLabel" placeholder="Ejemplo: Ticket proveedor">
                         <span class="form-help">Fuente manual opcional para el precio ref.</span>
+                        <span class="form-help" id="super-item-presentation-price-source-help">Use una fuente reutilizable o una manual. Nunca ambas.</span>
                     </label>
                     <label>
                         Fecha observada opcional del precio ref.
@@ -1010,6 +1018,6 @@
     </section>
 </main>
 
-<script type="module" src="/js/app.js?v=20260718-super-inventory-stage11-price-sources-ui"></script>
+<script type="module" src="/js/app.js?v=20260721-super-inventory-stage12-reference-price-source-ui"></script>
 </body>
 </html>

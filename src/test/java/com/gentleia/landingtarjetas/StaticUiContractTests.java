@@ -30,6 +30,8 @@ class StaticUiContractTests {
     private static final String STAGE10_UI_TOKEN = "20260718-super-inventory-stage10-price-observations-ui";
     private static final String STAGE11_API_TOKEN = "20260718-super-inventory-stage11-price-sources-api";
     private static final String STAGE11_UI_TOKEN = "20260718-super-inventory-stage11-price-sources-ui";
+    private static final String STAGE12_API_TOKEN = "20260721-super-inventory-stage12-reference-price-source-ui-api";
+    private static final String STAGE12_UI_TOKEN = "20260721-super-inventory-stage12-reference-price-source-ui";
     private static final String STALE_API_TOKEN = "20260712-security-hardening";
 
     @Test
@@ -40,13 +42,13 @@ class StaticUiContractTests {
 
         assertThat(index).contains("<link rel=\"stylesheet\" href=\"/css/styles.css?v=" + STAGE5_UI_TOKEN + "\">");
         assertThat(index).doesNotContain("<link rel=\"stylesheet\" href=\"/css/styles.css\">");
-        assertThat(index).contains("<script type=\"module\" src=\"/js/app.js?v=" + STAGE11_UI_TOKEN + "\"></script>");
+        assertThat(index).contains("<script type=\"module\" src=\"/js/app.js?v=" + STAGE12_UI_TOKEN + "\"></script>");
         assertThat(index).doesNotContain("/css/styles.css?v=20260711-security-login", "/js/app.js?v=20260711-security-login");
         assertThat(login).contains("<link rel=\"stylesheet\" href=\"/css/styles.css?v=" + FRESH_STATIC_TOKEN + "\">")
                 .contains("/js/login.js?v=" + FRESH_STATIC_TOKEN)
                 .doesNotContain("/css/styles.css?v=20260711-security-login", "/js/login.js?v=20260711-security-login");
         assertThat(app)
-                .contains("./api.js?v=" + STAGE11_API_TOKEN, "./categories.js", "./dashboard.js?v=" + FRESH_STATIC_TOKEN, "./incomes.js?v=" + FRESH_STATIC_TOKEN, "./manual-expenses.js?v=" + FRESH_STATIC_TOKEN, "./navigation.js?v=" + FRESH_STATIC_TOKEN, "./simulator.js?v=" + FRESH_STATIC_TOKEN, "./statements.js?v=" + FRESH_STATIC_TOKEN, "./supermarket.js?v=" + STAGE11_UI_TOKEN, "./transactions.js?v=" + FRESH_STATIC_TOKEN, "./utils.js")
+                .contains("./api.js?v=" + STAGE12_API_TOKEN, "./categories.js", "./dashboard.js?v=" + FRESH_STATIC_TOKEN, "./incomes.js?v=" + FRESH_STATIC_TOKEN, "./manual-expenses.js?v=" + FRESH_STATIC_TOKEN, "./navigation.js?v=" + FRESH_STATIC_TOKEN, "./simulator.js?v=" + FRESH_STATIC_TOKEN, "./statements.js?v=" + FRESH_STATIC_TOKEN, "./supermarket.js?v=" + STAGE12_UI_TOKEN, "./transactions.js?v=" + FRESH_STATIC_TOKEN, "./utils.js")
                 .doesNotContain("./api.js\";")
                 .doesNotContain("./statements.js\";", "20260709-stage-7-polish", "20260710-mobile-slice-2", "20260711-mobile-simulator", "20260711-mobile-draft-responsive", "20260711-mobile-supermarket");
     }
@@ -92,8 +94,8 @@ class StaticUiContractTests {
     @Test
     void directApiImportsUseExpectedCacheVersions() throws IOException {
         Map<String, String> expectedApiImports = Map.of(
-                "js/app.js", "./api.js?v=" + STAGE11_API_TOKEN,
-                "js/supermarket.js", "./api.js?v=" + STAGE11_API_TOKEN,
+                "js/app.js", "./api.js?v=" + STAGE12_API_TOKEN,
+                "js/supermarket.js", "./api.js?v=" + STAGE12_API_TOKEN,
                 "js/incomes.js", "./api.js?v=" + FRESH_STATIC_TOKEN,
                 "js/login.js", "./api.js?v=" + FRESH_STATIC_TOKEN,
                 "js/statements.js", "./api.js?v=" + FRESH_STATIC_TOKEN
@@ -287,7 +289,7 @@ class StaticUiContractTests {
                 "name=\"password\"",
                 "/js/login.js?v=" + FRESH_STATIC_TOKEN
         );
-        assertThat(app).contains("from \"./api.js?v=" + STAGE11_API_TOKEN + "\"")
+        assertThat(app).contains("from \"./api.js?v=" + STAGE12_API_TOKEN + "\"")
                 .doesNotContain(STALE_API_TOKEN)
                 .doesNotContain("from \"./api.js\"");
         assertThat(loginJs).contains("from \"./api.js?v=" + FRESH_STATIC_TOKEN + "\"")
@@ -504,13 +506,16 @@ class StaticUiContractTests {
                 "id=\"super-item-presentation-label\" type=\"text\" data-super-limit=\"presentationLabel\"",
                 "id=\"super-item-presentation-quantity\" type=\"number\" min=\"0.001\" step=\"0.001\" inputmode=\"decimal\"",
                 "id=\"super-item-presentation-price-pesos\" type=\"number\" min=\"0.01\" step=\"0.01\" inputmode=\"decimal\"",
+                "id=\"super-item-presentation-price-source\" name=\"commercialPresentationPriceSourceId\"",
                 "id=\"super-item-presentation-price-source-label\" type=\"text\" name=\"commercialPresentationPriceSourceLabel\" data-super-limit=\"priceSourceLabel\"",
                 "id=\"super-item-presentation-price-observed-date\" type=\"date\" name=\"commercialPresentationPriceObservedDate\"",
                 "Presentación comercial opcional",
                 "Cantidad por presentación opcional",
                 "Precio ref. opcional",
                 "Fuente opcional del precio ref.",
+                "Fuente reutilizable opcional del precio ref.",
                 "Fuente manual opcional para el precio ref.",
+                "Use una fuente reutilizable o una manual. Nunca ambas.",
                 "Fecha observada opcional del precio ref.",
                 "Fecha manual opcional en formato YYYY-MM-DD.",
                 "Objetivo habitual opcional",
@@ -579,7 +584,7 @@ class StaticUiContractTests {
                 "error.body = body",
                 "uncheckAllSuperItems()",
                 "request(\"/api/super/items/uncheck-all\""
-        );
+        ).doesNotContain("/api/super/product-price-sources", "createSuperItemPriceSource(payload)");
         assertThat(app).contains("setupSupermarket({ apiClient: api })");
         assertThat(supermarket).contains(
                 "generatedSuperListText",
@@ -599,6 +604,10 @@ class StaticUiContractTests {
                 "superItemCommercialPresentationPriceSourceLabel",
                 "superItemCommercialPresentationPriceObservedDateLabel",
                 "superItemCommercialPresentationPriceHtml",
+                "commercialPresentationPriceSourceId",
+                "renderSuperItemPriceSourceOptions",
+                "refreshSuperItemPriceSourceOptions",
+                "syncSuperItemPriceSourceInputs",
                 "superPriceSourcePayloadFromValues",
                 "validateSuperPriceSourcePayload",
                 "superPriceObservationPayloadFromValues",
@@ -610,8 +619,10 @@ class StaticUiContractTests {
                 "commercialPresentationLabel",
                 "commercialPresentationQuantity",
                 "commercialPresentationPricePesos",
+                "commercialPresentationPriceSourceId",
                 "commercialPresentationPriceSourceLabel",
                 "commercialPresentationPriceObservedDate",
+                "selectedPriceSourceId",
                 "priceSourceLabel",
                 "Observado: ",
                 "superMovementTypeLabel",
@@ -703,11 +714,14 @@ class StaticUiContractTests {
         assertDataLabels(supermarket, List.of("Estado", "Producto", "Categoría", "Configuración", "Presentación", "Precio ref.", "Stock", "Cantidad rápida", "Notas", "Acciones"));
         String supermarketUnsupportedScan = supermarket
                 .replace("super-item-presentation-price-pesos", "")
+                .replace("super-item-presentation-price-source", "")
                 .replace("super-item-presentation-price-source-label", "")
                 .replace("super-item-presentation-price-observed-date", "")
                 .replace("commercialPresentationPricePesos", "")
+                .replace("commercialPresentationPriceSourceId", "")
                 .replace("commercialPresentationPriceSourceLabel", "")
                 .replace("commercialPresentationPriceObservedDate", "")
+                .replace("selectedPriceSourceId", "")
                 .replace("priceSourceLabel", "")
                 .replace("superItemCommercialPresentationPriceLabel", "")
                 .replace("superItemCommercialPresentationPriceSourceLabel", "")
@@ -729,6 +743,9 @@ class StaticUiContractTests {
                 .replace("validateSuperPriceObservationPayload", "")
                 .replace("superPriceSourcePayloadFromValues", "")
                 .replace("validateSuperPriceSourcePayload", "")
+                .replace("renderSuperItemPriceSourceOptions", "")
+                .replace("refreshSuperItemPriceSourceOptions", "")
+                .replace("syncSuperItemPriceSourceInputs", "")
                 .replace("superPriceObservationPresentationLabel", "")
                 .replace("superPriceObservationRowHtml", "")
                 .replace("submitSuperPriceSourceForm", "")
@@ -751,6 +768,8 @@ class StaticUiContractTests {
                 .replace("20260718-super-inventory-stage10-price-observations-ui", "")
                 .replace("20260718-super-inventory-stage11-price-sources-api", "")
                 .replace("20260718-super-inventory-stage11-price-sources-ui", "")
+                .replace("20260721-super-inventory-stage12-reference-price-source-ui-api", "")
+                .replace("20260721-super-inventory-stage12-reference-price-source-ui", "")
                 .replace("price-observations", "")
                 .replace("price-source", "")
                 .replace("price-sources", "")
