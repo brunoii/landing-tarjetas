@@ -482,14 +482,14 @@ async function loadSupermarket() {
     try {
         showSuperFeedback("Cargando lista del super...", false, true);
         showSuperSuggestedLoading();
-        const [categories, items, suggestedItems, priceSources] = await Promise.all([
+        const [categories, items, suggestedItems, priceSourceState] = await Promise.all([
             supermarketApi.superCategories(),
             supermarketApi.superItems(),
             supermarketApi.superSuggestedList(),
-            supermarketApi.superPriceSources()
+            loadSuperPriceSourcesSafely({ silent: true, context: "initial-load" })
         ]);
         superItems = items;
-        superPriceSources = Array.isArray(priceSources) ? priceSources : [];
+        superPriceSources = Array.isArray(priceSourceState?.priceSources) ? priceSourceState.priceSources : [];
         renderSuperCategories(categories);
         renderSuperCategoryOptions(categories);
         renderSuperBarcodeItemOptions(items);
@@ -501,7 +501,8 @@ async function loadSupermarket() {
         await loadSuperPriceObservations();
         await loadSuperMovementHistory();
         clearGeneratedSuperList();
-        showSuperFeedback(items.length ? "Lista del super cargada." : "Todavía no hay productos cargados.");
+        const loadedMessage = items.length ? "Lista del super cargada." : "Todavía no hay productos cargados.";
+        showSuperFeedback(priceSourceState?.error ? `${loadedMessage} Fuentes de precio no disponibles por ahora.` : loadedMessage);
         return null;
     } catch (error) {
         showSuperFeedback(`No se pudo cargar la lista del super: ${error.message}`, true);
@@ -727,14 +728,26 @@ function renderSuperPriceObservationItemOptions(items) {
 }
 
 async function loadSuperPriceSources(selectedSourceId = "") {
-    if (!supermarketApi.superPriceSources) {
-        superPriceSources = [];
-        renderSuperPriceSources(selectedSourceId);
-        return;
-    }
-    const priceSources = await supermarketApi.superPriceSources();
-    superPriceSources = Array.isArray(priceSources) ? priceSources : [];
+    const result = await loadSuperPriceSourcesSafely({ context: "refresh" });
+    superPriceSources = result.priceSources;
     renderSuperPriceSources(selectedSourceId);
+    return result.error;
+}
+
+async function loadSuperPriceSourcesSafely({ silent = false, context = "refresh" } = {}) {
+    if (!supermarketApi.superPriceSources) {
+        return { priceSources: [], error: null };
+    }
+    try {
+        const priceSources = await supermarketApi.superPriceSources();
+        return { priceSources: Array.isArray(priceSources) ? priceSources : [], error: null };
+    } catch (error) {
+        reportSuperPriceSourceIssue(`Price sources unavailable during ${context}`, error);
+        if (!silent) {
+            showSuperPriceSourceFeedback(`No se pudieron cargar las fuentes de precio: ${error.message}`, true);
+        }
+        return { priceSources: [], error };
+    }
 }
 
 function renderSuperPriceSources(selectedSourceId = "") {
@@ -1194,14 +1207,20 @@ async function submitSuperPriceSourceForm(event) {
         setButtonBusy(button, true, "Creando...");
         const createdSource = await supermarketApi.createSuperPriceSource(payload);
         form?.reset?.();
-        await loadSuperPriceSources(createdSource?.id);
+        const refreshError = await loadSuperPriceSources(createdSource?.id);
         await loadSuperPriceObservations();
-        showSuperPriceSourceFeedback("Fuente de precio creada.");
+        showSuperPriceSourceFeedback(refreshError
+            ? "Fuente de precio creada. La lista de fuentes se actualizará cuando vuelva a estar disponible."
+            : "Fuente de precio creada.");
     } catch (error) {
         showSuperPriceSourceFeedback(`No se pudo crear la fuente de precio: ${error.message}`, true);
     } finally {
         setButtonBusy(button, false);
     }
+}
+
+function reportSuperPriceSourceIssue(message, error) {
+    globalThis.console?.warn?.(`[super-price-sources] ${message}`, error);
 }
 
 async function loadSuperPriceObservations() {
@@ -1240,6 +1259,7 @@ function renderSuperPriceObservations(observations) {
 
 function prefillSuperPriceObservationForm(item) {
     document.querySelector("#super-price-observation-price-pesos").value = item?.commercialPresentationPricePesos || "";
+    document.querySelector("#super-price-observation-price-source").value = "";
     document.querySelector("#super-price-observation-source-label").value = item?.commercialPresentationPriceSourceLabel || "";
     document.querySelector("#super-price-observation-observed-date").value = item?.commercialPresentationPriceObservedDate || "";
 }
