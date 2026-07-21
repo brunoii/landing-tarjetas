@@ -26,16 +26,19 @@ public class SupermarketService {
     private final SuperItemRepository itemRepository;
     private final SuperItemStockMovementRepository stockMovementRepository;
     private final SuperItemPriceObservationRepository priceObservationRepository;
+    private final SuperPriceSourceRepository priceSourceRepository;
     private final SuperItemBarcodeAliasRepository barcodeAliasRepository;
 
     public SupermarketService(SuperCategoryRepository categoryRepository, SuperItemRepository itemRepository,
             SuperItemStockMovementRepository stockMovementRepository,
             SuperItemPriceObservationRepository priceObservationRepository,
+            SuperPriceSourceRepository priceSourceRepository,
             SuperItemBarcodeAliasRepository barcodeAliasRepository) {
         this.categoryRepository = categoryRepository;
         this.itemRepository = itemRepository;
         this.stockMovementRepository = stockMovementRepository;
         this.priceObservationRepository = priceObservationRepository;
+        this.priceSourceRepository = priceSourceRepository;
         this.barcodeAliasRepository = barcodeAliasRepository;
     }
 
@@ -181,6 +184,24 @@ public class SupermarketService {
         return movements.stream()
                 .map(SuperItemStockMovementResponse::from)
                 .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<SuperPriceSourceResponse> listPriceSources() {
+        return priceSourceRepository.findByActiveTrueOrderByNameAsc().stream()
+                .map(SuperPriceSourceResponse::from)
+                .toList();
+    }
+
+    @Transactional
+    public SuperPriceSourceResponse createPriceSource(SuperPriceSourceRequest request) {
+        ensureUniquePriceSourceName(request.name());
+        try {
+            SuperPriceSource priceSource = new SuperPriceSource(request.name());
+            return SuperPriceSourceResponse.from(priceSourceRepository.saveAndFlush(priceSource));
+        } catch (DataIntegrityViolationException exception) {
+            throw duplicatePriceSourceConflict();
+        }
     }
 
     @Transactional
@@ -335,6 +356,13 @@ public class SupermarketService {
         });
     }
 
+    private void ensureUniquePriceSourceName(String name) {
+        priceSourceRepository.findByNormalizedKey(SuperPriceSource.normalizedKeyFor(name))
+                .ifPresent(existing -> {
+                    throw duplicatePriceSourceConflict();
+                });
+    }
+
     private String trimToNull(String value) {
         if (value == null || value.isBlank()) {
             return null;
@@ -365,6 +393,10 @@ public class SupermarketService {
 
     private ResponseStatusException duplicateBarcodeAliasConflict() {
         return new ResponseStatusException(HttpStatus.CONFLICT, "Ya existe un alias activo para ese código");
+    }
+
+    private ResponseStatusException duplicatePriceSourceConflict() {
+        return new ResponseStatusException(HttpStatus.CONFLICT, "Ya existe una fuente de precio con ese nombre");
     }
 
     private void applyInventoryConfiguration(SuperItem item, SuperItemRequest request) {

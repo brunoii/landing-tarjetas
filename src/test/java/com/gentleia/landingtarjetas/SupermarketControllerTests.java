@@ -26,10 +26,13 @@ import com.gentleia.landingtarjetas.supermarket.SuperCategoryRepository;
 import com.gentleia.landingtarjetas.supermarket.SuperItem;
 import com.gentleia.landingtarjetas.supermarket.SuperItemBarcodeAlias;
 import com.gentleia.landingtarjetas.supermarket.SuperItemBarcodeAliasRepository;
+import com.gentleia.landingtarjetas.supermarket.SuperItemPriceObservation;
 import com.gentleia.landingtarjetas.supermarket.SuperItemRepository;
 import com.gentleia.landingtarjetas.supermarket.SuperItemPriceObservationRepository;
 import com.gentleia.landingtarjetas.supermarket.SuperItemStockMovement;
 import com.gentleia.landingtarjetas.supermarket.SuperItemStockMovementRepository;
+import com.gentleia.landingtarjetas.supermarket.SuperPriceSource;
+import com.gentleia.landingtarjetas.supermarket.SuperPriceSourceRepository;
 import com.gentleia.landingtarjetas.supermarket.SupermarketLimits;
 
 import org.junit.jupiter.api.AfterEach;
@@ -57,6 +60,8 @@ class SupermarketControllerTests {
     @Autowired
     private SuperItemPriceObservationRepository superItemPriceObservationRepository;
     @Autowired
+    private SuperPriceSourceRepository superPriceSourceRepository;
+    @Autowired
     private SuperItemStockMovementRepository superItemStockMovementRepository;
     @MockitoSpyBean
     private SuperItemBarcodeAliasRepository superItemBarcodeAliasRepository;
@@ -67,6 +72,7 @@ class SupermarketControllerTests {
     void cleanDatabase() {
         superItemBarcodeAliasRepository.deleteAll();
         superItemPriceObservationRepository.deleteAll();
+        superPriceSourceRepository.deleteAll();
         superItemStockMovementRepository.deleteAll();
         superItemRepository.deleteAll();
         superCategoryRepository.deleteAll();
@@ -1629,6 +1635,79 @@ class SupermarketControllerTests {
     }
 
     @Test
+    void priceSourcesCreateListTrimAndRejectDuplicateNormalizedNamesWithoutCommercialFields() throws Exception {
+        mockMvc.perform(post("/api/super/price-sources")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(priceSourcePayload("  Ticket proveedor  ")))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.name").value("Ticket proveedor"))
+                .andExpect(jsonPath("$.active").value(true))
+                .andExpect(jsonPath("$.createdAt").isNotEmpty())
+                .andExpect(jsonPath("$.updatedAt").isNotEmpty())
+                .andExpect(jsonPath("$.address").doesNotExist())
+                .andExpect(jsonPath("$.location").doesNotExist())
+                .andExpect(jsonPath("$.store").doesNotExist())
+                .andExpect(jsonPath("$.commerce").doesNotExist())
+                .andExpect(jsonPath("$.comparison").doesNotExist())
+                .andExpect(jsonPath("$.priceMetric").doesNotExist());
+
+        mockMvc.perform(post("/api/super/price-sources")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(priceSourcePayload("ticket PROVEEDOR")))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error").value("Ya existe una fuente de precio con ese nombre"));
+
+        assertThat(superPriceSourceRepository.findAll()).singleElement()
+                .satisfies(source -> {
+                    assertThat(source.getName()).isEqualTo("Ticket proveedor");
+                    assertThat(source.getNormalizedKey()).isEqualTo("ticket proveedor");
+                    assertThat(source.isActive()).isTrue();
+                });
+
+        mockMvc.perform(get("/api/super/price-sources"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].name").value("Ticket proveedor"))
+                .andExpect(jsonPath("$[0].active").value(true))
+                .andExpect(jsonPath("$[0].address").doesNotExist())
+                .andExpect(jsonPath("$[0].location").doesNotExist())
+                .andExpect(jsonPath("$[0].store").doesNotExist())
+                .andExpect(jsonPath("$[0].commerce").doesNotExist())
+                .andExpect(jsonPath("$[0].comparison").doesNotExist())
+                .andExpect(jsonPath("$[0].priceMetric").doesNotExist());
+    }
+
+    @Test
+    void priceSourcesListExcludesInactiveSources() throws Exception {
+        superPriceSourceRepository.saveAndFlush(new SuperPriceSource("Activa"));
+        SuperPriceSource inactiveSource = superPriceSourceRepository.saveAndFlush(new SuperPriceSource("Inactiva"));
+        inactiveSource.setActive(false);
+        superPriceSourceRepository.saveAndFlush(inactiveSource);
+
+        mockMvc.perform(get("/api/super/price-sources"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].name").value("Activa"));
+    }
+
+    @Test
+    void priceSourceBlankAndLongNamesAreRejectedWithoutPersistingSources() throws Exception {
+        mockMvc.perform(post("/api/super/price-sources")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(priceSourcePayload("   ")))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.details[?(@ == 'Nombre: es obligatorio')]").exists());
+
+        mockMvc.perform(post("/api/super/price-sources")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(priceSourcePayload("x".repeat(SupermarketLimits.PRICE_SOURCE_NAME_MAX_LENGTH + 1))))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.details[?(@ == 'Nombre: no puede superar 120 caracteres')]").exists());
+
+        assertThat(superPriceSourceRepository.findAll()).isEmpty();
+    }
+
+    @Test
     void itemCreateUpdateAndPresentationClearingDoNotCreateOrMutatePriceObservations() throws Exception {
         SuperCategory almacen = superCategoryRepository.save(new SuperCategory("Almacén"));
 
@@ -2517,6 +2596,14 @@ class SupermarketControllerTests {
                 %s%s  "pricePesos": %s
                 }
                 """.formatted(sourceEntry, observedDateEntry, pricePesos);
+    }
+
+    private String priceSourcePayload(String name) {
+        return """
+                {
+                  "name": "%s"
+                }
+                """.formatted(name);
     }
 
     private String itemPayload(String name, Long categoryId, boolean checked, String notes) {
