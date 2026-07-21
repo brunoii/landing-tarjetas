@@ -1,4 +1,4 @@
-import { api, appendCsrfField } from "./api.js?v=20260718-super-inventory-stage11-price-sources-api";
+import { api, appendCsrfField } from "./api.js?v=20260721-super-inventory-stage12-reference-price-source-ui-api";
 import { categoryFormPayload, renderCategories, resetCategoryForm, showCategoryFeedback } from "./categories.js";
 import { renderDashboard } from "./dashboard.js?v=20260713-pending-main";
 import { loadIncomes, setupIncomes } from "./incomes.js?v=20260713-pending-main";
@@ -6,7 +6,7 @@ import { renderManualExpenses, setManualExpenseApi, setManualExpenseCategories, 
 import { setupPrimaryTabs } from "./navigation.js?v=20260713-pending-main";
 import { setSimulatorApi, setSimulatorCategories, setupSimulator } from "./simulator.js?v=20260713-pending-main";
 import { renderDraftStatementList, setStatementCategories, setupStatementUpload } from "./statements.js?v=20260713-pending-main";
-import { setupSupermarket } from "./supermarket.js?v=20260718-super-inventory-stage11-price-sources-ui";
+import { setupSupermarket } from "./supermarket.js?v=20260721-super-inventory-stage12-reference-price-source-ui";
 import { renderTransactions, rerenderTransactionsAfterSearch, resetTransactionFilters, setTransactionCategories, syncTransactionMonth, transactionFilters } from "./transactions.js?v=20260713-pending-main";
 import { currentYearMonth, setButtonBusy } from "./utils.js";
 
