@@ -212,10 +212,10 @@ public class SupermarketService {
             throw new IllegalArgumentException("Observación de precio: requiere presentación comercial");
         }
         BigDecimal pricePesos = normalizePriceObservationPrice(request.pricePesos());
-        String sourceLabel = normalizePriceObservationSource(request.sourceLabel());
+        PriceObservationSource resolvedSource = resolvePriceObservationSource(request.priceSourceId(), request.sourceLabel());
         LocalDate observedDate = normalizePriceObservationObservedDate(request.observedDate());
         return SuperItemPriceObservationResponse.from(priceObservationRepository.save(
-                new SuperItemPriceObservation(item, pricePesos, sourceLabel, observedDate)));
+                new SuperItemPriceObservation(item, pricePesos, resolvedSource.sourceLabel(), observedDate, resolvedSource.priceSource())));
     }
 
     @Transactional(readOnly = true)
@@ -502,4 +502,22 @@ public class SupermarketService {
         }
         return presentationPriceObservedDate;
     }
+    private record PriceObservationSource(SuperPriceSource priceSource, String sourceLabel) {
+    }
 }
+    private SuperPriceSource getActivePriceSource(Long id) {
+        return priceSourceRepository.findByIdAndActiveTrue(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "No se encontró la fuente de precio activa"));
+    }
+
+    private PriceObservationSource resolvePriceObservationSource(Long priceSourceId, String sourceLabel) {
+        String normalizedSourceLabel = normalizePriceObservationSource(sourceLabel);
+        if (priceSourceId != null && normalizedSourceLabel != null) {
+            throw new IllegalArgumentException("Observación de precio: use priceSourceId o sourceLabel, no ambos");
+        }
+        if (priceSourceId == null) {
+            return new PriceObservationSource(null, normalizedSourceLabel);
+        }
+        SuperPriceSource priceSource = getActivePriceSource(priceSourceId);
+        return new PriceObservationSource(priceSource, priceSource.getName());
+    }
