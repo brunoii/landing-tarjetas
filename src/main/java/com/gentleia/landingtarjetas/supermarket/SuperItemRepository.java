@@ -14,6 +14,7 @@ public interface SuperItemRepository extends JpaRepository<SuperItem, Long> {
     @Query("""
             select item from SuperItem item
             join fetch item.category category
+            left join fetch item.commercialPresentationPriceSource commercialPresentationPriceSource
             where item.active = true
             order by lower(category.name), lower(item.name)
             """)

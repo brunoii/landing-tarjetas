@@ -58,6 +58,10 @@ public class SuperItem {
     @Column(name = "commercial_presentation_price_pesos", precision = 12, scale = 2)
     private BigDecimal commercialPresentationPricePesos;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "commercial_presentation_price_source_id")
+    private SuperPriceSource commercialPresentationPriceSource;
+
     @Column(name = "commercial_presentation_price_source_label", length = SupermarketLimits.ITEM_PRESENTATION_PRICE_SOURCE_LABEL_MAX_LENGTH)
     private String commercialPresentationPriceSourceLabel;
 
@@ -185,6 +189,14 @@ public class SuperItem {
 
     public void setCommercialPresentationPricePesos(BigDecimal commercialPresentationPricePesos) {
         this.commercialPresentationPricePesos = commercialPresentationPricePesos;
+    }
+
+    public SuperPriceSource getCommercialPresentationPriceSource() {
+        return commercialPresentationPriceSource;
+    }
+
+    public void setCommercialPresentationPriceSource(SuperPriceSource commercialPresentationPriceSource) {
+        this.commercialPresentationPriceSource = commercialPresentationPriceSource;
     }
 
     public String getCommercialPresentationPriceSourceLabel() {
