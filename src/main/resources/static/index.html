@@ -848,7 +848,11 @@
                     <input id="super-price-observation-price-pesos" type="number" min="0.01" step="0.01" inputmode="decimal" required placeholder="Ejemplo: 1250.50">
                 </label>
                 <label>
-                    Fuente opcional
+                    Fuente reutilizable opcional
+                    <select id="super-price-observation-price-source"><option value="">Sin fuente reutilizable</option></select>
+                </label>
+                <label>
+                    Fuente libre opcional
                     <input id="super-price-observation-source-label" type="text" data-super-limit="priceSourceLabel" placeholder="Ejemplo: Ticket proveedor">
                 </label>
                 <label>
@@ -858,6 +862,14 @@
                 <button type="submit">Registrar observación de precio</button>
             </form>
             <p class="form-feedback" id="super-price-observation-feedback" role="status" aria-live="polite"></p>
+            <form class="super-price-source-form" id="super-price-source-form" aria-describedby="super-price-source-feedback">
+                <label>
+                    Crear fuente de precio
+                    <input id="super-price-source-name" type="text" data-super-limit="priceSourceLabel" placeholder="Ejemplo: Ticket proveedor">
+                </label>
+                <button type="submit" class="secondary-button">Crear fuente</button>
+            </form>
+            <p class="form-feedback" id="super-price-source-feedback" role="status" aria-live="polite"></p>
             <div class="table-wrap super-price-observation-wrap responsive-card-table">
                 <table>
                     <thead>
@@ -998,6 +1010,6 @@
     </section>
 </main>
 
-<script type="module" src="/js/app.js?v=20260718-super-inventory-stage10-price-observations-ui"></script>
+<script type="module" src="/js/app.js?v=20260718-super-inventory-stage11-price-sources-ui"></script>
 </body>
 </html>
