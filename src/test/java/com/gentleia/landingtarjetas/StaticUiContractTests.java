@@ -632,6 +632,9 @@ class StaticUiContractTests {
                 "data-super-action=\"consume\"",
                 "data-super-action=\"quick-consume\"",
                 "data-super-action=\"history\"",
+                "data-super-action=\"price-history\"",
+                "selectedPriceObservationItem",
+                "resetSuperPriceObservationContext",
                 "submitSuperMovementForm",
                 "allowNegativeStock: true",
                 "superMovementHistoryPanel",
@@ -670,7 +673,7 @@ class StaticUiContractTests {
         assertThat(supermarket).doesNotContain("Number(code)", "parseInt(code", "parseFloat(code");
         assertThat(supermarket).doesNotContain("BarcodeDetector", "getUserMedia");
         assertThat(supermarket).doesNotContain("commercialPresentationPriceObservedAt", "observedAt", "ObservedAt", "datetime", "timestamp");
-        assertThat(supermarket).doesNotContain("priceHistory", "price-history", "price history", "historial de precios", "historial del precio");
+        assertThat(supermarket).doesNotContain("priceHistory", "price history", "historial de precios", "historial del precio");
         assertThat(supermarket).contains("data-super-action=\"history\"", "super-movement-history");
         assertThat(index).contains(
                 "id=\"super-movement-modal\"",
@@ -690,6 +693,8 @@ class StaticUiContractTests {
                 "id=\"super-price-source-feedback\"",
                 "id=\"super-price-observation-observed-date\" type=\"date\"",
                 "id=\"super-price-observation-table\"",
+                "id=\"super-price-observation-context-summary\"",
+                "id=\"super-price-observation-global-reset\"",
                 "Registrar observación de precio",
                 "Crear fuente de precio",
                 "Cantidad",
@@ -741,6 +746,13 @@ class StaticUiContractTests {
                 .replace("super-price-observation-table", "")
                 .replace("super-price-observation-empty", "")
                 .replace("super-price-observation-feedback", "")
+                .replace("super-price-observation-title", "")
+                .replace("super-price-observation-context-summary", "")
+                .replace("super-price-observation-global-reset", "")
+                .replace("price-history", "")
+                .replace("selectedPriceObservationItem", "")
+                .replace("renderSuperPriceObservationContext", "")
+                .replace("resetSuperPriceObservationContext", "")
                 .replace("superPriceObservationPayloadFromValues", "")
                 .replace("validateSuperPriceObservationPayload", "")
                 .replace("superPriceSourcePayloadFromValues", "")

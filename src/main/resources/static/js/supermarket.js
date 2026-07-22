@@ -10,6 +10,9 @@ let editingCategoryId = null;
 let superCategoryTableCollapsed = true;
 let superCategoryCount = 0;
 let currentBarcodeAlias = null;
+let selectedPriceObservationItem = null;
+
+const SUPER_RECENT_HISTORY_LIMIT = 50;
 
 export const SUPER_FIELD_LIMITS = Object.freeze({
     categoryName: 80,
@@ -30,6 +33,7 @@ export function setupSupermarket({ apiClient = api } = {}) {
     editingCategoryId = null;
     superCategoryTableCollapsed = true;
     currentBarcodeAlias = null;
+    selectedPriceObservationItem = null;
 
     applySupermarketFieldLimits();
 
@@ -57,6 +61,7 @@ export function setupSupermarket({ apiClient = api } = {}) {
     document.querySelector("#super-movement-cancel")?.addEventListener("click", closeSuperMovementModal);
     document.querySelector("#super-movement-close")?.addEventListener("click", closeSuperMovementModal);
     document.querySelector("#super-price-observation-form")?.addEventListener("submit", submitSuperPriceObservationForm);
+    document.querySelector("#super-price-observation-global-reset")?.addEventListener("click", resetSuperPriceObservationContext);
     document.querySelector("#super-price-source-form")?.addEventListener("submit", submitSuperPriceSourceForm);
     document.querySelector("#super-item-presentation-price-source")?.addEventListener("change", () => syncSuperItemPriceSourceInputs("reusable"));
     document.querySelector("#super-item-presentation-price-source-label")?.addEventListener("input", () => syncSuperItemPriceSourceInputs("manual"));
@@ -916,6 +921,9 @@ function superItemRowHtml(item) {
                 <button type="button" class="secondary-button icon-button" data-super-action="history" data-super-item-id="${item.id}" aria-label="Ver historial de ${escapeHtml(item.name)}" title="Historial">
                     <span aria-hidden="true">↺</span><span class="sr-only">Historial</span>
                 </button>
+                <button type="button" class="secondary-button icon-button" data-super-action="price-history" data-super-item-id="${item.id}" aria-label="Ver observaciones de precio de ${escapeHtml(item.name)}" title="Precios">
+                    <span aria-hidden="true">$</span><span class="sr-only">Precios</span>
+                </button>
                 <button type="button" class="danger-button icon-button" data-super-action="delete" data-super-item-id="${item.id}" aria-label="Eliminar producto ${escapeHtml(item.name)}" title="Eliminar">
                     <span aria-hidden="true">🗑</span><span class="sr-only">Eliminar</span>
                 </button>
@@ -1035,6 +1043,10 @@ async function handleSuperItemAction(button) {
     }
     if (button.dataset.superAction === "history") {
         await loadSuperMovementHistory(itemById(id));
+        return;
+    }
+    if (button.dataset.superAction === "price-history") {
+        await loadSuperPriceObservations(itemById(id));
         return;
     }
     if (button.dataset.superAction === "delete") {
@@ -1321,23 +1333,35 @@ function reportSuperPriceSourceIssue(message, error) {
     globalThis.console?.warn?.(`[super-price-sources] ${message}`, error);
 }
 
-async function loadSuperPriceObservations() {
+async function loadSuperPriceObservations(item = selectedPriceObservationItem) {
     if (!supermarketApi.superPriceObservations) {
         return;
     }
+    selectedPriceObservationItem = item?.id ? { id: item.id, name: item.name || "Producto" } : null;
+    const filters = selectedPriceObservationItem?.id
+        ? { itemId: String(selectedPriceObservationItem.id), limit: SUPER_RECENT_HISTORY_LIMIT }
+        : { limit: SUPER_RECENT_HISTORY_LIMIT };
     try {
-        const observations = await supermarketApi.superPriceObservations({ limit: 50 });
-        renderSuperPriceObservations(observations);
+        const observations = await supermarketApi.superPriceObservations(filters);
+        renderSuperPriceObservations(observations, selectedPriceObservationItem);
     } catch (error) {
+        renderSuperPriceObservationContext(selectedPriceObservationItem);
+        const table = document.querySelector("#super-price-observation-table");
+        if (table) {
+            table.innerHTML = "";
+        }
         const empty = document.querySelector("#super-price-observation-empty");
         if (empty) {
             empty.hidden = false;
-            empty.textContent = `No se pudieron cargar las observaciones: ${error.message}`;
+            empty.textContent = selectedPriceObservationItem?.name
+                ? `No se pudieron cargar las observaciones de ${selectedPriceObservationItem.name}: ${error.message}`
+                : `No se pudieron cargar las observaciones: ${error.message}`;
         }
     }
 }
 
-function renderSuperPriceObservations(observations) {
+function renderSuperPriceObservations(observations, item = selectedPriceObservationItem) {
+    renderSuperPriceObservationContext(item);
     const table = document.querySelector("#super-price-observation-table");
     const empty = document.querySelector("#super-price-observation-empty");
     if (!table) {
@@ -1351,8 +1375,30 @@ function renderSuperPriceObservations(observations) {
     });
     if (empty) {
         empty.hidden = Array.isArray(observations) && observations.length > 0;
-        empty.textContent = "Todavía no hay observaciones de precio recientes.";
+        empty.textContent = item?.name
+            ? `Todavía no hay observaciones de precio recientes para ${item.name}.`
+            : "Todavía no hay observaciones de precio recientes.";
     }
+}
+
+function renderSuperPriceObservationContext(item = selectedPriceObservationItem) {
+    const title = document.querySelector("#super-price-observation-title");
+    const summary = document.querySelector("#super-price-observation-context-summary");
+    const reset = document.querySelector("#super-price-observation-global-reset");
+    if (title) {
+        title.textContent = item?.name ? `Observaciones de precio · ${item.name}` : "Observaciones de precio";
+    }
+    if (summary) {
+        summary.textContent = item?.name ? `Historial filtrado para ${item.name}.` : "Historial reciente global de observaciones de precio.";
+    }
+    if (reset) {
+        reset.hidden = !item?.id;
+    }
+}
+
+async function resetSuperPriceObservationContext() {
+    selectedPriceObservationItem = null;
+    await loadSuperPriceObservations(null);
 }
 
 function prefillSuperPriceObservationForm(item) {
@@ -1420,7 +1466,9 @@ async function loadSuperMovementHistory(item = null) {
     if (!supermarketApi.superStockMovements) {
         return;
     }
-    const filters = item?.id ? { itemId: String(item.id), limit: 50 } : { limit: 50 };
+    const filters = item?.id
+        ? { itemId: String(item.id), limit: SUPER_RECENT_HISTORY_LIMIT }
+        : { limit: SUPER_RECENT_HISTORY_LIMIT };
     try {
         const movements = await supermarketApi.superStockMovements(filters);
         renderSuperMovementHistory(movements, item);

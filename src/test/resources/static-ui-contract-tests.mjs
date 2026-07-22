@@ -181,6 +181,8 @@ try {
     assert.match(indexHtml, /id="super-price-source-feedback"/);
     assert.match(indexHtml, /id="super-price-observation-observed-date"[^>]+type="date"/);
     assert.match(indexHtml, /id="super-price-observation-table"/);
+    assert.match(indexHtml, /id="super-price-observation-context-summary"/);
+    assert.match(indexHtml, /id="super-price-observation-global-reset"/);
     assert.match(indexHtml, /Registrar observación de precio/);
     assert.match(indexHtml, /Crear fuente de precio/);
     assert.match(indexHtml, /Cantidad/);
@@ -740,7 +742,6 @@ try {
     assert.equal(supermarketSource.includes("item.superItemCommercialPresentationPriceLabel"), false);
     assert.equal(supermarketSource.includes("formatDate(item.commercialPresentationPriceObservedDate"), false);
     assert.doesNotMatch(supermarketSource, /commercialPresentationPriceObservedAt|observedAt|ObservedAt|datetime|timestamp/);
-    assert.doesNotMatch(supermarketSource, /priceHistory|price-history|price history|historial de precios|historial del precio/);
     assert.match(supermarketSource, /superPriceObservationPayloadFromValues/);
     assert.match(supermarketSource, /superPriceSourcePayloadFromValues/);
     assert.match(supermarketSource, /createSuperPriceSource/);
@@ -852,6 +853,8 @@ try {
         assert.match(supermarketDom.elements.get("#super-items-table").children[1].innerHTML, /data-super-action="consume"/);
         assert.match(supermarketDom.elements.get("#super-items-table").children[1].innerHTML, /data-super-action="quick-consume"/);
         assert.match(supermarketDom.elements.get("#super-items-table").children[1].innerHTML, /data-super-action="history"/);
+        assert.match(supermarketDom.elements.get("#super-items-table").children[1].innerHTML, /data-super-action="price-history"/);
+        assert.match(supermarketDom.elements.get("#super-items-table").children[1].innerHTML, /Ver observaciones de precio de Arroz/);
         assertResponsiveCardLabels(supermarketDom.elements.get("#super-items-table").children[1].innerHTML, ["Estado", "Producto", "Categoría", "Configuración", "Presentación", "Precio ref.", "Stock", "Cantidad rápida", "Notas", "Acciones"]);
         assertResponsiveCardLabels(supermarketDom.elements.get("#super-category-list").children[0].innerHTML, ["Categoría", "Acciones"]);
         assert.match(supermarketDom.elements.get("#super-price-observation-item").innerHTML, /Arroz/);
@@ -859,6 +862,9 @@ try {
         assert.match(supermarketDom.elements.get("#super-price-observation-price-source").innerHTML, /Ticket proveedor/);
         assert.match(supermarketDom.elements.get("#super-price-observation-price-source").innerHTML, /Lista mayorista/);
         assert.equal(supermarketDom.elements.get("#super-price-observation-table").children.length, 2);
+        assert.equal(supermarketDom.elements.get("#super-price-observation-title").textContent, "Observaciones de precio");
+        assert.equal(supermarketDom.elements.get("#super-price-observation-context-summary").textContent, "Historial reciente global de observaciones de precio.");
+        assert.equal(supermarketDom.elements.get("#super-price-observation-global-reset").hidden, true);
         assert.match(supermarketDom.elements.get("#super-price-observation-table").children[0].innerHTML, /Arroz/);
         assert.match(supermarketDom.elements.get("#super-price-observation-table").children[0].innerHTML, /Pack x 6 · 6\.000/);
         assert.match(supermarketDom.elements.get("#super-price-observation-table").children[0].innerHTML, /ARS\s1,250\.50/);
@@ -1065,6 +1071,56 @@ try {
         assert.equal(supermarketDom.elements.get("#super-movement-history-title").textContent, "Historial reciente · Arroz");
         assert.match(supermarketDom.elements.get("#super-movement-history-table").children[0].innerHTML, /Compra/);
         assert.match(supermarketDom.elements.get("#super-movement-history-table").children[1].innerHTML, /Consumo rápido/);
+
+        await supermarketDom.elements.get("#super-items-table").clickTarget(fakeSuperItemActionButton("price-history", movementRow, "10"));
+        assert.equal(supermarketDom.api.calls.at(-1).method, "superPriceObservations");
+        assert.deepEqual(supermarketDom.api.calls.at(-1).filters, { itemId: "10", limit: 50 });
+        assert.equal(supermarketDom.elements.get("#super-price-observation-title").textContent, "Observaciones de precio · Arroz");
+        assert.equal(supermarketDom.elements.get("#super-price-observation-context-summary").textContent, "Historial filtrado para Arroz.");
+        assert.equal(supermarketDom.elements.get("#super-price-observation-global-reset").hidden, false);
+        assert.equal(supermarketDom.elements.get("#super-price-observation-table").children.length, 1);
+        assert.match(supermarketDom.elements.get("#super-price-observation-table").children[0].innerHTML, /Arroz/);
+        assert.doesNotMatch(supermarketDom.elements.get("#super-price-observation-table").children[0].innerHTML, /Banana/);
+
+        await supermarketDom.elements.get("#super-items-table").clickTarget(fakeSuperItemActionButton("price-history", movementRow, "12"));
+        assert.deepEqual(supermarketDom.api.calls.at(-1).filters, { itemId: "12", limit: 50 });
+        assert.equal(supermarketDom.elements.get("#super-price-observation-title").textContent, "Observaciones de precio · Zanahoria");
+        assert.equal(supermarketDom.elements.get("#super-price-observation-empty").textContent, "Todavía no hay observaciones de precio recientes para Zanahoria.");
+        assert.equal(supermarketDom.elements.get("#super-price-observation-global-reset").hidden, false);
+        assert.equal(supermarketDom.elements.get("#super-price-observation-table").children.length, 0);
+
+        await supermarketDom.elements.get("#super-price-observation-global-reset").click();
+        assert.equal(supermarketDom.api.calls.at(-1).method, "superPriceObservations");
+        assert.deepEqual(supermarketDom.api.calls.at(-1).filters, { limit: 50 });
+        assert.equal(supermarketDom.elements.get("#super-price-observation-title").textContent, "Observaciones de precio");
+        assert.equal(supermarketDom.elements.get("#super-price-observation-context-summary").textContent, "Historial reciente global de observaciones de precio.");
+        assert.equal(supermarketDom.elements.get("#super-price-observation-global-reset").hidden, true);
+        assert.equal(supermarketDom.elements.get("#super-price-observation-table").children.length, 2);
+        assert.match(supermarketDom.elements.get("#super-price-observation-table").children[0].innerHTML, /Arroz/);
+        assert.match(supermarketDom.elements.get("#super-price-observation-table").children[1].innerHTML, /Banana/);
+
+        const superPriceObservations = supermarketDom.api.superPriceObservations;
+        supermarketDom.api.superPriceObservations = async (filters = {}) => {
+            supermarketDom.api.calls.push({ method: "superPriceObservations", filters });
+            throw new Error("Servicio no disponible");
+        };
+        await supermarketDom.elements.get("#super-items-table").clickTarget(fakeSuperItemActionButton("price-history", movementRow, "10"));
+        assert.deepEqual(supermarketDom.api.calls.at(-1).filters, { itemId: "10", limit: 50 });
+        assert.equal(supermarketDom.elements.get("#super-price-observation-title").textContent, "Observaciones de precio · Arroz");
+        assert.equal(supermarketDom.elements.get("#super-price-observation-context-summary").textContent, "Historial filtrado para Arroz.");
+        assert.equal(supermarketDom.elements.get("#super-price-observation-global-reset").hidden, false);
+        assert.equal(supermarketDom.elements.get("#super-price-observation-empty").hidden, false);
+        assert.equal(supermarketDom.elements.get("#super-price-observation-empty").textContent, "No se pudieron cargar las observaciones de Arroz: Servicio no disponible");
+        assert.equal(supermarketDom.elements.get("#super-price-observation-table").children.length, 0);
+        supermarketDom.api.superPriceObservations = superPriceObservations;
+        await supermarketDom.elements.get("#super-price-observation-global-reset").click();
+        assert.deepEqual(supermarketDom.api.calls.at(-1).filters, { limit: 50 });
+        assert.equal(supermarketDom.elements.get("#super-price-observation-title").textContent, "Observaciones de precio");
+        assert.equal(supermarketDom.elements.get("#super-price-observation-context-summary").textContent, "Historial reciente global de observaciones de precio.");
+        assert.equal(supermarketDom.elements.get("#super-price-observation-global-reset").hidden, true);
+        assert.equal(supermarketDom.elements.get("#super-price-observation-table").children.length, 2);
+        assert.match(supermarketDom.elements.get("#super-price-observation-table").children[0].innerHTML, /Arroz/);
+        assert.match(supermarketDom.elements.get("#super-price-observation-table").children[1].innerHTML, /Banana/);
 
         supermarketDom.elements.get("#super-category-name").value = "  Limpieza ";
         const createCategoryCallStart = supermarketDom.api.calls.length;
@@ -2418,6 +2474,9 @@ function fakeAppDom() {
         "#super-price-observation-source-label",
         "#super-price-observation-observed-date",
         "#super-price-observation-feedback",
+        "#super-price-observation-title",
+        "#super-price-observation-context-summary",
+        "#super-price-observation-global-reset",
         "#super-price-source-form",
         "#super-price-source-name",
         "#super-price-source-feedback",
@@ -3121,6 +3180,9 @@ function fakeSupermarketDom() {
     elements.set("#super-price-observation-item", fakeClickableSelect());
     elements.set("#super-price-observation-price-source", fakeSelect());
     elements.set("#super-price-observation-feedback", fakeElement());
+    elements.set("#super-price-observation-title", fakeElement());
+    elements.set("#super-price-observation-context-summary", fakeElement());
+    elements.set("#super-price-observation-global-reset", fakeClickableButton("Ver historial global"));
     elements.set("#super-price-source-form", fakeSuperPriceSourceForm(elements));
     elements.set("#super-price-source-form button[type='submit']", elements.get("#super-price-source-form").submitButton);
     elements.set("#super-price-source-feedback", fakeElement());
@@ -3292,6 +3354,9 @@ function fakeSupermarketDom() {
         },
         async superPriceObservations(filters = {}) {
             calls.push({ method: "superPriceObservations", filters });
+            if (filters.itemId) {
+                return priceObservations.filter((observation) => String(observation.itemId) === String(filters.itemId));
+            }
             return priceObservations;
         },
         async superStockMovements(filters = {}) {
@@ -3730,6 +3795,13 @@ function assertNoUnsupportedSuperInventorySemantics(source) {
         .replaceAll("super-price-observation-table", "")
         .replaceAll("super-price-observation-empty", "")
         .replaceAll("super-price-observation-feedback", "")
+        .replaceAll("super-price-observation-title", "")
+        .replaceAll("super-price-observation-context-summary", "")
+        .replaceAll("super-price-observation-global-reset", "")
+        .replaceAll("price-history", "")
+        .replaceAll("selectedPriceObservationItem", "")
+        .replaceAll("renderSuperPriceObservationContext", "")
+        .replaceAll("resetSuperPriceObservationContext", "")
         .replaceAll("superPriceObservationPayloadFromValues", "")
         .replaceAll("validateSuperPriceObservationPayload", "")
         .replaceAll("superPriceSourcePayloadFromValues", "")
