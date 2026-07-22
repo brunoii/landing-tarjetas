@@ -259,8 +259,12 @@ export function superPriceObservationPayloadFromValues(values) {
     const sourceLabel = String(values?.sourceLabel || "").trim().slice(0, SUPER_FIELD_LIMITS.priceSourceLabel);
     const observedDate = String(values?.observedDate || "").trim();
     const payload = {
-        pricePesos: String(values?.pricePesos || "").trim()
+        pricePesos: String(values?.pricePesos || "").trim(),
+        syncCurrentReferencePrice: values?.syncCurrentReferencePrice === true || values?.syncCurrentReferencePrice === "true" || values?.syncCurrentReferencePrice === "on"
     };
+    if (!payload.syncCurrentReferencePrice) {
+        delete payload.syncCurrentReferencePrice;
+    }
     if (priceSourceId > 0) {
         payload.priceSourceId = priceSourceId;
     } else if (sourceLabel) {
@@ -1258,7 +1262,8 @@ async function submitSuperPriceObservationForm(event) {
         pricePesos: document.querySelector("#super-price-observation-price-pesos")?.value,
         priceSourceId: document.querySelector("#super-price-observation-price-source")?.value,
         sourceLabel: document.querySelector("#super-price-observation-source-label")?.value,
-        observedDate: document.querySelector("#super-price-observation-observed-date")?.value
+        observedDate: document.querySelector("#super-price-observation-observed-date")?.value,
+        syncCurrentReferencePrice: document.querySelector("#super-price-observation-sync-current-reference-price")?.checked
     });
     const validationMessage = validateSuperPriceObservationPayload(payload);
     if (validationMessage) {
@@ -1269,8 +1274,13 @@ async function submitSuperPriceObservationForm(event) {
         setButtonBusy(button, true, "Registrando...");
         await supermarketApi.createSuperItemPriceObservation(itemId, payload);
         document.querySelector("#super-price-observation-form")?.reset?.();
-        await loadSuperPriceObservations();
-        showSuperPriceObservationFeedback("Observación de precio registrada.");
+        if (payload.syncCurrentReferencePrice) {
+            await loadSupermarket();
+            showSuperPriceObservationFeedback("Observación registrada y precio actual/de referencia actualizado.");
+        } else {
+            await loadSuperPriceObservations();
+            showSuperPriceObservationFeedback("Observación de precio registrada.");
+        }
     } catch (error) {
         showSuperPriceObservationFeedback(`No se pudo registrar la observación: ${error.message}`, true);
     } finally {

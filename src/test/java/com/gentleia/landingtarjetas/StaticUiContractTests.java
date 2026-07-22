@@ -32,6 +32,7 @@ class StaticUiContractTests {
     private static final String STAGE11_UI_TOKEN = "20260718-super-inventory-stage11-price-sources-ui";
     private static final String STAGE12_API_TOKEN = "20260721-super-inventory-stage12-reference-price-source-ui-api";
     private static final String STAGE12_UI_TOKEN = "20260721-super-inventory-stage12-reference-price-source-ui";
+    private static final String STAGE13_UI_TOKEN = "20260721-super-inventory-stage13-observation-current-price-sync-ui";
     private static final String STALE_API_TOKEN = "20260712-security-hardening";
 
     @Test
@@ -42,13 +43,13 @@ class StaticUiContractTests {
 
         assertThat(index).contains("<link rel=\"stylesheet\" href=\"/css/styles.css?v=" + STAGE5_UI_TOKEN + "\">");
         assertThat(index).doesNotContain("<link rel=\"stylesheet\" href=\"/css/styles.css\">");
-        assertThat(index).contains("<script type=\"module\" src=\"/js/app.js?v=" + STAGE12_UI_TOKEN + "\"></script>");
+        assertThat(index).contains("<script type=\"module\" src=\"/js/app.js?v=" + STAGE13_UI_TOKEN + "\"></script>");
         assertThat(index).doesNotContain("/css/styles.css?v=20260711-security-login", "/js/app.js?v=20260711-security-login");
         assertThat(login).contains("<link rel=\"stylesheet\" href=\"/css/styles.css?v=" + FRESH_STATIC_TOKEN + "\">")
                 .contains("/js/login.js?v=" + FRESH_STATIC_TOKEN)
                 .doesNotContain("/css/styles.css?v=20260711-security-login", "/js/login.js?v=20260711-security-login");
         assertThat(app)
-                .contains("./api.js?v=" + STAGE12_API_TOKEN, "./categories.js", "./dashboard.js?v=" + FRESH_STATIC_TOKEN, "./incomes.js?v=" + FRESH_STATIC_TOKEN, "./manual-expenses.js?v=" + FRESH_STATIC_TOKEN, "./navigation.js?v=" + FRESH_STATIC_TOKEN, "./simulator.js?v=" + FRESH_STATIC_TOKEN, "./statements.js?v=" + FRESH_STATIC_TOKEN, "./supermarket.js?v=" + STAGE12_UI_TOKEN, "./transactions.js?v=" + FRESH_STATIC_TOKEN, "./utils.js")
+                .contains("./api.js?v=" + STAGE12_API_TOKEN, "./categories.js", "./dashboard.js?v=" + FRESH_STATIC_TOKEN, "./incomes.js?v=" + FRESH_STATIC_TOKEN, "./manual-expenses.js?v=" + FRESH_STATIC_TOKEN, "./navigation.js?v=" + FRESH_STATIC_TOKEN, "./simulator.js?v=" + FRESH_STATIC_TOKEN, "./statements.js?v=" + FRESH_STATIC_TOKEN, "./supermarket.js?v=" + STAGE13_UI_TOKEN, "./transactions.js?v=" + FRESH_STATIC_TOKEN, "./utils.js")
                 .doesNotContain("./api.js\";")
                 .doesNotContain("./statements.js\";", "20260709-stage-7-polish", "20260710-mobile-slice-2", "20260711-mobile-simulator", "20260711-mobile-draft-responsive", "20260711-mobile-supermarket");
     }
@@ -736,6 +737,7 @@ class StaticUiContractTests {
                 .replace("super-price-source-name", "")
                 .replace("super-price-source-feedback", "")
                 .replace("super-price-observation-observed-date", "")
+                .replace("super-price-observation-sync-current-reference-price", "")
                 .replace("super-price-observation-table", "")
                 .replace("super-price-observation-empty", "")
                 .replace("super-price-observation-feedback", "")
@@ -760,6 +762,7 @@ class StaticUiContractTests {
                 .replace("createSuperPriceSource", "")
                 .replace("superPriceSources", "")
                 .replace("superPriceObservations", "")
+                .replace("syncCurrentReferencePrice", "")
                 .replace("priceSourceId", "")
                 .replace("priceSource", "")
                 .replace("SuperPriceSource", "")
@@ -783,6 +786,42 @@ class StaticUiContractTests {
                 "store", "shop", "shops", "commerce", "comparison", "chart", "charts", "scraping", "automation", "total",
                 "presentations", "multiplePresentations", "externalLookup", "autoPurchase", "purchaseAutomation",
                 "persistSuggestion", "suggestionPersistence", "saveSuggestion"
+        );
+    }
+
+    @Test
+    void superPriceObservationSyncControlIsExplicitUncheckedAndObservationScoped() throws IOException {
+        String index = readStatic("index.html");
+
+        assertThat(index).contains(
+                "id=\"super-price-observation-form\"",
+                "id=\"super-price-observation-sync-current-reference-price\" type=\"checkbox\"",
+                "Sincronizar como precio actual/de referencia",
+                "Opcional: también actualiza el precio de referencia del producto con esta observación. Si no se marca, solo se guarda historial."
+        );
+        assertThat(index).doesNotContain("id=\"super-price-observation-sync-current-reference-price\" type=\"checkbox\" checked");
+        assertThat(htmlSection(index, "super-price-observation-form", "</form>")).contains("super-price-observation-sync-current-reference-price");
+        assertThat(htmlSection(index, "super-item-form", "</form>")).doesNotContain("super-price-observation-sync-current-reference-price", "syncCurrentReferencePrice");
+    }
+
+    @Test
+    void superPriceObservationSyncPayloadRefreshFeedbackAndExcludedScopeStayStatic() throws IOException {
+        String supermarket = readStatic("js/supermarket.js");
+        String api = readStatic("js/api.js");
+        String staticFiles = readAllStaticText();
+
+        assertThat(supermarket).contains(
+                "syncCurrentReferencePrice: values?.syncCurrentReferencePrice === true || values?.syncCurrentReferencePrice === \"true\" || values?.syncCurrentReferencePrice === \"on\"",
+                "delete payload.syncCurrentReferencePrice",
+                "document.querySelector(\"#super-price-observation-sync-current-reference-price\")?.checked",
+                "await loadSupermarket()",
+                "Observación registrada y precio actual/de referencia actualizado.",
+                "Observación de precio registrada."
+        );
+        assertThat(api).contains("createSuperItemPriceObservation(id, payload)");
+        assertThat(api).doesNotContain("syncCurrentReferencePrice");
+        assertThat(staticFiles).doesNotContain(
+                "source admin", "comparison", "OCR", "Tesseract", "getUserMedia", "ticket photo", "Stage 15", "multiple prices"
         );
     }
 
@@ -1099,6 +1138,14 @@ class StaticUiContractTests {
                     })
                     .collect(Collectors.joining("\n"));
         }
+    }
+
+    private static String htmlSection(String html, String startId, String endMarker) {
+        int start = html.indexOf("id=\"" + startId + "\"");
+        assertThat(start).as("HTML section start id %s", startId).isNotNegative();
+        int end = html.indexOf(endMarker, start);
+        assertThat(end).as("HTML section end marker %s", endMarker).isNotNegative();
+        return html.substring(start, end + endMarker.length());
     }
 
     private static Properties readProdProperties() throws IOException {

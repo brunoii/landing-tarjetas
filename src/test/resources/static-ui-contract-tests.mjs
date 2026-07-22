@@ -18,6 +18,7 @@ const stage11ApiToken = "20260718-super-inventory-stage11-price-sources-api";
 const stage11UiToken = "20260718-super-inventory-stage11-price-sources-ui";
 const stage12ApiToken = "20260721-super-inventory-stage12-reference-price-source-ui-api";
 const stage12UiToken = "20260721-super-inventory-stage12-reference-price-source-ui";
+const stage13UiToken = "20260721-super-inventory-stage13-observation-current-price-sync-ui";
 const staleApiToken = "20260712-security-hardening";
 
 await rm(moduleRoot, { force: true, recursive: true });
@@ -185,7 +186,7 @@ try {
     assert.match(indexHtml, /Cantidad/);
     assert.match(indexHtml, /Confirmar stock negativo/);
     assert.ok(indexHtml.includes(`/css/styles.css?v=${stage5UiToken}`));
-    assert.ok(indexHtml.includes(`/js/app.js?v=${stage12UiToken}`));
+    assert.ok(indexHtml.includes(`/js/app.js?v=${stage13UiToken}`));
     assert.ok(loginHtml.includes(`/css/styles.css?v=${freshStaticToken}`));
     assert.ok(loginHtml.includes(`/js/login.js?v=${freshStaticToken}`));
     assert.doesNotMatch(indexHtml, /\/css\/styles\.css\?v=20260711-security-login|\/js\/app\.js\?v=20260711-security-login/);
@@ -221,7 +222,7 @@ try {
     for (const moduleName of ["dashboard", "incomes", "manual-expenses", "navigation", "simulator", "statements", "transactions"]) {
         assert.ok(appSource.includes(`./${moduleName}.js?v=${freshStaticToken}`), `${moduleName}.js should preserve origin/main cache token`);
     }
-    assert.ok(appSource.includes(`./supermarket.js?v=${stage12UiToken}`));
+    assert.ok(appSource.includes(`./supermarket.js?v=${stage13UiToken}`));
     assert.doesNotMatch(appSource, /20260709-stage-7-polish|20260710-mobile-slice-2|20260711-mobile-simulator|20260711-mobile-draft-responsive|20260711-mobile-supermarket/);
     assert.doesNotMatch(appSource, /from "\.\/statements\.js";/);
     const primaryTabButtons = extractPrimaryTabButtons(indexHtml);
@@ -919,6 +920,38 @@ try {
             { method: "superPriceObservations", filters: { limit: 50 } }
         ]);
         assert.equal(supermarketDom.elements.get("#super-price-observation-feedback").textContent, "Observación de precio registrada.");
+
+        supermarketDom.elements.get("#super-price-observation-item").value = "10";
+        supermarketDom.elements.get("#super-price-observation-price-pesos").value = "1750.75";
+        supermarketDom.elements.get("#super-price-observation-price-source").value = "7";
+        supermarketDom.elements.get("#super-price-observation-source-label").value = "";
+        supermarketDom.elements.get("#super-price-observation-observed-date").value = "2026-07-21";
+        supermarketDom.elements.get("#super-price-observation-sync-current-reference-price").checked = true;
+        const syncObservationCallStart = supermarketDom.api.calls.length;
+        await supermarketDom.elements.get("#super-price-observation-form").submit();
+        assert.deepEqual(supermarketDom.api.calls.slice(syncObservationCallStart).map((call) => call.method), [
+            "createSuperItemPriceObservation",
+            "superCategories",
+            "superItems",
+            "superSuggestedList",
+            "superPriceSources",
+            "superPriceObservations",
+            "superStockMovements"
+        ]);
+        assert.deepEqual(supermarketDom.api.calls.slice(syncObservationCallStart, syncObservationCallStart + 1), [
+            {
+                method: "createSuperItemPriceObservation",
+                id: 10,
+                payload: {
+                    pricePesos: "1750.75",
+                    syncCurrentReferencePrice: true,
+                    priceSourceId: 7,
+                    observedDate: "2026-07-21"
+                }
+            }
+        ]);
+        assert.equal(supermarketDom.elements.get("#super-price-observation-feedback").textContent, "Observación registrada y precio actual/de referencia actualizado.");
+        assert.equal(supermarketDom.elements.get("#super-price-observation-sync-current-reference-price").checked, false);
 
         supermarketDom.elements.get("#super-price-source-name").value = "  Lista nueva ";
         const createPriceSourceCallStart = supermarketDom.api.calls.length;
@@ -3062,6 +3095,7 @@ function fakeSupermarketDom() {
         "#super-price-observation-source-label",
         "#super-price-source-name",
         "#super-price-observation-observed-date",
+        "#super-price-observation-sync-current-reference-price",
         "#super-barcode-code",
         "#super-barcode-format"
     ]) {
@@ -3396,6 +3430,7 @@ function fakeSuperPriceObservationForm(elements) {
         for (const selector of ["#super-price-observation-item", "#super-price-observation-price-pesos", "#super-price-observation-price-source", "#super-price-observation-source-label", "#super-price-observation-observed-date"]) {
             elements.get(selector).value = "";
         }
+        elements.get("#super-price-observation-sync-current-reference-price").checked = false;
     };
     return form;
 }
@@ -3691,6 +3726,7 @@ function assertNoUnsupportedSuperInventorySemantics(source) {
         .replaceAll("super-price-source-name", "")
         .replaceAll("super-price-source-feedback", "")
         .replaceAll("super-price-observation-observed-date", "")
+        .replaceAll("super-price-observation-sync-current-reference-price", "")
         .replaceAll("super-price-observation-table", "")
         .replaceAll("super-price-observation-empty", "")
         .replaceAll("super-price-observation-feedback", "")
@@ -3718,6 +3754,7 @@ function assertNoUnsupportedSuperInventorySemantics(source) {
         .replaceAll("prefillSuperPriceObservationForm", "")
         .replaceAll("createSuperItemPriceObservation", "")
         .replaceAll("superPriceObservations", "")
+        .replaceAll("syncCurrentReferencePrice", "")
         .replaceAll("pricePesos", "")
         .replaceAll("20260718-super-inventory-stage10-price-observations-api", "")
         .replaceAll("20260718-super-inventory-stage10-price-observations-ui", "")

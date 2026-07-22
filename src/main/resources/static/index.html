@@ -859,6 +859,11 @@
                     Fecha observada opcional
                     <input id="super-price-observation-observed-date" type="date">
                 </label>
+                <label>
+                    <span>Sincronizar como precio actual/de referencia</span>
+                    <input id="super-price-observation-sync-current-reference-price" type="checkbox">
+                    <span class="form-help">Opcional: también actualiza el precio de referencia del producto con esta observación. Si no se marca, solo se guarda historial.</span>
+                </label>
                 <button type="submit">Registrar observación de precio</button>
             </form>
             <p class="form-feedback" id="super-price-observation-feedback" role="status" aria-live="polite"></p>
@@ -1018,6 +1023,6 @@
     </section>
 </main>
 
-<script type="module" src="/js/app.js?v=20260721-super-inventory-stage12-reference-price-source-ui"></script>
+<script type="module" src="/js/app.js?v=20260721-super-inventory-stage13-observation-current-price-sync-ui"></script>
 </body>
 </html>
