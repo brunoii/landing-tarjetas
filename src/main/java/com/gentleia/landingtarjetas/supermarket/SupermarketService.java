@@ -214,8 +214,12 @@ public class SupermarketService {
         BigDecimal pricePesos = normalizePriceObservationPrice(request.pricePesos());
         PriceObservationSource resolvedSource = resolvePriceObservationSource(request.priceSourceId(), request.sourceLabel());
         LocalDate observedDate = normalizePriceObservationObservedDate(request.observedDate());
-        return SuperItemPriceObservationResponse.from(priceObservationRepository.save(
-                new SuperItemPriceObservation(item, pricePesos, resolvedSource.sourceLabel(), observedDate, resolvedSource.priceSource())));
+        SuperItemPriceObservation observation = priceObservationRepository.save(
+                new SuperItemPriceObservation(item, pricePesos, resolvedSource.sourceLabel(), observedDate, resolvedSource.priceSource()));
+        if (Boolean.TRUE.equals(request.syncCurrentReferencePrice())) {
+            syncCurrentReferencePrice(item, pricePesos, resolvedSource, observedDate);
+        }
+        return SuperItemPriceObservationResponse.from(observation);
     }
 
     @Transactional(readOnly = true)
@@ -539,6 +543,14 @@ public class SupermarketService {
         }
         SuperPriceSource priceSource = getActivePriceSource(priceSourceId);
         return new PriceObservationSource(priceSource, priceSource.getName());
+    }
+
+    private void syncCurrentReferencePrice(SuperItem item, BigDecimal pricePesos, PriceObservationSource resolvedSource,
+            LocalDate observedDate) {
+        item.setCommercialPresentationPricePesos(pricePesos);
+        item.setCommercialPresentationPriceSource(resolvedSource.priceSource());
+        item.setCommercialPresentationPriceSourceLabel(resolvedSource.sourceLabel());
+        item.setCommercialPresentationPriceObservedDate(observedDate);
     }
 
     private record PriceObservationSource(SuperPriceSource priceSource, String sourceLabel) {

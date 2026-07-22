@@ -1664,6 +1664,114 @@ class SupermarketControllerTests {
     }
 
     @Test
+    void missingNullOrFalseSyncFlagKeepsPriceObservationOnlyBehavior() throws Exception {
+        SuperCategory almacen = superCategoryRepository.save(new SuperCategory("Almacén"));
+        SuperItem item = itemWithCommercialPresentation("Yerba", almacen, "Pack x 6", "6.000");
+        item.setCommercialPresentationPricePesos(new BigDecimal("1250.50"));
+        item.setCommercialPresentationPriceSourceLabel("Ticket inicial");
+        item.setCommercialPresentationPriceObservedDate(LocalDate.now().minusDays(5));
+        SuperItem savedItem = superItemRepository.saveAndFlush(item);
+        String initialObservedDate = savedItem.getCommercialPresentationPriceObservedDate().toString();
+
+        mockMvc.perform(post("/api/super/items/{id}/price-observations", savedItem.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(priceObservationPayload("1300.00", "Ticket uno", LocalDate.now().minusDays(2).toString())))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.pricePesos").value(1300.0))
+                .andExpect(jsonPath("$.sourceLabel").value("Ticket uno"));
+        assertCommercialPresentationPriceSourceAndDate(savedItem.getId(), "Pack x 6", "1250.50", null, "Ticket inicial",
+                initialObservedDate);
+
+        mockMvc.perform(post("/api/super/items/{id}/price-observations", savedItem.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(priceObservationPayloadWithSync("1350.00", "Ticket dos", LocalDate.now().minusDays(1).toString(), null)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.pricePesos").value(1350.0))
+                .andExpect(jsonPath("$.sourceLabel").value("Ticket dos"));
+        assertCommercialPresentationPriceSourceAndDate(savedItem.getId(), "Pack x 6", "1250.50", null, "Ticket inicial",
+                initialObservedDate);
+
+        mockMvc.perform(post("/api/super/items/{id}/price-observations", savedItem.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(priceObservationPayloadWithSync("1400.00", "Ticket tres", LocalDate.now().toString(), false)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.pricePesos").value(1400.0))
+                .andExpect(jsonPath("$.sourceLabel").value("Ticket tres"));
+
+        assertThat(superItemPriceObservationRepository.findAll()).hasSize(3);
+        assertCommercialPresentationPriceSourceAndDate(savedItem.getId(), "Pack x 6", "1250.50", null, "Ticket inicial",
+                initialObservedDate);
+    }
+
+    @Test
+    void explicitSyncFlagCreatesObservationAndUpdatesCurrentReferencePrice() throws Exception {
+        SuperCategory almacen = superCategoryRepository.save(new SuperCategory("Almacén"));
+        SuperPriceSource reusableSource = superPriceSourceRepository.saveAndFlush(new SuperPriceSource("Lista proveedor"));
+        SuperItem reusableItem = itemWithCommercialPresentation("Aceite", almacen, "Botella", null);
+        reusableItem.setCommercialPresentationPricePesos(new BigDecimal("1500.00"));
+        reusableItem.setCommercialPresentationPriceSourceLabel("Ticket inicial");
+        SuperItem savedReusableItem = superItemRepository.saveAndFlush(reusableItem);
+        SuperItem freeTextItem = itemWithCommercialPresentation("Yerba", almacen, "Pack x 6", "6.000");
+        freeTextItem.setCommercialPresentationPricePesos(new BigDecimal("1250.50"));
+        SuperItem savedFreeTextItem = superItemRepository.saveAndFlush(freeTextItem);
+        String reusableObservedDate = LocalDate.now().minusDays(1).toString();
+
+        mockMvc.perform(post("/api/super/items/{id}/price-observations", savedReusableItem.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(priceObservationPayloadWithPriceSourceAndSync("1699.90", reusableSource.getId(), reusableObservedDate, true)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.priceSourceId").value(reusableSource.getId()))
+                .andExpect(jsonPath("$.sourceLabel").value("Lista proveedor"))
+                .andExpect(jsonPath("$.observedDate").value(reusableObservedDate));
+        assertCommercialPresentationPriceSourceAndDate(savedReusableItem.getId(), "Botella", "1699.90", reusableSource.getId(),
+                "Lista proveedor", reusableObservedDate);
+
+        mockMvc.perform(post("/api/super/items/{id}/price-observations", savedFreeTextItem.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(priceObservationPayloadWithSync("1400.00", "  Ticket suelto  ", null, true)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.priceSourceId").isEmpty())
+                .andExpect(jsonPath("$.sourceLabel").value("Ticket suelto"))
+                .andExpect(jsonPath("$.observedDate").isEmpty());
+        assertCommercialPresentationPriceSourceAndDate(savedFreeTextItem.getId(), "Pack x 6", "1400.00", null,
+                "Ticket suelto", null);
+        assertThat(superItemPriceObservationRepository.findAll()).hasSize(2);
+    }
+
+    @Test
+    void invalidExplicitSyncRequestRollsBackObservationAndProductMutationWhileProductEditsStayNonHistorical() throws Exception {
+        SuperCategory almacen = superCategoryRepository.save(new SuperCategory("Almacén"));
+        SuperPriceSource source = superPriceSourceRepository.saveAndFlush(new SuperPriceSource("Lista proveedor"));
+        SuperItem item = itemWithCommercialPresentation("Aceite", almacen, "Botella", null);
+        item.setCommercialPresentationPricePesos(new BigDecimal("1500.00"));
+        item.setCommercialPresentationPriceSourceLabel("Ticket inicial");
+        item.setCommercialPresentationPriceObservedDate(LocalDate.now().minusDays(3));
+        SuperItem savedItem = superItemRepository.saveAndFlush(item);
+        String initialObservedDate = savedItem.getCommercialPresentationPriceObservedDate().toString();
+
+        mockMvc.perform(post("/api/super/items/{id}/price-observations", savedItem.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(priceObservationPayloadWithBothSourcesAndSync(
+                                "1699.90", source.getId(), "Ticket inválido", LocalDate.now().toString(), true)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("Observación de precio: use priceSourceId o sourceLabel, no ambos"));
+
+        assertThat(superItemPriceObservationRepository.findAll()).isEmpty();
+        assertCommercialPresentationPriceSourceAndDate(savedItem.getId(), "Botella", "1500.00", null, "Ticket inicial",
+                initialObservedDate);
+
+        mockMvc.perform(put("/api/super/items/{id}", savedItem.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(itemPayloadWithCommercialPresentationPriceSourceAndObservedDate(
+                                "Aceite", almacen.getId(), false, "Clásico", "Bidón", "1750.00", "Lista actualizada",
+                                LocalDate.now().minusDays(1).toString())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.commercialPresentationPricePesos").value(1750.0))
+                .andExpect(jsonPath("$.commercialPresentationPriceSourceLabel").value("Lista actualizada"));
+        assertThat(superItemPriceObservationRepository.findAll()).isEmpty();
+    }
+
+    @Test
     void priceObservationsListRecentGlobalAndByItemWithSafeLimits() throws Exception {
         SuperCategory almacen = superCategoryRepository.save(new SuperCategory("Almacén"));
         SuperItem yerba = itemWithCommercialPresentation("Yerba", almacen, "Pack x 6", "6.000");
@@ -2928,6 +3036,54 @@ class SupermarketControllerTests {
                 %s  "pricePesos": %s
                 }
                 """.formatted(priceSourceId, sourceLabel, observedDateEntry, pricePesos);
+    }
+
+    private String priceObservationPayloadWithSync(String pricePesos, String sourceLabel, String observedDate, Boolean sync) {
+        String sourceEntry = sourceLabel == null ? "" : """
+                  "sourceLabel": "%s",
+                """.formatted(sourceLabel);
+        String observedDateEntry = observedDate == null ? "" : """
+                  "observedDate": "%s",
+                """.formatted(observedDate);
+        String syncEntry = sync == null ? """
+                  "syncCurrentReferencePrice": null,
+                """ : """
+                  "syncCurrentReferencePrice": %s,
+                """.formatted(sync);
+        return """
+                {
+                %s%s%s  "pricePesos": %s
+                }
+                """.formatted(sourceEntry, observedDateEntry, syncEntry, pricePesos);
+    }
+
+    private String priceObservationPayloadWithPriceSourceAndSync(String pricePesos, Long priceSourceId, String observedDate,
+            boolean sync) {
+        String observedDateEntry = observedDate == null ? "" : """
+                  "observedDate": "%s",
+                """.formatted(observedDate);
+        return """
+                {
+                  "priceSourceId": %d,
+                %s  "syncCurrentReferencePrice": %s,
+                  "pricePesos": %s
+                }
+                """.formatted(priceSourceId, observedDateEntry, sync, pricePesos);
+    }
+
+    private String priceObservationPayloadWithBothSourcesAndSync(String pricePesos, Long priceSourceId, String sourceLabel,
+            String observedDate, boolean sync) {
+        String observedDateEntry = observedDate == null ? "" : """
+                  "observedDate": "%s",
+                """.formatted(observedDate);
+        return """
+                {
+                  "priceSourceId": %d,
+                  "sourceLabel": "%s",
+                %s  "syncCurrentReferencePrice": %s,
+                  "pricePesos": %s
+                }
+                """.formatted(priceSourceId, sourceLabel, observedDateEntry, sync, pricePesos);
     }
 
     private String priceSourcePayload(String name) {

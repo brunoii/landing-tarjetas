@@ -13,6 +13,7 @@ public record SuperItemPriceObservationRequest(
         @DecimalMin(value = "0.0", inclusive = false, message = "debe ser mayor a 0") BigDecimal pricePesos,
         Long priceSourceId,
         String sourceLabel,
-        LocalDate observedDate
+        LocalDate observedDate,
+        Boolean syncCurrentReferencePrice
 ) {
 }
