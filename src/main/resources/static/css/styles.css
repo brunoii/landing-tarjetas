@@ -913,6 +913,58 @@ td {
     font-weight: 800;
 }
 
+.super-barcode-scan-controls,
+.super-barcode-action-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+}
+
+.super-barcode-scan-controls {
+    margin-bottom: 0.75rem;
+}
+
+.super-barcode-scanner {
+    margin-bottom: 0.75rem;
+    overflow: hidden;
+    border: 1px solid rgba(125, 211, 252, 0.24);
+    border-radius: 20px;
+    background: rgba(3, 7, 18, 0.78);
+}
+
+.super-barcode-scanner-preview {
+    display: block;
+    width: 100%;
+    max-height: 20rem;
+    object-fit: cover;
+}
+
+.super-barcode-scanner-status {
+    margin-bottom: 0.75rem;
+    padding: 0.75rem 0.9rem;
+    border: 1px solid rgba(125, 211, 252, 0.24);
+    border-radius: 16px;
+    background: rgba(125, 211, 252, 0.08);
+}
+
+.super-barcode-action-group {
+    display: grid;
+    gap: 0.75rem;
+    padding: 1rem;
+    border: 1px solid rgba(125, 211, 252, 0.24);
+    border-radius: 20px;
+    background: rgba(15, 23, 42, 0.44);
+}
+
+.super-barcode-action-group h4 {
+    margin: 0;
+}
+
+.super-barcode-scan-controls button:focus-visible,
+.super-barcode-action-buttons button:focus-visible {
+    outline-offset: 4px;
+}
+
 .super-price-source-form {
     display: grid;
     grid-template-columns: minmax(14rem, 1fr) max-content;
@@ -1344,6 +1396,7 @@ td {
     .card-detail-grid,
     .category-form,
     .super-barcode-form,
+    .super-barcode-action-group,
     .super-price-source-form,
     .super-ticket-ocr-upload-form,
     .super-ticket-ocr-confirm-form,
@@ -1490,6 +1543,7 @@ td {
     .filters,
     .category-form,
     .super-barcode-form,
+    .super-barcode-action-group,
     .super-price-source-form,
     .super-ticket-ocr-upload-form,
     .super-ticket-ocr-confirm-form,
@@ -1509,6 +1563,12 @@ td {
     .super-category-heading {
         display: grid;
         grid-column: span 1;
+        grid-template-columns: 1fr;
+    }
+
+    .super-barcode-scan-controls,
+    .super-barcode-action-buttons {
+        display: grid;
         grid-template-columns: 1fr;
     }
 

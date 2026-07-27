@@ -491,7 +491,21 @@ class StaticUiContractTests {
                 "id=\"super-barcode-item\"",
                 "id=\"super-barcode-attach\"",
                 "id=\"super-barcode-remove\"",
+                "id=\"super-barcode-scan-start\" type=\"button\"",
+                "id=\"super-barcode-scan-stop\" type=\"button\" disabled",
+                "id=\"super-barcode-scanner\" hidden",
+                "id=\"super-barcode-scanner-preview\" playsinline muted hidden",
+                "id=\"super-barcode-scanner-status\" role=\"status\" aria-live=\"polite\"",
+                "id=\"super-barcode-actions\" hidden",
+                "id=\"super-barcode-purchase\" data-super-barcode-stock-action=\"purchase\" disabled",
+                "id=\"super-barcode-consume\" data-super-barcode-stock-action=\"consume\" disabled",
                 "Buscar código local",
+                "Escanear código",
+                "Detener escaneo",
+                "La cámara es opcional. Si no está disponible, ingresá el código manualmente.",
+                "El escaneo solo resuelve el producto. Confirmá la compra o el consumo por separado.",
+                "Registrar compra",
+                "Registrar consumo",
                 "Asociar a producto existente",
                 "Quitar alias",
                 "Copiar",
@@ -703,7 +717,7 @@ class StaticUiContractTests {
                 "document.querySelector(\".super-movement-negative-field\")",
                 "negativeField.hidden = type !== \"consume\""
         );
-        assertThat(styles).contains(".supermarket-layout", ".super-item-form", ".super-items-table-wrap table", ".super-generated-list", ".super-suggested-card", ".super-suggested-list", ".super-suggested-item", ".super-suggested-quantity", ".super-category-table", ".super-category-actions", ".super-configuration-badge", ".super-configuration-badge.configured", ".super-configuration-badge.pending", ".super-stock-value", ".super-stock-value.unknown", ".super-movement-form", ".super-movement-history", ".super-movement-conflict", ".super-barcode-card", ".super-barcode-form", ".super-item-barcode-match", ".super-barcode-current-alias");
+        assertThat(styles).contains(".supermarket-layout", ".super-item-form", ".super-items-table-wrap table", ".super-generated-list", ".super-suggested-card", ".super-suggested-list", ".super-suggested-item", ".super-suggested-quantity", ".super-category-table", ".super-category-actions", ".super-configuration-badge", ".super-configuration-badge.configured", ".super-configuration-badge.pending", ".super-stock-value", ".super-stock-value.unknown", ".super-movement-form", ".super-movement-history", ".super-movement-conflict", ".super-barcode-card", ".super-barcode-form", ".super-item-barcode-match", ".super-barcode-current-alias", ".super-barcode-scan-controls", ".super-barcode-scanner", ".super-barcode-scanner-preview", ".super-barcode-scanner-status", ".super-barcode-action-group", ".super-barcode-action-buttons");
         assertCssRuleHasDeclarations(styles, ".super-configuration-badge", Map.of("display", "inline-flex", "white-space", "normal"));
         assertThat(index).contains(
                 "class=\"table-wrap super-items-table-wrap responsive-card-table\"",

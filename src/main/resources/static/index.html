@@ -723,7 +723,7 @@
                     <p class="eyebrow">Barcode local</p>
                     <h3 id="super-barcode-title">Buscar o asociar código</h3>
                 </div>
-                <p class="section-note">Ingresá o pegá un código local. Si ya existe, abre el producto; si no, podés asociarlo a un producto existente.</p>
+                <p class="section-note">Ingresá o pegá un código local. Si ya existe, abre el producto; si no, podés asociarlo a un producto existente. La cámara es opcional. Si no está disponible, ingresá el código manualmente.</p>
             </div>
             <form class="super-barcode-form" id="super-barcode-form" aria-describedby="super-barcode-feedback super-barcode-result">
                 <label>
@@ -744,8 +744,27 @@
                     <button type="button" class="danger-button" id="super-barcode-remove" data-super-action="remove-barcode" hidden>Quitar alias</button>
                 </div>
             </form>
+            <div class="super-barcode-scan-controls" aria-label="Controles de escaneo">
+                <button id="super-barcode-scan-start" type="button" class="secondary-button">Escanear código</button>
+                <button id="super-barcode-scan-stop" type="button" disabled class="secondary-button">Detener escaneo</button>
+            </div>
+            <div id="super-barcode-scanner" hidden class="super-barcode-scanner">
+                <video id="super-barcode-scanner-preview" playsinline muted hidden class="super-barcode-scanner-preview"></video>
+            </div>
+            <p id="super-barcode-scanner-status" role="status" aria-live="polite" class="form-feedback super-barcode-scanner-status">Escaneo disponible solo como ayuda visual. El ingreso manual sigue siendo obligatorio como respaldo.</p>
             <p class="form-feedback" id="super-barcode-feedback" role="status" aria-live="polite"></p>
             <p class="form-feedback super-barcode-current-alias" id="super-barcode-result" role="status" aria-live="polite"></p>
+            <section id="super-barcode-actions" hidden aria-labelledby="super-barcode-actions-title" class="super-barcode-action-group">
+                <div>
+                    <p class="eyebrow">Siguiente paso</p>
+                    <h4 id="super-barcode-actions-title">Acciones explícitas de stock</h4>
+                </div>
+                <p class="section-note">El escaneo solo resuelve el producto. Confirmá la compra o el consumo por separado.</p>
+                <div class="super-barcode-action-buttons">
+                    <button id="super-barcode-purchase" data-super-barcode-stock-action="purchase" disabled type="button">Registrar compra</button>
+                    <button id="super-barcode-consume" data-super-barcode-stock-action="consume" disabled type="button" class="secondary-button">Registrar consumo</button>
+                </div>
+            </section>
         </section>
         <p class="filter-summary" id="super-items-summary" aria-live="polite">No hay productos cargados.</p>
         <div class="table-wrap super-items-table-wrap responsive-card-table">
