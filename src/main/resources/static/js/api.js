@@ -268,6 +268,36 @@ export const api = {
     superStockMovements(filters = {}) {
         return request(withQuery("/api/super/movements", filters));
     },
+    activeSuperScanSession() {
+        return request("/api/super/scan-sessions/active");
+    },
+    createActiveSuperScanSession() {
+        return request("/api/super/scan-sessions/active", { method: "POST" });
+    },
+    queueSuperScanSessionResolvedItem(sessionId, payload) {
+        return request(`/api/super/scan-sessions/${sessionId}/resolved-items`, {
+            method: "POST",
+            body: JSON.stringify(payload)
+        });
+    },
+    createSuperScanSessionDraft(sessionId, payload) {
+        return request(`/api/super/scan-sessions/${sessionId}/drafts`, {
+            method: "POST",
+            body: JSON.stringify(payload)
+        });
+    },
+    updateSuperScanSessionDraft(sessionId, draftId, payload) {
+        return request(`/api/super/scan-sessions/${sessionId}/drafts/${draftId}`, {
+            method: "PUT",
+            body: JSON.stringify(payload)
+        });
+    },
+    deleteSuperScanSessionDraft(sessionId, draftId) {
+        return request(`/api/super/scan-sessions/${sessionId}/drafts/${draftId}`, { method: "DELETE" });
+    },
+    confirmSuperScanSession(sessionId) {
+        return request(`/api/super/scan-sessions/${sessionId}/confirm`, { method: "POST" });
+    },
     lookupSuperItemBarcodeAlias(code) {
         return request(withQuery("/api/super/barcode-aliases", { code }));
     },

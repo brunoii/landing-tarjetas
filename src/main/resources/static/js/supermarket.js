@@ -1,4 +1,4 @@
-import { api } from "./api.js?v=20260725-super-inventory-stage15-ticket-ocr-ui-api";
+import { api } from "./api.js?v=20260727-super-inventory-stage17-session-shell-api";
 import { escapeHtml, formatPesos, setButtonBusy } from "./utils.js";
 
 let supermarketApi = api;

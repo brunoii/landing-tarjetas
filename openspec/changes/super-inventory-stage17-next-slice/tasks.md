@@ -38,7 +38,7 @@ Chain strategy: stacked-to-main
 
 ## Phase 3: Integration / Wiring
 
-- [ ] 3.1 Add scan-session API helpers in `src/main/resources/static/js/api.js`.
+- [x] 3.1 Add scan-session API helpers in `src/main/resources/static/js/api.js`.
 - [ ] 3.2 Route resolved camera/manual aliases into the session and render the new review panel in `src/main/resources/static/js/supermarket.js`.
 - [ ] 3.3 Add accessible session/draft controls in `src/main/resources/static/index.html` and `src/main/resources/static/css/styles.css`.
 

@@ -32,6 +32,8 @@ class StaticUiContractTests {
     private static final String STAGE11_UI_TOKEN = "20260718-super-inventory-stage11-price-sources-ui";
     private static final String STAGE15_API_TOKEN = "20260725-super-inventory-stage15-ticket-ocr-ui-api";
     private static final String STAGE15_UI_TOKEN = "20260725-super-inventory-stage15-ticket-ocr-ui";
+    private static final String STAGE17_API_TOKEN = "20260727-super-inventory-stage17-session-shell-api";
+    private static final String STAGE17_UI_TOKEN = "20260727-super-inventory-stage17-session-shell-ui";
     private static final String STALE_API_TOKEN = "20260712-security-hardening";
 
     @Test
@@ -40,15 +42,15 @@ class StaticUiContractTests {
         String login = readStatic("login.html");
         String app = readStatic("js/app.js");
 
-        assertThat(index).contains("<link rel=\"stylesheet\" href=\"/css/styles.css?v=" + STAGE15_UI_TOKEN + "\">");
+        assertThat(index).contains("<link rel=\"stylesheet\" href=\"/css/styles.css?v=" + STAGE17_UI_TOKEN + "\">");
         assertThat(index).doesNotContain("<link rel=\"stylesheet\" href=\"/css/styles.css\">");
-        assertThat(index).contains("<script type=\"module\" src=\"/js/app.js?v=" + STAGE15_UI_TOKEN + "\"></script>");
+        assertThat(index).contains("<script type=\"module\" src=\"/js/app.js?v=" + STAGE17_UI_TOKEN + "\"></script>");
         assertThat(index).doesNotContain("/css/styles.css?v=20260711-security-login", "/js/app.js?v=20260711-security-login");
         assertThat(login).contains("<link rel=\"stylesheet\" href=\"/css/styles.css?v=" + FRESH_STATIC_TOKEN + "\">")
                 .contains("/js/login.js?v=" + FRESH_STATIC_TOKEN)
                 .doesNotContain("/css/styles.css?v=20260711-security-login", "/js/login.js?v=20260711-security-login");
         assertThat(app)
-                .contains("./api.js?v=" + STAGE15_API_TOKEN, "./categories.js", "./dashboard.js?v=" + FRESH_STATIC_TOKEN, "./incomes.js?v=" + FRESH_STATIC_TOKEN, "./manual-expenses.js?v=" + FRESH_STATIC_TOKEN, "./navigation.js?v=" + FRESH_STATIC_TOKEN, "./simulator.js?v=" + FRESH_STATIC_TOKEN, "./statements.js?v=" + FRESH_STATIC_TOKEN, "./supermarket.js?v=" + STAGE15_UI_TOKEN, "./transactions.js?v=" + FRESH_STATIC_TOKEN, "./utils.js")
+                .contains("./api.js?v=" + STAGE17_API_TOKEN, "./categories.js", "./dashboard.js?v=" + FRESH_STATIC_TOKEN, "./incomes.js?v=" + FRESH_STATIC_TOKEN, "./manual-expenses.js?v=" + FRESH_STATIC_TOKEN, "./navigation.js?v=" + FRESH_STATIC_TOKEN, "./simulator.js?v=" + FRESH_STATIC_TOKEN, "./statements.js?v=" + FRESH_STATIC_TOKEN, "./supermarket.js?v=" + STAGE17_UI_TOKEN, "./transactions.js?v=" + FRESH_STATIC_TOKEN, "./utils.js")
                 .doesNotContain("./api.js\";")
                 .doesNotContain("./statements.js\";", "20260709-stage-7-polish", "20260710-mobile-slice-2", "20260711-mobile-simulator", "20260711-mobile-draft-responsive", "20260711-mobile-supermarket");
     }
@@ -94,8 +96,8 @@ class StaticUiContractTests {
     @Test
     void directApiImportsUseExpectedCacheVersions() throws IOException {
         Map<String, String> expectedApiImports = Map.of(
-                "js/app.js", "./api.js?v=" + STAGE15_API_TOKEN,
-                "js/supermarket.js", "./api.js?v=" + STAGE15_API_TOKEN,
+                "js/app.js", "./api.js?v=" + STAGE17_API_TOKEN,
+                "js/supermarket.js", "./api.js?v=" + STAGE17_API_TOKEN,
                 "js/incomes.js", "./api.js?v=" + FRESH_STATIC_TOKEN,
                 "js/login.js", "./api.js?v=" + FRESH_STATIC_TOKEN,
                 "js/statements.js", "./api.js?v=" + FRESH_STATIC_TOKEN
@@ -289,7 +291,7 @@ class StaticUiContractTests {
                 "name=\"password\"",
                 "/js/login.js?v=" + FRESH_STATIC_TOKEN
         );
-        assertThat(app).contains("from \"./api.js?v=" + STAGE15_API_TOKEN + "\"")
+        assertThat(app).contains("from \"./api.js?v=" + STAGE17_API_TOKEN + "\"")
                 .doesNotContain(STALE_API_TOKEN)
                 .doesNotContain("from \"./api.js\"");
         assertThat(loginJs).contains("from \"./api.js?v=" + FRESH_STATIC_TOKEN + "\"")
@@ -823,6 +825,51 @@ class StaticUiContractTests {
                 "presentations", "multiplePresentations", "externalLookup", "autoPurchase", "purchaseAutomation",
                 "persistSuggestion", "suggestionPersistence", "saveSuggestion"
         );
+    }
+
+    @Test
+    void supermarketSessionShellAddsStaticReviewMarkupAndApiFoundationWithoutWiring() throws IOException {
+        String index = readStatic("index.html");
+        String api = readStatic("js/api.js");
+        String supermarket = readStatic("js/supermarket.js");
+        String styles = readStatic("css/styles.css");
+
+        assertThat(index).contains(
+                "id=\"super-session-panel\"",
+                "aria-labelledby=\"super-session-title\"",
+                "id=\"super-session-title\"",
+                "Revisar sesión antes de confirmar",
+                "id=\"super-session-summary\"",
+                "id=\"super-session-status\" role=\"status\" aria-live=\"polite\"",
+                "id=\"super-session-lines\"",
+                "id=\"super-session-empty\"",
+                "id=\"super-session-draft-form\"",
+                "id=\"super-session-item-name\" type=\"text\" readonly",
+                "id=\"super-session-draft-type\"",
+                "id=\"super-session-draft-quantity\" type=\"number\" min=\"0.001\" step=\"0.001\"",
+                "id=\"super-session-draft-notes\"",
+                "id=\"super-session-draft-allow-negative\" type=\"checkbox\"",
+                "id=\"super-session-cancel-draft\" disabled",
+                "id=\"super-session-clear\" disabled",
+                "id=\"super-session-save-draft\" disabled",
+                "id=\"super-session-confirm\" disabled"
+        );
+        assertThat(index).contains("El escaneo solo prepara borradores revisables. Confirmá el lote para aplicar movimientos.");
+        assertThat(index.indexOf("id=\"super-session-panel\"")).isLessThan(index.indexOf("id=\"super-items-table\""));
+        assertThat(api).contains(
+                "activeSuperScanSession()",
+                "createActiveSuperScanSession()",
+                "queueSuperScanSessionResolvedItem(sessionId, payload)",
+                "createSuperScanSessionDraft(sessionId, payload)",
+                "updateSuperScanSessionDraft(sessionId, draftId, payload)",
+                "deleteSuperScanSessionDraft(sessionId, draftId)",
+                "confirmSuperScanSession(sessionId)",
+                "`/api/super/scan-sessions/${sessionId}/resolved-items`",
+                "`/api/super/scan-sessions/${sessionId}/drafts/${draftId}`",
+                "`/api/super/scan-sessions/${sessionId}/confirm`"
+        );
+        assertThat(supermarket).doesNotContain("super-session-panel", "super-session-confirm", "activeSuperScanSession", "createSuperScanSessionDraft");
+        assertThat(styles).contains(".super-session-panel", ".super-session-summary", ".super-session-table-wrap table", ".super-session-draft-form", ".super-session-actions");
     }
 
     @Test

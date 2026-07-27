@@ -1,4 +1,4 @@
-import { api, appendCsrfField } from "./api.js?v=20260725-super-inventory-stage15-ticket-ocr-ui-api";
+import { api, appendCsrfField } from "./api.js?v=20260727-super-inventory-stage17-session-shell-api";
 import { categoryFormPayload, renderCategories, resetCategoryForm, showCategoryFeedback } from "./categories.js";
 import { renderDashboard } from "./dashboard.js?v=20260713-pending-main";
 import { loadIncomes, setupIncomes } from "./incomes.js?v=20260713-pending-main";
@@ -6,7 +6,7 @@ import { renderManualExpenses, setManualExpenseApi, setManualExpenseCategories, 
 import { setupPrimaryTabs } from "./navigation.js?v=20260713-pending-main";
 import { setSimulatorApi, setSimulatorCategories, setupSimulator } from "./simulator.js?v=20260713-pending-main";
 import { renderDraftStatementList, setStatementCategories, setupStatementUpload } from "./statements.js?v=20260713-pending-main";
-import { setupSupermarket } from "./supermarket.js?v=20260725-super-inventory-stage15-ticket-ocr-ui";
+import { setupSupermarket } from "./supermarket.js?v=20260727-super-inventory-stage17-session-shell-ui";
 import { renderTransactions, rerenderTransactionsAfterSearch, resetTransactionFilters, setTransactionCategories, syncTransactionMonth, transactionFilters } from "./transactions.js?v=20260713-pending-main";
 import { currentYearMonth, setButtonBusy } from "./utils.js";
 

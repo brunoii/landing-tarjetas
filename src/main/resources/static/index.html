@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Panel de tarjetas</title>
-    <link rel="stylesheet" href="/css/styles.css?v=20260725-super-inventory-stage15-ticket-ocr-ui">
+    <link rel="stylesheet" href="/css/styles.css?v=20260727-super-inventory-stage17-session-shell-ui">
 </head>
 <body>
 <header class="topbar tab-section" id="tab-summary" data-tab-panel="summary" role="tabpanel" aria-labelledby="primary-tab-summary">
@@ -766,6 +766,65 @@
                 </div>
             </section>
         </section>
+        <section class="supermarket-card super-session-panel" id="super-session-panel" aria-labelledby="super-session-title">
+            <div class="section-heading">
+                <div>
+                    <p class="eyebrow">Sesión de escaneo</p>
+                    <h3 id="super-session-title">Revisar sesión antes de confirmar</h3>
+                </div>
+                <p class="section-note">El escaneo solo prepara borradores revisables. Confirmá el lote para aplicar movimientos.</p>
+            </div>
+            <p class="filter-summary super-session-summary" id="super-session-summary" aria-live="polite">La sesión aparecerá acá cuando el próximo slice conecte el escaneo con borradores editables.</p>
+            <p class="form-feedback" id="super-session-status" role="status" aria-live="polite">Sin sesión activa vinculada desde la UI todavía.</p>
+            <div class="table-wrap super-session-table-wrap responsive-card-table">
+                <table>
+                    <thead>
+                    <tr>
+                        <th>Producto</th>
+                        <th>Movimiento</th>
+                        <th>Cantidad</th>
+                        <th>Notas</th>
+                        <th>Acciones</th>
+                    </tr>
+                    </thead>
+                    <tbody id="super-session-lines"></tbody>
+                </table>
+            </div>
+            <p class="empty-state" id="super-session-empty">Todavía no hay borradores de sesión para revisar.</p>
+            <form class="super-session-draft-form" id="super-session-draft-form" aria-describedby="super-session-summary super-session-status">
+                <fieldset disabled>
+                    <label>
+                        Producto seleccionado
+                        <input id="super-session-item-name" type="text" readonly placeholder="Pendiente de conectar con el escaneo">
+                    </label>
+                    <label>
+                        Movimiento
+                        <select id="super-session-draft-type">
+                            <option value="PURCHASE">Compra</option>
+                            <option value="CONSUMPTION">Consumo</option>
+                        </select>
+                    </label>
+                    <label>
+                        Cantidad
+                        <input id="super-session-draft-quantity" type="number" min="0.001" step="0.001" inputmode="decimal" placeholder="Ejemplo: 1">
+                    </label>
+                    <label>
+                        Notas
+                        <input id="super-session-draft-notes" type="text" maxlength="500" placeholder="Nota opcional del borrador">
+                    </label>
+                    <label class="super-session-checkbox">
+                        <span>Confirmar stock negativo</span>
+                        <input id="super-session-draft-allow-negative" type="checkbox">
+                    </label>
+                </fieldset>
+            </form>
+            <div class="super-session-actions">
+                <button type="button" class="secondary-button" id="super-session-cancel-draft" disabled>Cancelar edición</button>
+                <button type="button" class="secondary-button" id="super-session-clear" disabled>Vaciar sesión</button>
+                <button type="button" class="secondary-button" id="super-session-save-draft" disabled>Guardar borrador</button>
+                <button type="button" id="super-session-confirm" disabled>Confirmar sesión</button>
+            </div>
+        </section>
         <p class="filter-summary" id="super-items-summary" aria-live="polite">No hay productos cargados.</p>
         <div class="table-wrap super-items-table-wrap responsive-card-table">
             <table>
@@ -1131,6 +1190,6 @@
     </section>
 </main>
 
-<script type="module" src="/js/app.js?v=20260725-super-inventory-stage15-ticket-ocr-ui"></script>
+<script type="module" src="/js/app.js?v=20260727-super-inventory-stage17-session-shell-ui"></script>
 </body>
 </html>

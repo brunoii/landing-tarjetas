@@ -18,6 +18,8 @@ const stage11ApiToken = "20260718-super-inventory-stage11-price-sources-api";
 const stage11UiToken = "20260718-super-inventory-stage11-price-sources-ui";
 const stage15ApiToken = "20260725-super-inventory-stage15-ticket-ocr-ui-api";
 const stage15UiToken = "20260725-super-inventory-stage15-ticket-ocr-ui";
+const stage17ApiToken = "20260727-super-inventory-stage17-session-shell-api";
+const stage17UiToken = "20260727-super-inventory-stage17-session-shell-ui";
 const staleApiToken = "20260712-security-hardening";
 
 await rm(moduleRoot, { force: true, recursive: true });
@@ -202,21 +204,21 @@ try {
     assert.match(indexHtml, /Crear fuente de precio/);
     assert.match(indexHtml, /Cantidad/);
     assert.match(indexHtml, /Confirmar stock negativo/);
-    assert.ok(indexHtml.includes(`/css/styles.css?v=${stage15UiToken}`));
-    assert.ok(indexHtml.includes(`/js/app.js?v=${stage15UiToken}`));
+    assert.ok(indexHtml.includes(`/css/styles.css?v=${stage17UiToken}`));
+    assert.ok(indexHtml.includes(`/js/app.js?v=${stage17UiToken}`));
     assert.ok(loginHtml.includes(`/css/styles.css?v=${freshStaticToken}`));
     assert.ok(loginHtml.includes(`/js/login.js?v=${freshStaticToken}`));
     assert.doesNotMatch(indexHtml, /\/css\/styles\.css\?v=20260711-security-login|\/js\/app\.js\?v=20260711-security-login/);
     assert.doesNotMatch(loginHtml, /\/css\/styles\.css\?v=20260711-security-login|\/js\/login\.js\?v=20260711-security-login/);
-    assert.ok(appSource.includes(`from "./api.js?v=${stage15ApiToken}"`));
+    assert.ok(appSource.includes(`from "./api.js?v=${stage17ApiToken}"`));
     assert.doesNotMatch(appSource, new RegExp(staleApiToken));
     assert.doesNotMatch(appSource, /from "\.\/api\.js"/);
     assert.ok(loginSource.includes(`from "./api.js?v=${freshStaticToken}"`));
     assert.doesNotMatch(loginSource, new RegExp(staleApiToken));
     assert.doesNotMatch(loginSource, /from "\.\/api\.js"/);
     const expectedApiImports = new Map([
-        ["app.js", `./api.js?v=${stage15ApiToken}`],
-        ["supermarket.js", `./api.js?v=${stage15ApiToken}`],
+        ["app.js", `./api.js?v=${stage17ApiToken}`],
+        ["supermarket.js", `./api.js?v=${stage17ApiToken}`],
         ["incomes.js", `./api.js?v=${freshStaticToken}`],
         ["login.js", `./api.js?v=${freshStaticToken}`],
         ["statements.js", `./api.js?v=${freshStaticToken}`]
@@ -239,7 +241,32 @@ try {
     for (const moduleName of ["dashboard", "incomes", "manual-expenses", "navigation", "simulator", "statements", "transactions"]) {
         assert.ok(appSource.includes(`./${moduleName}.js?v=${freshStaticToken}`), `${moduleName}.js should preserve origin/main cache token`);
     }
-    assert.ok(appSource.includes(`./supermarket.js?v=${stage15UiToken}`));
+    assert.ok(appSource.includes(`./supermarket.js?v=${stage17UiToken}`));
+    assert.match(indexHtml, /id="super-session-panel"/);
+    assert.match(indexHtml, /id="super-session-title"/);
+    assert.match(indexHtml, /Revisar sesión antes de confirmar/);
+    assert.match(indexHtml, /id="super-session-summary"/);
+    assert.match(indexHtml, /id="super-session-status"[^>]+role="status"[^>]+aria-live="polite"/);
+    assert.match(indexHtml, /id="super-session-lines"/);
+    assert.match(indexHtml, /id="super-session-empty"/);
+    assert.match(indexHtml, /id="super-session-draft-form"/);
+    assert.match(indexHtml, /id="super-session-item-name"[^>]+readonly/);
+    assert.match(indexHtml, /id="super-session-draft-type"/);
+    assert.match(indexHtml, /id="super-session-draft-quantity"[^>]+type="number"[^>]+min="0\.001"[^>]+step="0\.001"/);
+    assert.match(indexHtml, /id="super-session-draft-notes"/);
+    assert.match(indexHtml, /id="super-session-draft-allow-negative"[^>]+type="checkbox"/);
+    assert.match(indexHtml, /id="super-session-cancel-draft"[^>]+disabled/);
+    assert.match(indexHtml, /id="super-session-clear"[^>]+disabled/);
+    assert.match(indexHtml, /id="super-session-save-draft"[^>]+disabled/);
+    assert.match(indexHtml, /id="super-session-confirm"[^>]+disabled/);
+    assert.match(indexHtml, /El escaneo solo prepara borradores revisables\. Confirmá el lote para aplicar movimientos\./);
+    assert.ok(indexHtml.indexOf('id="super-session-panel"') < indexHtml.indexOf('id="super-items-table"'));
+    assert.match(stylesCss, /\.super-session-panel/);
+    assert.match(stylesCss, /\.super-session-summary/);
+    assert.match(stylesCss, /\.super-session-table-wrap table/);
+    assert.match(stylesCss, /\.super-session-draft-form/);
+    assert.match(stylesCss, /\.super-session-actions/);
+    assert.doesNotMatch(supermarketSource, /super-session-panel|super-session-confirm|activeSuperScanSession|createSuperScanSessionDraft/);
     assert.doesNotMatch(appSource, /20260709-stage-7-polish|20260710-mobile-slice-2|20260711-mobile-simulator|20260711-mobile-draft-responsive|20260711-mobile-supermarket/);
     assert.doesNotMatch(appSource, /from "\.\/statements\.js";/);
     const primaryTabButtons = extractPrimaryTabButtons(indexHtml);
@@ -403,6 +430,13 @@ try {
         await api.superPriceObservations({ itemId: 9, limit: 50 });
         await api.uploadSuperTicketOcrCandidates(new File(["ticket"], "ticket.png", { type: "image/png" }));
         await api.superStockMovements({ itemId: 9, limit: 25 });
+        await api.activeSuperScanSession();
+        await api.createActiveSuperScanSession();
+        await api.queueSuperScanSessionResolvedItem(12, { itemId: 9, barcodeCode: "0075012345678" });
+        await api.createSuperScanSessionDraft(12, { itemId: 9, type: "PURCHASE", quantity: "2.000", notes: "Reposición" });
+        await api.updateSuperScanSessionDraft(12, 88, { type: "CONSUMPTION", quantity: "1.000", notes: "Cena", allowNegativeStock: true });
+        await api.deleteSuperScanSessionDraft(12, 88);
+        await api.confirmSuperScanSession(12);
         await api.lookupSuperItemBarcodeAlias("0075012345678");
         await api.attachSuperItemBarcodeAlias(9, { code: "0075012345678", format: "EAN_13" });
         await api.removeSuperItemBarcodeAlias(9, 44);
@@ -446,6 +480,13 @@ try {
         ["/api/super/price-observations?itemId=9&limit=50", "GET"],
         ["/api/super/ticket-ocr/candidates", "POST"],
         ["/api/super/movements?itemId=9&limit=25", "GET"],
+        ["/api/super/scan-sessions/active", "GET"],
+        ["/api/super/scan-sessions/active", "POST"],
+        ["/api/super/scan-sessions/12/resolved-items", "POST"],
+        ["/api/super/scan-sessions/12/drafts", "POST"],
+        ["/api/super/scan-sessions/12/drafts/88", "PUT"],
+        ["/api/super/scan-sessions/12/drafts/88", "DELETE"],
+        ["/api/super/scan-sessions/12/confirm", "POST"],
         ["/api/super/barcode-aliases?code=0075012345678", "GET"],
         ["/api/super/items/9/barcode-aliases", "POST"],
         ["/api/super/items/9/barcode-aliases/44", "DELETE"],
@@ -464,8 +505,11 @@ try {
     assert.deepEqual(JSON.parse(apiCalls[23].options.body), { name: "Ticket proveedor" });
     assert.deepEqual(JSON.parse(apiCalls[24].options.body), { pricePesos: "1250.50", sourceLabel: "Ticket proveedor", observedDate: "2026-07-18" });
     assert.equal(apiCalls[26].options.body.get("file").name, "ticket.png");
-    assert.deepEqual(JSON.parse(apiCalls[29].options.body), { code: "0075012345678", format: "EAN_13" });
-    assert.deepEqual(JSON.parse(apiCalls[31].options.body), { checked: true });
+    assert.deepEqual(JSON.parse(apiCalls[30].options.body), { itemId: 9, barcodeCode: "0075012345678" });
+    assert.deepEqual(JSON.parse(apiCalls[31].options.body), { itemId: 9, type: "PURCHASE", quantity: "2.000", notes: "Reposición" });
+    assert.deepEqual(JSON.parse(apiCalls[32].options.body), { type: "CONSUMPTION", quantity: "1.000", notes: "Cena", allowNegativeStock: true });
+    assert.deepEqual(JSON.parse(apiCalls[36].options.body), { code: "0075012345678", format: "EAN_13" });
+    assert.deepEqual(JSON.parse(apiCalls[38].options.body), { checked: true });
 
     const previousConflictFetch = globalThis.fetch;
     globalThis.fetch = async () => ({
