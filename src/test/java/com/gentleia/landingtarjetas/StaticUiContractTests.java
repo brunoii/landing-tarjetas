@@ -499,8 +499,8 @@ class StaticUiContractTests {
                 "id=\"super-barcode-scanner-preview\" playsinline muted hidden",
                 "id=\"super-barcode-scanner-status\" role=\"status\" aria-live=\"polite\"",
                 "id=\"super-barcode-actions\" hidden",
-                "id=\"super-barcode-purchase\" data-super-barcode-stock-action=\"purchase\" disabled",
-                "id=\"super-barcode-consume\" data-super-barcode-stock-action=\"consume\" disabled",
+                "id=\"super-barcode-purchase\" data-super-barcode-stock-action=\"purchase\"",
+                "id=\"super-barcode-consume\" data-super-barcode-stock-action=\"consume\"",
                 "Buscar código local",
                 "Escanear código",
                 "Detener escaneo",
@@ -828,7 +828,7 @@ class StaticUiContractTests {
     }
 
     @Test
-    void supermarketSessionShellAddsStaticReviewMarkupAndApiFoundationWithoutWiring() throws IOException {
+    void supermarketSessionPanelOwnsInteractiveDraftReviewContracts() throws IOException {
         String index = readStatic("index.html");
         String api = readStatic("js/api.js");
         String supermarket = readStatic("js/supermarket.js");
@@ -849,10 +849,10 @@ class StaticUiContractTests {
                 "id=\"super-session-draft-quantity\" type=\"number\" min=\"0.001\" step=\"0.001\"",
                 "id=\"super-session-draft-notes\"",
                 "id=\"super-session-draft-allow-negative\" type=\"checkbox\"",
-                "id=\"super-session-cancel-draft\" disabled",
+                "id=\"super-session-cancel-draft\"",
                 "id=\"super-session-clear\" disabled",
-                "id=\"super-session-save-draft\" disabled",
-                "id=\"super-session-confirm\" disabled"
+                "id=\"super-session-save-draft\"",
+                "id=\"super-session-confirm\""
         );
         assertThat(index).contains("El escaneo solo prepara borradores revisables. Confirmá el lote para aplicar movimientos.");
         assertThat(index.indexOf("id=\"super-session-panel\"")).isLessThan(index.indexOf("id=\"super-items-table\""));
@@ -868,7 +868,22 @@ class StaticUiContractTests {
                 "`/api/super/scan-sessions/${sessionId}/drafts/${draftId}`",
                 "`/api/super/scan-sessions/${sessionId}/confirm`"
         );
-        assertThat(supermarket).doesNotContain("super-session-panel", "super-session-confirm", "activeSuperScanSession", "createSuperScanSessionDraft");
+        assertThat(index).contains(
+                "aria-controls=\"super-session-panel\"",
+                "aria-controls=\"super-session-draft-form\"",
+                "aria-controls=\"super-session-lines\""
+        );
+        assertThat(supermarket).contains(
+                "activeSuperScanSession",
+                "queueSuperScanSessionResolvedItem",
+                "createSuperScanSessionDraft",
+                "updateSuperScanSessionDraft",
+                "deleteSuperScanSessionDraft",
+                "confirmSuperScanSession",
+                "#super-session-lines",
+                "#super-session-save-draft",
+                "#super-session-confirm"
+        );
         assertThat(styles).contains(".super-session-panel", ".super-session-summary", ".super-session-table-wrap table", ".super-session-draft-form", ".super-session-actions");
     }
 

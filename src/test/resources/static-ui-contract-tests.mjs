@@ -169,8 +169,8 @@ try {
     assert.match(indexHtml, /id="super-barcode-scanner-preview"[^>]+playsinline[^>]+muted[^>]+hidden/);
     assert.match(indexHtml, /id="super-barcode-scanner-status"[^>]+role="status"[^>]+aria-live="polite"/);
     assert.match(indexHtml, /id="super-barcode-actions"[^>]+hidden/);
-    assert.match(indexHtml, /id="super-barcode-purchase"[^>]+data-super-barcode-stock-action="purchase"[^>]+disabled/);
-    assert.match(indexHtml, /id="super-barcode-consume"[^>]+data-super-barcode-stock-action="consume"[^>]+disabled/);
+    assert.match(indexHtml, /id="super-barcode-purchase"[^>]+data-super-barcode-stock-action="purchase"[^>]+aria-controls="super-session-panel"[^>]+disabled/);
+    assert.match(indexHtml, /id="super-barcode-consume"[^>]+data-super-barcode-stock-action="consume"[^>]+aria-controls="super-session-panel"[^>]+disabled/);
     assert.match(indexHtml, /Buscar código local/);
     assert.match(indexHtml, /Escanear código/);
     assert.match(indexHtml, /Detener escaneo/);
@@ -266,7 +266,15 @@ try {
     assert.match(stylesCss, /\.super-session-table-wrap table/);
     assert.match(stylesCss, /\.super-session-draft-form/);
     assert.match(stylesCss, /\.super-session-actions/);
-    assert.doesNotMatch(supermarketSource, /super-session-panel|super-session-confirm|activeSuperScanSession|createSuperScanSessionDraft/);
+    assert.match(indexHtml, /aria-controls="super-session-panel"/);
+    assert.match(indexHtml, /aria-controls="super-session-draft-form"/);
+    assert.match(indexHtml, /aria-controls="super-session-lines"/);
+    assert.match(supermarketSource, /activeSuperScanSession/);
+    assert.match(supermarketSource, /queueSuperScanSessionResolvedItem/);
+    assert.match(supermarketSource, /createSuperScanSessionDraft/);
+    assert.match(supermarketSource, /updateSuperScanSessionDraft/);
+    assert.match(supermarketSource, /deleteSuperScanSessionDraft/);
+    assert.match(supermarketSource, /confirmSuperScanSession/);
     assert.doesNotMatch(appSource, /20260709-stage-7-polish|20260710-mobile-slice-2|20260711-mobile-simulator|20260711-mobile-draft-responsive|20260711-mobile-supermarket/);
     assert.doesNotMatch(appSource, /from "\.\/statements\.js";/);
     const primaryTabButtons = extractPrimaryTabButtons(indexHtml);
@@ -952,7 +960,9 @@ try {
     try {
         setupSupermarket({ apiClient: supermarketDom.api });
         await flushAsyncWork();
-        assert.deepEqual(supermarketDom.api.calls.slice(0, 5), [{ method: "superCategories" }, { method: "superItems" }, { method: "superSuggestedList" }, { method: "superPriceSources" }, { method: "superPriceObservations", filters: { limit: 50 } }]);
+        assert.deepEqual(supermarketDom.api.calls.slice(0, 6), [{ method: "superCategories" }, { method: "superItems" }, { method: "superSuggestedList" }, { method: "superPriceSources" }, { method: "activeSuperScanSession" }, { method: "superPriceObservations", filters: { limit: 50 } }]);
+        assert.match(supermarketDom.elements.get("#super-session-summary").textContent, /Sesión activa/);
+        assert.equal(supermarketDom.elements.get("#super-session-lines").children.length, 0);
         assert.equal(supermarketDom.elements.get("#super-suggested-list").innerHTML.includes("Comprar 2.000 kg"), true);
         assert.equal(supermarketDom.elements.get("#super-suggested-list").innerHTML.includes("Arroz"), true);
         assert.equal(supermarketDom.elements.get("#super-suggested-empty").hidden, true);
@@ -1010,6 +1020,20 @@ try {
         assert.match(supermarketDom.elements.get("#super-price-observation-price-source").innerHTML, /Ticket proveedor/);
         assert.match(supermarketDom.elements.get("#super-price-observation-price-source").innerHTML, /Lista mayorista/);
         assert.equal(supermarketDom.elements.get("#super-price-observation-table").children.length, 2);
+        supermarketDom.elements.get("#super-barcode-code").value = "0075012345678";
+        const sessionHandoffCallStart = supermarketDom.api.calls.length;
+        await supermarketDom.elements.get("#super-barcode-form").submit();
+        await supermarketDom.elements.get("#super-barcode-purchase").click();
+        assert.deepEqual(supermarketDom.api.calls.slice(sessionHandoffCallStart).map((call) => call.method), [
+            "lookupSuperItemBarcodeAlias",
+            "queueSuperScanSessionResolvedItem",
+            "createSuperScanSessionDraft"
+        ]);
+        assert.equal(supermarketDom.elements.get("#super-session-lines").children.length, 1);
+        assert.match(supermarketDom.elements.get("#super-session-summary").textContent, /1 borrador/);
+        assert.equal(supermarketDom.elements.get("#super-session-save-draft").disabled, false);
+        assert.equal(supermarketDom.elements.get("#super-session-confirm").disabled, false);
+        assert.equal(supermarketDom.elements.get("#super-session-item-name").value, "Arroz");
         assert.equal(supermarketDom.elements.get("#super-price-observation-title").textContent, "Observaciones de precio");
         assert.equal(supermarketDom.elements.get("#super-price-observation-context-summary").textContent, "Historial reciente global de observaciones de precio.");
         assert.equal(supermarketDom.elements.get("#super-price-observation-global-reset").hidden, true);
@@ -1074,6 +1098,7 @@ try {
             "superItems",
             "superSuggestedList",
             "superPriceSources",
+            "activeSuperScanSession",
             "superPriceObservations",
             "superStockMovements"
         ]);
@@ -1153,6 +1178,7 @@ try {
             "superItems",
             "superSuggestedList",
             "superPriceSources",
+            "activeSuperScanSession",
             "superPriceObservations",
             "superStockMovements"
         ]);
@@ -1227,10 +1253,16 @@ try {
         assert.equal(streamStopCount > 0, true);
         assert.equal(supermarketDom.elements.get("#super-barcode-scanner-status").textContent, "Escaneo listo para Arroz. Confirmá compra o consumo por separado.");
 
+        const scanSessionCallStart = supermarketDom.api.calls.length;
         await supermarketDom.elements.get("#super-barcode-purchase").click();
-        assert.equal(supermarketDom.elements.get("#super-movement-modal").hidden, false);
-        assert.equal(supermarketDom.elements.get("#super-movement-title").textContent, "Registrar compra");
-        supermarketDom.elements.get("#super-movement-modal").hidden = true;
+        assert.deepEqual(supermarketDom.api.calls.slice(scanSessionCallStart).map((call) => call.method), [
+            "queueSuperScanSessionResolvedItem",
+            "createSuperScanSessionDraft"
+        ]);
+        assert.equal(supermarketDom.elements.get("#super-movement-modal").hidden, true);
+        assert.equal(supermarketDom.elements.get("#super-session-lines").children.length > 0, true);
+        assert.equal(supermarketDom.elements.get("#super-session-save-draft").disabled, false);
+        assert.equal(supermarketDom.elements.get("#super-session-confirm").disabled, false);
 
         detectorResults.push([]);
         await supermarketDom.elements.get("#super-barcode-scan-start").click();
@@ -1454,6 +1486,7 @@ try {
             "superItems",
             "superSuggestedList",
             "superPriceSources",
+            "activeSuperScanSession",
             "superPriceObservations",
             "superStockMovements"
         ]);
@@ -1603,6 +1636,7 @@ try {
             "superItems",
             "superSuggestedList",
             "superPriceSources",
+            "activeSuperScanSession",
             "superPriceObservations",
             "superStockMovements"
         ]);
@@ -1677,11 +1711,12 @@ try {
         };
         setupSupermarket({ apiClient: degradedSupermarketDom.api });
         await flushAsyncWork();
-        assert.deepEqual(degradedSupermarketDom.api.calls.slice(0, 6), [
+        assert.deepEqual(degradedSupermarketDom.api.calls.slice(0, 7), [
             { method: "superCategories" },
             { method: "superItems" },
             { method: "superSuggestedList" },
             { method: "superPriceSources" },
+            { method: "activeSuperScanSession" },
             { method: "superPriceObservations", filters: { limit: 50 } },
             { method: "superStockMovements", filters: { limit: 50 } }
         ]);
@@ -2710,6 +2745,21 @@ function fakeAppDom() {
         "#super-barcode-consume",
         "#super-barcode-feedback",
         "#super-barcode-result",
+        "#super-session-panel",
+        "#super-session-summary",
+        "#super-session-status",
+        "#super-session-lines",
+        "#super-session-empty",
+        "#super-session-draft-form",
+        "#super-session-item-name",
+        "#super-session-draft-type",
+        "#super-session-draft-quantity",
+        "#super-session-draft-notes",
+        "#super-session-draft-allow-negative",
+        "#super-session-cancel-draft",
+        "#super-session-clear",
+        "#super-session-save-draft",
+        "#super-session-confirm",
         "#super-item-form",
         "#super-item-form button[type='submit']",
         "#super-item-name",
@@ -2939,6 +2989,9 @@ function fakeAppDom() {
             }
             if (resource.startsWith("/api/super/movements")) {
                 return jsonResponse([]);
+            }
+            if (resource === "/api/super/scan-sessions/active") {
+                return jsonResponse({ id: 12, state: "ACTIVE", expiresAt: "2026-07-27T23:00:00Z", resolvedItems: [], drafts: [] });
             }
             if (resource.startsWith("/api/super/items")) {
                 return jsonResponse([]);
@@ -3489,7 +3542,11 @@ function fakeSupermarketDom() {
         "#super-ticket-ocr-source-label",
         "#super-ticket-ocr-sync-current-reference-price",
         "#super-barcode-code",
-        "#super-barcode-format"
+        "#super-barcode-format",
+        "#super-session-item-name",
+        "#super-session-draft-quantity",
+        "#super-session-draft-notes",
+        "#super-session-draft-allow-negative"
     ]) {
         elements.set(selector, fakeInput());
     }
@@ -3563,6 +3620,17 @@ function fakeSupermarketDom() {
     elements.get("#super-barcode-consume").disabled = true;
     elements.set("#super-barcode-feedback", fakeElement());
     elements.set("#super-barcode-result", fakeElement());
+    elements.set("#super-session-panel", fakeElement());
+    elements.set("#super-session-summary", fakeElement());
+    elements.set("#super-session-status", fakeElement());
+    elements.set("#super-session-lines", fakeIncomeTable());
+    elements.set("#super-session-empty", fakeElement());
+    elements.set("#super-session-draft-form", fakeForm(elements));
+    elements.set("#super-session-draft-type", fakeClickableSelect("PURCHASE"));
+    elements.set("#super-session-cancel-draft", fakeClickableButton("Cancelar edición"));
+    elements.set("#super-session-clear", fakeClickableButton("Vaciar sesión"));
+    elements.set("#super-session-save-draft", fakeClickableButton("Guardar borrador"));
+    elements.set("#super-session-confirm", fakeClickableButton("Confirmar sesión"));
     elements.set("#super-category-form", superCategoryForm);
     elements.set("#super-category-form button[type='submit']", superCategoryForm.submitButton);
     elements.set("#super-category-feedback", fakeElement());
@@ -3643,6 +3711,9 @@ function fakeSupermarketDom() {
         ],
         warnings: ["Review OCR output before saving"]
     };
+    let activeSession = { id: 12, state: "ACTIVE", expiresAt: "2026-07-27T23:00:00Z", resolvedItems: [], drafts: [] };
+    let nextResolvedItemId = 801;
+    let nextDraftId = 901;
     const api = {
         calls,
         async superCategories() {
@@ -3727,6 +3798,57 @@ function fakeSupermarketDom() {
         async superPriceSources() {
             calls.push({ method: "superPriceSources" });
             return priceSources;
+        },
+        async activeSuperScanSession() {
+            calls.push({ method: "activeSuperScanSession" });
+            return structuredClone(activeSession);
+        },
+        async createActiveSuperScanSession() {
+            calls.push({ method: "createActiveSuperScanSession" });
+            activeSession = { id: activeSession.id + 1, state: "ACTIVE", expiresAt: "2026-07-28T00:00:00Z", resolvedItems: [], drafts: [] };
+            return structuredClone(activeSession);
+        },
+        async queueSuperScanSessionResolvedItem(sessionId, payload) {
+            calls.push({ method: "queueSuperScanSessionResolvedItem", sessionId, payload });
+            activeSession = {
+                ...activeSession,
+                id: Number(sessionId),
+                resolvedItems: [...activeSession.resolvedItems, { id: nextResolvedItemId++, itemId: payload.itemId, itemName: items.find((item) => item.id === payload.itemId)?.name || "Producto", barcodeCode: payload.barcodeCode || null }]
+            };
+            return structuredClone(activeSession);
+        },
+        async createSuperScanSessionDraft(sessionId, payload) {
+            calls.push({ method: "createSuperScanSessionDraft", sessionId, payload });
+            activeSession = {
+                ...activeSession,
+                id: Number(sessionId),
+                drafts: [...activeSession.drafts, { id: nextDraftId++, itemId: payload.itemId, itemName: items.find((item) => item.id === payload.itemId)?.name || "Producto", type: payload.type, quantity: payload.quantity, notes: payload.notes || "", allowNegativeStock: Boolean(payload.allowNegativeStock) }]
+            };
+            return structuredClone(activeSession);
+        },
+        async updateSuperScanSessionDraft(sessionId, draftId, payload) {
+            calls.push({ method: "updateSuperScanSessionDraft", sessionId, draftId, payload });
+            activeSession = {
+                ...activeSession,
+                id: Number(sessionId),
+                drafts: activeSession.drafts.map((draft) => draft.id === Number(draftId) ? { ...draft, ...payload, itemName: draft.itemName, itemId: draft.itemId } : draft)
+            };
+            return structuredClone(activeSession);
+        },
+        async deleteSuperScanSessionDraft(sessionId, draftId) {
+            calls.push({ method: "deleteSuperScanSessionDraft", sessionId, draftId });
+            activeSession = {
+                ...activeSession,
+                id: Number(sessionId),
+                drafts: activeSession.drafts.filter((draft) => draft.id !== Number(draftId))
+            };
+            return structuredClone(activeSession);
+        },
+        async confirmSuperScanSession(sessionId) {
+            calls.push({ method: "confirmSuperScanSession", sessionId });
+            const movements = activeSession.drafts.map((draft) => ({ itemId: draft.itemId, itemName: draft.itemName, movementType: draft.type, quantity: draft.quantity, resultingStock: draft.type === "PURCHASE" ? "3.000" : "0.000", source: "SCAN_SESSION" }));
+            activeSession = { ...activeSession, id: Number(sessionId), state: "CONFIRMED" };
+            return { session: structuredClone(activeSession), movements };
         },
         async createSuperPriceSource(payload) {
             calls.push({ method: "createSuperPriceSource", payload });
@@ -4337,7 +4459,7 @@ function assertSupermarketMutationAfter(supermarketDom, startIndex, expected) {
 
 function assertSupermarketMutationsAfter(supermarketDom, startIndex, expected) {
     const callsAfterAction = supermarketDom.api.calls.slice(startIndex);
-    const mutationCalls = callsAfterAction.filter((call) => !["superCategories", "superItems", "superSuggestedList", "superStockMovements", "superPriceSources", "superPriceObservations"].includes(call.method));
+    const mutationCalls = callsAfterAction.filter((call) => !["superCategories", "superItems", "superSuggestedList", "superStockMovements", "superPriceSources", "superPriceObservations", "activeSuperScanSession"].includes(call.method));
     assert.deepEqual(mutationCalls, expected);
 }
 

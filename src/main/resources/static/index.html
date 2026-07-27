@@ -761,8 +761,8 @@
                 </div>
                 <p class="section-note">El escaneo solo resuelve el producto. Confirmá la compra o el consumo por separado.</p>
                 <div class="super-barcode-action-buttons">
-                    <button id="super-barcode-purchase" data-super-barcode-stock-action="purchase" disabled type="button">Registrar compra</button>
-                    <button id="super-barcode-consume" data-super-barcode-stock-action="consume" disabled type="button" class="secondary-button">Registrar consumo</button>
+                    <button id="super-barcode-purchase" data-super-barcode-stock-action="purchase" aria-controls="super-session-panel" disabled type="button">Registrar compra</button>
+                    <button id="super-barcode-consume" data-super-barcode-stock-action="consume" aria-controls="super-session-panel" disabled type="button" class="secondary-button">Registrar consumo</button>
                 </div>
             </section>
         </section>
@@ -792,7 +792,7 @@
             </div>
             <p class="empty-state" id="super-session-empty">Todavía no hay borradores de sesión para revisar.</p>
             <form class="super-session-draft-form" id="super-session-draft-form" aria-describedby="super-session-summary super-session-status">
-                <fieldset disabled>
+                <fieldset>
                     <label>
                         Producto seleccionado
                         <input id="super-session-item-name" type="text" readonly placeholder="Pendiente de conectar con el escaneo">
@@ -819,10 +819,10 @@
                 </fieldset>
             </form>
             <div class="super-session-actions">
-                <button type="button" class="secondary-button" id="super-session-cancel-draft" disabled>Cancelar edición</button>
+                <button type="button" class="secondary-button" id="super-session-cancel-draft" aria-controls="super-session-draft-form" disabled>Cancelar edición</button>
                 <button type="button" class="secondary-button" id="super-session-clear" disabled>Vaciar sesión</button>
-                <button type="button" class="secondary-button" id="super-session-save-draft" disabled>Guardar borrador</button>
-                <button type="button" id="super-session-confirm" disabled>Confirmar sesión</button>
+                <button type="button" class="secondary-button" id="super-session-save-draft" aria-controls="super-session-draft-form" disabled>Guardar borrador</button>
+                <button type="button" id="super-session-confirm" aria-controls="super-session-lines" disabled>Confirmar sesión</button>
             </div>
         </section>
         <p class="filter-summary" id="super-items-summary" aria-live="polite">No hay productos cargados.</p>

@@ -39,13 +39,13 @@ Chain strategy: stacked-to-main
 ## Phase 3: Integration / Wiring
 
 - [x] 3.1 Add scan-session API helpers in `src/main/resources/static/js/api.js`.
-- [ ] 3.2 Route resolved camera/manual aliases into the session and render the new review panel in `src/main/resources/static/js/supermarket.js`.
-- [ ] 3.3 Add accessible session/draft controls in `src/main/resources/static/index.html` and `src/main/resources/static/css/styles.css`.
+- [x] 3.2 Route resolved camera/manual aliases into the session and render the new review panel in `src/main/resources/static/js/supermarket.js`.
+- [x] 3.3 Add accessible session/draft controls in `src/main/resources/static/index.html` and `src/main/resources/static/css/styles.css`.
 
 ## Phase 4: Testing / Verification
 
 - [ ] 4.1 Add RED tests for draft edit/remove/cancel remaining non-mutating and confirm applying existing movement rules only.
-- [ ] 4.2 Add static contract tests in `src/test/java/com/gentleia/landingtarjetas/StaticUiContractTests.java` and `src/test/resources/static-ui-contract-tests.mjs`.
+- [x] 4.2 Add static contract tests in `src/test/java/com/gentleia/landingtarjetas/StaticUiContractTests.java` and `src/test/resources/static-ui-contract-tests.mjs`.
 - [ ] 4.3 Verify session expiry, wrong-owner rejection, invalid stock, negative-stock denial, and rollback-on-failure scenarios.
 
 ## Phase 5: Cleanup / Documentation

@@ -12,6 +12,7 @@ let superCategoryCount = 0;
 let currentBarcodeAlias = null;
 let selectedPriceObservationItem = null;
 let currentTicketOcrReview = null;
+let currentSuperScanSession = null, editingSuperScanDraftId = null, selectedSuperScanItem = null;
 let superBarcodeScannerState = createSuperBarcodeScannerState();
 
 const SUPER_RECENT_HISTORY_LIMIT = 50;
@@ -39,6 +40,7 @@ export function setupSupermarket({ apiClient = api } = {}) {
     currentBarcodeAlias = null;
     selectedPriceObservationItem = null;
     currentTicketOcrReview = null;
+    currentSuperScanSession = editingSuperScanDraftId = selectedSuperScanItem = null;
     superBarcodeScannerState = createSuperBarcodeScannerState();
 
     applySupermarketFieldLimits();
@@ -61,6 +63,9 @@ export function setupSupermarket({ apiClient = api } = {}) {
     document.querySelector("#super-barcode-scan-stop")?.addEventListener("click", () => stopSuperBarcodeScanner({ nextPhase: "idle", statusMessage: "Escaneo detenido. Podés ingresar el código manualmente." }));
     document.querySelector("#super-barcode-purchase")?.addEventListener("click", handleSuperBarcodeResolvedAction);
     document.querySelector("#super-barcode-consume")?.addEventListener("click", handleSuperBarcodeResolvedAction);
+    document.querySelector("#super-session-save-draft")?.addEventListener("click", saveSuperScanSessionDraft);
+    document.querySelector("#super-session-cancel-draft")?.addEventListener("click", resetSuperScanDraftEditor);
+    document.querySelector("#super-session-confirm")?.addEventListener("click", confirmSuperScanSession);
     document.querySelector("#super-category-toggle")?.addEventListener("click", toggleSuperCategoryTable);
     document.querySelector("#super-generate-list")?.addEventListener("click", generateSuperList);
     document.querySelector("#super-copy-list")?.addEventListener("click", copyGeneratedSuperList);
@@ -118,6 +123,14 @@ export function setupSupermarket({ apiClient = api } = {}) {
             return;
         }
         await handleSuperTicketOcrLineAction(button);
+    });
+
+    document.querySelector("#super-session-lines")?.addEventListener("click", async (event) => {
+        const button = event.target.closest("button[data-super-session-action]");
+        if (!button) {
+            return;
+        }
+        await handleSuperScanSessionLineAction(button);
     });
 
     loadSupermarket();
@@ -608,6 +621,7 @@ async function loadSupermarket() {
         renderSuperSuggestedItems(suggestedItems);
         applySuperBarcodeHighlight(currentBarcodeAlias?.item?.id);
         syncSuperBarcodeResolvedActions();
+        await loadSuperScanSession();
         await loadSuperPriceObservations();
         await loadSuperMovementHistory();
         renderSuperTicketOcrReview();
@@ -1396,7 +1410,202 @@ function handleSuperBarcodeResolvedAction(event) {
         showSuperBarcodeFeedback("Primero resolvé un producto antes de registrar movimientos.", true);
         return;
     }
-    openSuperMovementModal(type, currentBarcodeAlias.item.id);
+    void handoffSuperBarcodeToSession(type, currentBarcodeAlias);
+}
+
+async function loadSuperScanSession() {
+    if (!supermarketApi.activeSuperScanSession) {
+        return;
+    }
+    try {
+        currentSuperScanSession = await supermarketApi.activeSuperScanSession();
+        renderSuperScanSession(currentSuperScanSession);
+    } catch (error) {
+        currentSuperScanSession = null;
+        renderSuperScanSession(null, `No se pudo cargar la sesión de escaneo: ${error.message}`);
+    }
+}
+
+async function handoffSuperBarcodeToSession(type, alias) {
+    const button = type === "purchase" ? document.querySelector("#super-barcode-purchase") : document.querySelector("#super-barcode-consume");
+    const item = alias?.item;
+    if (!item) {
+        return;
+    }
+    try {
+        setButtonBusy(button, true, type === "purchase" ? "Preparando compra..." : "Preparando consumo...");
+        const session = currentSuperScanSession?.id ? currentSuperScanSession : await supermarketApi.createActiveSuperScanSession();
+        currentSuperScanSession = await supermarketApi.queueSuperScanSessionResolvedItem(session.id, { itemId: item.id, barcodeCode: alias?.code || null });
+        currentSuperScanSession = await supermarketApi.createSuperScanSessionDraft(session.id, {
+            itemId: item.id,
+            type: type === "purchase" ? "PURCHASE" : "CONSUMPTION",
+            quantity: item.quickQuantity || "1.000",
+            notes: "",
+            allowNegativeStock: false
+        });
+        const draft = currentSuperScanSession?.drafts?.at?.(-1) || null;
+        renderSuperScanSession(currentSuperScanSession);
+        if (draft) {
+            beginSuperScanDraftEditor(draft);
+        }
+        showSuperSessionFeedback(type === "purchase"
+            ? `${item.name} quedó en revisión dentro de la sesión. Confirmá el lote cuando corresponda.`
+            : `${item.name} quedó en revisión para consumo dentro de la sesión.`);
+    } catch (error) {
+        showSuperSessionFeedback(`No se pudo preparar la sesión de escaneo: ${error.message}`, true);
+    } finally {
+        setButtonBusy(button, false);
+    }
+}
+
+function renderSuperScanSession(session, statusOverride = "") {
+    currentSuperScanSession = session;
+    const drafts = Array.isArray(session?.drafts) ? session.drafts : [];
+    const resolvedItems = Array.isArray(session?.resolvedItems) ? session.resolvedItems : [];
+    const table = document.querySelector("#super-session-lines");
+    const empty = document.querySelector("#super-session-empty");
+    const summary = document.querySelector("#super-session-summary");
+    const status = document.querySelector("#super-session-status");
+    if (summary) {
+        summary.textContent = session?.id
+            ? `Sesión activa #${session.id} · ${drafts.length} ${drafts.length === 1 ? "borrador" : "borradores"} · ${resolvedItems.length} ${resolvedItems.length === 1 ? "alias resuelto" : "alias resueltos"}.`
+            : "La sesión de escaneo no está disponible en este momento.";
+    }
+    if (status) {
+        status.textContent = statusOverride || (drafts.length ? "Editá, quitá y confirmá los borradores desde este panel." : "Sesión lista. Sumá un producto resuelto desde el ingreso manual o la cámara.");
+    }
+    if (table) {
+        table.innerHTML = "";
+        drafts.forEach((draft) => {
+            const row = document.createElement("tr");
+            row.innerHTML = superScanSessionDraftRowHtml(draft);
+            table.append(row);
+        });
+    }
+    if (empty) {
+        empty.hidden = drafts.length > 0;
+    }
+    syncSuperScanSessionControls();
+}
+
+function superScanSessionDraftRowHtml(draft) {
+    return `
+        <td data-label="Producto">${escapeHtml(draft.itemName || "Producto")}</td>
+        <td data-label="Movimiento">${escapeHtml(draft.type === "PURCHASE" ? "Compra" : "Consumo")}</td>
+        <td data-label="Cantidad">${escapeHtml(String(draft.quantity || "—"))}</td>
+        <td data-label="Notas">${draft.notes ? escapeHtml(draft.notes) : "—"}</td>
+        <td data-label="Acciones">
+            <div class="row-actions">
+                <button type="button" class="secondary-button" data-super-session-action="edit" data-super-session-draft-id="${escapeHtml(String(draft.id || ""))}">Editar</button>
+                <button type="button" class="danger-button" data-super-session-action="delete" data-super-session-draft-id="${escapeHtml(String(draft.id || ""))}">Quitar</button>
+            </div>
+        </td>
+    `;
+}
+
+function beginSuperScanDraftEditor(draft) {
+    editingSuperScanDraftId = draft?.id || null;
+    selectedSuperScanItem = draft ? { id: draft.itemId, name: draft.itemName || "Producto" } : null;
+    document.querySelector("#super-session-item-name").value = selectedSuperScanItem?.name || "";
+    document.querySelector("#super-session-draft-type").value = draft?.type || "PURCHASE";
+    document.querySelector("#super-session-draft-quantity").value = draft?.quantity || "";
+    document.querySelector("#super-session-draft-notes").value = draft?.notes || "";
+    document.querySelector("#super-session-draft-allow-negative").checked = Boolean(draft?.allowNegativeStock);
+    syncSuperScanSessionControls();
+}
+
+function resetSuperScanDraftEditor() {
+    editingSuperScanDraftId = null;
+    selectedSuperScanItem = null;
+    document.querySelector("#super-session-item-name").value = document.querySelector("#super-session-draft-quantity").value = document.querySelector("#super-session-draft-notes").value = "";
+    document.querySelector("#super-session-draft-type").value = "PURCHASE";
+    document.querySelector("#super-session-draft-allow-negative").checked = false;
+    syncSuperScanSessionControls();
+}
+
+function syncSuperScanSessionControls() {
+    const hasDrafts = Boolean(currentSuperScanSession?.drafts?.length);
+    const hasSelectedItem = Boolean(selectedSuperScanItem?.id);
+    const cancel = document.querySelector("#super-session-cancel-draft"), save = document.querySelector("#super-session-save-draft"), confirm = document.querySelector("#super-session-confirm");
+    if (cancel) cancel.disabled = !hasSelectedItem;
+    if (save) save.disabled = !hasSelectedItem;
+    if (confirm) confirm.disabled = !hasDrafts;
+}
+
+async function handleSuperScanSessionLineAction(button) {
+    const draftId = Number(button.dataset.superSessionDraftId || 0);
+    const draft = currentSuperScanSession?.drafts?.find((candidate) => Number(candidate.id) === draftId);
+    if (!draft) {
+        return;
+    }
+    if (button.dataset.superSessionAction === "edit") {
+        beginSuperScanDraftEditor(draft);
+        return;
+    }
+    if (button.dataset.superSessionAction === "delete") {
+        await deleteSuperScanSessionDraft(draftId, button);
+    }
+}
+
+async function saveSuperScanSessionDraft() {
+    if (!currentSuperScanSession?.id || !selectedSuperScanItem?.id || !editingSuperScanDraftId) {
+        showSuperSessionFeedback("Primero agregá un producto resuelto a la sesión para editar su borrador.", true);
+        return;
+    }
+    const quantity = String(document.querySelector("#super-session-draft-quantity")?.value || "").trim();
+    if (!Number.isFinite(Number(quantity)) || Number(quantity) <= 0) {
+        showSuperSessionFeedback("La cantidad del borrador debe ser mayor que cero.", true);
+        return;
+    }
+    const button = document.querySelector("#super-session-save-draft");
+    try {
+        setButtonBusy(button, true, "Guardando...");
+        currentSuperScanSession = await supermarketApi.updateSuperScanSessionDraft(currentSuperScanSession.id, editingSuperScanDraftId, {
+            itemId: selectedSuperScanItem.id,
+            type: document.querySelector("#super-session-draft-type")?.value || "PURCHASE",
+            quantity,
+            notes: String(document.querySelector("#super-session-draft-notes")?.value || "").trim(),
+            allowNegativeStock: Boolean(document.querySelector("#super-session-draft-allow-negative")?.checked)
+        });
+        renderSuperScanSession(currentSuperScanSession, "Borrador actualizado. La sesión sigue sin mover stock hasta confirmar.");
+    } catch (error) {
+        showSuperSessionFeedback(`No se pudo guardar el borrador: ${error.message}`, true);
+    } finally {
+        setButtonBusy(button, false);
+    }
+}
+
+async function deleteSuperScanSessionDraft(draftId, button) {
+    try {
+        setButtonBusy(button, true, "Quitando...");
+        currentSuperScanSession = await supermarketApi.deleteSuperScanSessionDraft(currentSuperScanSession.id, draftId);
+        renderSuperScanSession(currentSuperScanSession, "Borrador quitado. El stock no cambió.");
+        if (editingSuperScanDraftId === draftId) {
+            resetSuperScanDraftEditor();
+        }
+    } catch (error) {
+        showSuperSessionFeedback(`No se pudo quitar el borrador: ${error.message}`, true);
+    } finally {
+        setButtonBusy(button, false);
+    }
+}
+
+async function confirmSuperScanSession() {
+    if (!currentSuperScanSession?.id || !currentSuperScanSession?.drafts?.length) {
+        return;
+    }
+    const button = document.querySelector("#super-session-confirm");
+    try {
+        setButtonBusy(button, true, "Confirmando...");
+        await supermarketApi.confirmSuperScanSession(currentSuperScanSession.id);
+        resetSuperScanDraftEditor();
+        await loadSupermarket();
+        showSuperSessionFeedback("Sesión confirmada. Los movimientos se aplicaron recién en este paso.");
+    } catch (error) {
+        showSuperSessionFeedback(`No se pudo confirmar la sesión: ${error.message}`, true);
+    } finally {
+        setButtonBusy(button, false);
+    }
 }
 
 function shouldAdjustSuperItemStock(currentStock) {
@@ -2250,6 +2459,10 @@ function showSuperCategoryFeedback(message, isError = false, isLoading = false) 
 
 function showSuperBarcodeFeedback(message, isError = false, isLoading = false) {
     showFeedback("#super-barcode-feedback", message, isError, isLoading);
+}
+
+function showSuperSessionFeedback(message, isError = false, isLoading = false) {
+    showFeedback("#super-session-status", message, isError, isLoading);
 }
 
 function showSuperMovementFeedback(message, isError = false, isLoading = false) {

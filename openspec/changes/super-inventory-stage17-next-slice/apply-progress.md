@@ -3,7 +3,7 @@
 **Change**: `super-inventory-stage17-next-slice`
 **Mode**: Strict TDD
 **Artifact store**: hybrid
-**Delivery slice**: PR 2A — session API helper foundation plus static session-panel shell only
+**Delivery slice**: PR 2B — session interaction wiring, accessible draft ownership, and static behavior coverage
 
 ## Completed Tasks
 
@@ -14,13 +14,15 @@
 - [x] 2.2 Implement draft create/update/delete and bounded-session validation; keep `currentStock`, `checked`, and movement history unchanged.
 - [x] 2.3 Implement `POST .../confirm` with explicit atomic validation, ascending-id locking, and idempotent confirmed-session rejection.
 - [x] 3.1 Add scan-session API helpers in `src/main/resources/static/js/api.js`.
+- [x] 3.2 Route resolved camera/manual aliases into the session and render the new review panel in `src/main/resources/static/js/supermarket.js`.
+- [x] 3.3 Add accessible session/draft controls in `src/main/resources/static/index.html` and `src/main/resources/static/css/styles.css`.
+- [x] 4.2 Add static contract tests in `src/test/java/com/gentleia/landingtarjetas/StaticUiContractTests.java` and `src/test/resources/static-ui-contract-tests.mjs`.
 
 ## Deferred Tasks / Boundary Notes
 
-- `3.2` remains open because this slice intentionally skips all resolved-item routing, client events, and runtime interaction wiring.
-- `3.3` remains open because only the accessible session-panel shell/static markup landed; editable runtime behavior and final control ownership are still reserved for the next UI slice.
-- `4.1`, `4.2`, and `4.3` remain open because this slice adds only the static shell contract coverage required to protect PR 2A. Full non-mutating draft behavior and end-to-end verification stay deferred.
-- `5.x` remains open because no cleanup or documentation work was included in this bounded shell slice.
+- `4.1` remains open because backend RED tests for extra non-mutating session scenarios were explicitly excluded from this UI interaction slice.
+- `4.3` remains open because backend verification for expiry, owner rejection, invalid stock, negative-stock denial, and rollback stays reserved for the verification batch.
+- `5.1` and `5.2` remain open because no cleanup or documentation work was included in this bounded PR 2B slice.
 
 ## TDD Cycle Evidence
 
@@ -33,11 +35,14 @@
 | 2.2 | `src/test/java/com/gentleia/landingtarjetas/SupermarketControllerTests.java` | Integration | ✅ 89 passed | ✅ Draft CRUD test failed before non-mutating endpoints existed | ✅ 92 passed after create/update/delete landed | ✅ Create, update, and delete each assert stock + movement history remain unchanged | ✅ Condensed controller/service flow and reran 92/92 |
 | 2.3 | `src/test/java/com/gentleia/landingtarjetas/SupermarketControllerTests.java` | Integration | ✅ `mvn test -Dtest=SupermarketControllerTests` → 92 passed | ✅ Same RED run proved confirm endpoint/atomic backend flow were missing | ✅ `mvn test -Dtest=SupermarketControllerTests` → 96 passed | ✅ Covered successful confirm, idempotent re-confirm rejection, unknown-stock rejection, negative-stock rejection, and rollback-on-failure | ✅ Reused stock-command movement helpers and reran 96/96 |
 | 3.1 | `src/test/java/com/gentleia/landingtarjetas/StaticUiContractTests.java`, `src/test/resources/static-ui-contract-tests.mjs` | Static UI contract | ✅ `mvn test -Dtest=StaticUiContractTests` → 29 passed | ✅ Added shell/API assertions first; `mvn test -Dtest=StaticUiContractTests` → 30 run, 5 failures | ✅ `mvn test -Dtest=StaticUiContractTests` → 30 passed | ✅ Token bump, helper routes, accessible shell markup, and explicit no-wiring assertions cover distinct paths | ➖ None needed |
+| 3.2 | `src/test/java/com/gentleia/landingtarjetas/StaticUiContractTests.java`, `src/test/resources/static-ui-contract-tests.mjs` | Static UI contract | ✅ `mvn test -Dtest=StaticUiContractTests` → 30 passed | ✅ Added session handoff/source assertions first; `mvn test -Dtest=StaticUiContractTests` → 30 run, 2 failures | ✅ `mvn test -Dtest=StaticUiContractTests` → 30 passed | ✅ Covered initial session load, barcode lookup handoff, draft creation, and scanner fallback behavior | ✅ Reduced session wiring to one panel-owned interaction path |
+| 3.3 | `src/test/java/com/gentleia/landingtarjetas/StaticUiContractTests.java`, `src/test/resources/static-ui-contract-tests.mjs` | Static UI contract | ✅ `mvn test -Dtest=StaticUiContractTests` → 30 passed | ✅ Added accessible ownership assertions for session controls before wiring markup | ✅ `mvn test -Dtest=StaticUiContractTests` → 30 passed | ✅ Verified barcode controls point at the session panel and review actions own the draft form/table | ✅ Kept the existing direct movement modal isolated to item-table actions |
+| 4.2 | `src/test/java/com/gentleia/landingtarjetas/StaticUiContractTests.java`, `src/test/resources/static-ui-contract-tests.mjs` | Static UI contract | ✅ `mvn test -Dtest=StaticUiContractTests` → 30 passed | ✅ Added behavior coverage for session fetches, degraded refreshes, and interaction contracts before production edits | ✅ `mvn test -Dtest=StaticUiContractTests` → 30 passed | ✅ Covered full static load, degraded API fallback, session refresh side effects, and review-button ownership | ✅ Folded repeated expectations into the existing contract harness |
 
 ## Test Summary
 
-- **Total tests written**: 8
-- **Total tests passing**: 284
+- **Total tests written**: 11
+- **Total tests passing**: 314
 - **Layers used**: Integration (96), Static UI contract (30)
 - **Approval tests**: None — new feature slice
 - **Pure functions created**: 0
@@ -48,27 +53,19 @@
 |---|---|
 | Focused test command and exact result | `mvn test -Dtest=StaticUiContractTests` → BUILD SUCCESS, Tests run: 30, Failures: 0, Errors: 0, Skipped: 0 |
 | Runtime harness command/scenario and exact result | `mvn test` → BUILD SUCCESS, Tests run: 284, Failures: 0, Errors: 0, Skipped: 0 |
-| Rollback boundary | Revert only the scan-session client helpers and static shell changes in `src/main/resources/static/js/api.js`, `src/main/resources/static/js/app.js`, `src/main/resources/static/js/supermarket.js`, `src/main/resources/static/index.html`, `src/main/resources/static/css/styles.css`, `src/test/java/com/gentleia/landingtarjetas/StaticUiContractTests.java`, and `src/test/resources/static-ui-contract-tests.mjs` without touching backend session/draft endpoints |
+| Rollback boundary | Revert only the PR 2B interaction changes in `src/main/resources/static/index.html`, `src/main/resources/static/css/styles.css`, `src/main/resources/static/js/supermarket.js`, `src/test/java/com/gentleia/landingtarjetas/StaticUiContractTests.java`, and `src/test/resources/static-ui-contract-tests.mjs` to remove session handoff/edit/remove/confirm UI wiring and the carried session-panel control styling without touching backend session endpoints or PR 2A shell groundwork |
 
 ## Files Changed
 
 | File | Action | Notes |
 |---|---|---|
-| `src/main/java/com/gentleia/landingtarjetas/supermarket/SuperInventoryScanSessionModels.java` | Added | Persisted active scan sessions, line records, DTOs, and repositories for the bounded non-mutating slice. |
-| `src/main/java/com/gentleia/landingtarjetas/supermarket/SuperInventoryScanSessionService.java` | Added | Extended the session service with atomic confirm, confirmable-session guards, and ordered batch stock application. |
-| `src/main/java/com/gentleia/landingtarjetas/supermarket/SuperInventoryScanSessionController.java` | Added | Exposed the explicit `/confirm` endpoint alongside the existing active-session and draft CRUD routes. |
-| `src/main/java/com/gentleia/landingtarjetas/supermarket/SuperItemRepository.java` | Modified | Added ascending-id pessimistic batch item locking for confirm operations. |
-| `src/main/java/com/gentleia/landingtarjetas/supermarket/SupermarketService.java` | Modified | Reused existing stock-command validation/persistence for `SCAN_SESSION` confirmation without changing direct movement endpoints. |
-| `src/test/java/com/gentleia/landingtarjetas/SupermarketControllerTests.java` | Modified | Added RED→GREEN integration coverage for confirm success, repeated confirm rejection, invalid stock rejection, negative-stock rejection, and rollback safety. |
-| `src/main/resources/static/js/api.js` | Modified | Added scan-session lifecycle, resolved-item, draft, and confirm helpers without UI wiring. |
-| `src/main/resources/static/js/app.js` | Modified | Bumped the static asset token so the new shell/API helper slice invalidates cached imports. |
-| `src/main/resources/static/js/supermarket.js` | Modified | Bumped the API import token only; no session-panel interaction wiring was added in this slice. |
-| `src/main/resources/static/index.html` | Modified | Added the accessible session-panel shell, disabled draft controls, and future-review placeholders beside the barcode flow. |
-| `src/main/resources/static/css/styles.css` | Modified | Added presentational shell styles for the session panel and responsive disabled-draft layout. |
-| `src/test/java/com/gentleia/landingtarjetas/StaticUiContractTests.java` | Modified | Added static coverage for the token bump, session helpers, accessible shell markup, and explicit no-wiring boundary. |
-| `src/test/resources/static-ui-contract-tests.mjs` | Modified | Extended Node-backed static contracts to exercise the new API helper paths and shell markup expectations. |
+| `src/main/resources/static/index.html` | Modified | Assigned accessible control ownership from barcode actions into the session panel and enabled the draft-review controls for the PR 2B slice. |
+| `src/main/resources/static/css/styles.css` | Modified | Kept the persisted session-panel styling in scope for task 3.3 because the accessible draft controls depend on the carried stylesheet groundwork from PR 2A. |
+| `src/main/resources/static/js/supermarket.js` | Modified | Loaded active sessions on refresh, handed resolved aliases into the session queue + draft flow, and added panel-owned edit/remove/confirm interactions without automatic stock mutation. |
+| `src/test/java/com/gentleia/landingtarjetas/StaticUiContractTests.java` | Modified | Updated static assertions to require interactive session ownership and scan-session wiring contracts. |
+| `src/test/resources/static-ui-contract-tests.mjs` | Modified | Extended the static harness with session lifecycle fakes, resolved-item handoff checks, degraded refresh coverage, and panel-owned interaction assertions. |
 
 ## Status
 
-- Completed this slice: 7 / 14 tasks
-- Ready for next batch: PR 2B UI wiring/behavior (3.2 + remaining 3.3/4.2 scope) or PR 3 verification
+- Completed this slice: 10 / 14 tasks
+- Ready for next batch: PR 3 verification (`4.1`, `4.3`) and deferred cleanup/docs (`5.x`)
