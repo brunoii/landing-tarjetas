@@ -921,6 +921,78 @@ td {
     margin: 0.85rem 0;
 }
 
+.super-ticket-ocr-card {
+    margin-top: 1rem;
+    border-color: rgba(250, 204, 21, 0.32);
+    background: rgba(250, 204, 21, 0.05);
+}
+
+.super-ticket-ocr-upload-form,
+.super-ticket-ocr-confirm-form {
+    display: grid;
+    gap: 0.85rem;
+}
+
+.super-ticket-ocr-upload-form {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: end;
+}
+
+.super-ticket-ocr-confirm-form {
+    grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+}
+
+.super-ticket-ocr-review-grid {
+    display: grid;
+    gap: 1rem;
+    margin-top: 1rem;
+}
+
+.super-ticket-ocr-meta {
+    display: grid;
+    gap: 0.35rem;
+    margin-bottom: 0.75rem;
+}
+
+.super-ticket-ocr-meta small {
+    color: var(--muted);
+}
+
+.super-ticket-ocr-warning-list,
+.super-ticket-ocr-selected-warnings {
+    display: grid;
+    gap: 0.4rem;
+    padding-left: 1.2rem;
+}
+
+.super-ticket-ocr-warning-list {
+    margin-bottom: 0;
+}
+
+.super-ticket-ocr-selected-warnings {
+    grid-column: 1 / -1;
+    margin: 0;
+}
+
+.super-ticket-ocr-table-wrap table {
+    min-width: 860px;
+}
+
+.super-ticket-ocr-status {
+    display: inline-flex;
+    border: 1px solid rgba(250, 204, 21, 0.36);
+    border-radius: 999px;
+    padding: 0.2rem 0.55rem;
+    color: var(--warning);
+    font-size: 0.76rem;
+    font-weight: 800;
+}
+
+.super-ticket-ocr-status.confirmed {
+    border-color: rgba(134, 239, 172, 0.42);
+    color: var(--success);
+}
+
 .super-item-barcode-match {
     outline: 2px solid rgba(125, 211, 252, 0.86);
     outline-offset: -2px;
@@ -1273,6 +1345,8 @@ td {
     .category-form,
     .super-barcode-form,
     .super-price-source-form,
+    .super-ticket-ocr-upload-form,
+    .super-ticket-ocr-confirm-form,
     .super-category-form,
     .super-item-form,
     .supermarket-layout,
@@ -1417,6 +1491,8 @@ td {
     .category-form,
     .super-barcode-form,
     .super-price-source-form,
+    .super-ticket-ocr-upload-form,
+    .super-ticket-ocr-confirm-form,
     .super-category-form,
     .super-item-form,
     .upload-form,

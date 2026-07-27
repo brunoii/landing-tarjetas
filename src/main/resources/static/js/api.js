@@ -251,6 +251,11 @@ export const api = {
             body: JSON.stringify(payload)
         });
     },
+    uploadSuperTicketOcrCandidates(file) {
+        const formData = new FormData();
+        formData.append("file", file);
+        return uploadRequest("/api/super/ticket-ocr/candidates", formData);
+    },
     createSuperItemPriceObservation(id, payload) {
         return request(`/api/super/items/${id}/price-observations`, {
             method: "POST",

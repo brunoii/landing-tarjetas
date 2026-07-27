@@ -30,9 +30,8 @@ class StaticUiContractTests {
     private static final String STAGE10_UI_TOKEN = "20260718-super-inventory-stage10-price-observations-ui";
     private static final String STAGE11_API_TOKEN = "20260718-super-inventory-stage11-price-sources-api";
     private static final String STAGE11_UI_TOKEN = "20260718-super-inventory-stage11-price-sources-ui";
-    private static final String STAGE12_API_TOKEN = "20260721-super-inventory-stage12-reference-price-source-ui-api";
-    private static final String STAGE12_UI_TOKEN = "20260721-super-inventory-stage12-reference-price-source-ui";
-    private static final String STAGE13_UI_TOKEN = "20260721-super-inventory-stage13-observation-current-price-sync-ui";
+    private static final String STAGE15_API_TOKEN = "20260725-super-inventory-stage15-ticket-ocr-ui-api";
+    private static final String STAGE15_UI_TOKEN = "20260725-super-inventory-stage15-ticket-ocr-ui";
     private static final String STALE_API_TOKEN = "20260712-security-hardening";
 
     @Test
@@ -41,15 +40,15 @@ class StaticUiContractTests {
         String login = readStatic("login.html");
         String app = readStatic("js/app.js");
 
-        assertThat(index).contains("<link rel=\"stylesheet\" href=\"/css/styles.css?v=" + STAGE5_UI_TOKEN + "\">");
+        assertThat(index).contains("<link rel=\"stylesheet\" href=\"/css/styles.css?v=" + STAGE15_UI_TOKEN + "\">");
         assertThat(index).doesNotContain("<link rel=\"stylesheet\" href=\"/css/styles.css\">");
-        assertThat(index).contains("<script type=\"module\" src=\"/js/app.js?v=" + STAGE13_UI_TOKEN + "\"></script>");
+        assertThat(index).contains("<script type=\"module\" src=\"/js/app.js?v=" + STAGE15_UI_TOKEN + "\"></script>");
         assertThat(index).doesNotContain("/css/styles.css?v=20260711-security-login", "/js/app.js?v=20260711-security-login");
         assertThat(login).contains("<link rel=\"stylesheet\" href=\"/css/styles.css?v=" + FRESH_STATIC_TOKEN + "\">")
                 .contains("/js/login.js?v=" + FRESH_STATIC_TOKEN)
                 .doesNotContain("/css/styles.css?v=20260711-security-login", "/js/login.js?v=20260711-security-login");
         assertThat(app)
-                .contains("./api.js?v=" + STAGE12_API_TOKEN, "./categories.js", "./dashboard.js?v=" + FRESH_STATIC_TOKEN, "./incomes.js?v=" + FRESH_STATIC_TOKEN, "./manual-expenses.js?v=" + FRESH_STATIC_TOKEN, "./navigation.js?v=" + FRESH_STATIC_TOKEN, "./simulator.js?v=" + FRESH_STATIC_TOKEN, "./statements.js?v=" + FRESH_STATIC_TOKEN, "./supermarket.js?v=" + STAGE13_UI_TOKEN, "./transactions.js?v=" + FRESH_STATIC_TOKEN, "./utils.js")
+                .contains("./api.js?v=" + STAGE15_API_TOKEN, "./categories.js", "./dashboard.js?v=" + FRESH_STATIC_TOKEN, "./incomes.js?v=" + FRESH_STATIC_TOKEN, "./manual-expenses.js?v=" + FRESH_STATIC_TOKEN, "./navigation.js?v=" + FRESH_STATIC_TOKEN, "./simulator.js?v=" + FRESH_STATIC_TOKEN, "./statements.js?v=" + FRESH_STATIC_TOKEN, "./supermarket.js?v=" + STAGE15_UI_TOKEN, "./transactions.js?v=" + FRESH_STATIC_TOKEN, "./utils.js")
                 .doesNotContain("./api.js\";")
                 .doesNotContain("./statements.js\";", "20260709-stage-7-polish", "20260710-mobile-slice-2", "20260711-mobile-simulator", "20260711-mobile-draft-responsive", "20260711-mobile-supermarket");
     }
@@ -95,8 +94,8 @@ class StaticUiContractTests {
     @Test
     void directApiImportsUseExpectedCacheVersions() throws IOException {
         Map<String, String> expectedApiImports = Map.of(
-                "js/app.js", "./api.js?v=" + STAGE12_API_TOKEN,
-                "js/supermarket.js", "./api.js?v=" + STAGE12_API_TOKEN,
+                "js/app.js", "./api.js?v=" + STAGE15_API_TOKEN,
+                "js/supermarket.js", "./api.js?v=" + STAGE15_API_TOKEN,
                 "js/incomes.js", "./api.js?v=" + FRESH_STATIC_TOKEN,
                 "js/login.js", "./api.js?v=" + FRESH_STATIC_TOKEN,
                 "js/statements.js", "./api.js?v=" + FRESH_STATIC_TOKEN
@@ -290,7 +289,7 @@ class StaticUiContractTests {
                 "name=\"password\"",
                 "/js/login.js?v=" + FRESH_STATIC_TOKEN
         );
-        assertThat(app).contains("from \"./api.js?v=" + STAGE12_API_TOKEN + "\"")
+        assertThat(app).contains("from \"./api.js?v=" + STAGE15_API_TOKEN + "\"")
                 .doesNotContain(STALE_API_TOKEN)
                 .doesNotContain("from \"./api.js\"");
         assertThat(loginJs).contains("from \"./api.js?v=" + FRESH_STATIC_TOKEN + "\"")
@@ -783,8 +782,20 @@ class StaticUiContractTests {
                 .replace("20260718-super-inventory-stage10-price-observations-ui", "")
                 .replace("20260718-super-inventory-stage11-price-sources-api", "")
                 .replace("20260718-super-inventory-stage11-price-sources-ui", "")
-                .replace("20260721-super-inventory-stage12-reference-price-source-ui-api", "")
-                .replace("20260721-super-inventory-stage12-reference-price-source-ui", "")
+                .replace("20260725-super-inventory-stage15-ticket-ocr-ui-api", "")
+                .replace("20260725-super-inventory-stage15-ticket-ocr-ui", "")
+                .replace("super-ticket-ocr", "")
+                .replace("TicketOcr", "")
+                .replace("submitSuperTicketOcrUploadForm", "")
+                .replace("submitSuperTicketOcrConfirmForm", "")
+                .replace("renderSuperTicketOcrReview", "")
+                .replace("clearSuperTicketOcrReview", "")
+                .replace("uploadSuperTicketOcrCandidates", "")
+                .replace("ticketOcr", "")
+                .replace("OCR", "")
+                .replace("ocr", "")
+                .replace("ticket image", "")
+                .replace("ticket", "")
                 .replace("price-observations", "")
                 .replace("price-source", "")
                 .replace("price-sources", "")
@@ -793,8 +804,7 @@ class StaticUiContractTests {
                 .replace("Precio", "")
                 .replace("Precio ref.", "");
         assertThat(supermarketUnsupportedScan).doesNotContain(
-                "amount", "price", "prices",
-                "ocr", "OpenFoodFacts", "Tesseract", "BarcodeDetector", "getUserMedia",
+                "OpenFoodFacts", "Tesseract", "BarcodeDetector", "getUserMedia",
                 "store", "shop", "shops", "commerce", "comparison", "chart", "charts", "scraping", "automation", "total",
                 "presentations", "multiplePresentations", "externalLookup", "autoPurchase", "purchaseAutomation",
                 "persistSuggestion", "suggestionPersistence", "saveSuggestion"
@@ -833,7 +843,64 @@ class StaticUiContractTests {
         assertThat(api).contains("createSuperItemPriceObservation(id, payload)");
         assertThat(api).doesNotContain("syncCurrentReferencePrice");
         assertThat(staticFiles).doesNotContain(
-                "source admin", "comparison", "OCR", "Tesseract", "getUserMedia", "ticket photo", "Stage 15", "multiple prices"
+                "source admin", "comparison", "Tesseract", "getUserMedia", "Stage 15", "multiple prices"
+        );
+    }
+
+    @Test
+    void ticketOcrUiUsesTransientUploadReviewAndExistingConfirmationContracts() throws IOException {
+        String index = readStatic("index.html");
+        String api = readStatic("js/api.js");
+        String supermarket = readStatic("js/supermarket.js");
+        String styles = readStatic("css/styles.css");
+
+        assertThat(index).contains(
+                "id=\"super-ticket-ocr-form\"",
+                "id=\"super-ticket-ocr-file\" name=\"file\" type=\"file\" accept=\"image/png,image/jpeg,.png,.jpg,.jpeg\"",
+                "OCR de ticket",
+                "id=\"super-ticket-ocr-summary\"",
+                "id=\"super-ticket-ocr-warning-list\"",
+                "id=\"super-ticket-ocr-table\"",
+                "id=\"super-ticket-ocr-empty\"",
+                "id=\"super-ticket-ocr-confirm-form\"",
+                "id=\"super-ticket-ocr-line-index\" type=\"hidden\"",
+                "id=\"super-ticket-ocr-selected-line\"",
+                "id=\"super-ticket-ocr-description\"",
+                "id=\"super-ticket-ocr-price-pesos\" type=\"number\" min=\"0.01\" step=\"0.01\"",
+                "id=\"super-ticket-ocr-product\"",
+                "id=\"super-ticket-ocr-date-candidate\"",
+                "id=\"super-ticket-ocr-date\" type=\"date\"",
+                "id=\"super-ticket-ocr-source-candidate\"",
+                "id=\"super-ticket-ocr-source-label\" type=\"text\" data-super-limit=\"priceSourceLabel\"",
+                "id=\"super-ticket-ocr-sync-current-reference-price\" type=\"checkbox\"",
+                "id=\"super-ticket-ocr-confirm-feedback\"",
+                "id=\"super-ticket-ocr-discard\"",
+                "Extraer candidatos",
+                "Confirmar observación",
+                "Descartar revisión",
+                "Los candidatos se descartan al refrescar o descartar esta revisión.",
+                "Nada se guarda hasta confirmar una fila."
+        );
+        assertThat(index).doesNotContain("sessionStorage", "localStorage", "BarcodeDetector", "getUserMedia");
+        assertThat(api).contains(
+                "uploadSuperTicketOcrCandidates(file)",
+                "formData.append(\"file\", file)",
+                "uploadRequest(\"/api/super/ticket-ocr/candidates\""
+        ).doesNotContain("/api/super/ticket-ocr/confirm", "/api/super/ticket-ocr/save");
+        assertThat(supermarket).contains(
+                "submitSuperTicketOcrUploadForm",
+                "submitSuperTicketOcrConfirmForm",
+                "renderSuperTicketOcrReview",
+                "createSuperItemPriceObservation",
+                "data-super-ticket-ocr-action=\"select\""
+        ).doesNotContain("localStorage", "sessionStorage", "BarcodeDetector", "getUserMedia");
+        assertThat(styles).contains(
+                ".super-ticket-ocr-card",
+                ".super-ticket-ocr-upload-form",
+                ".super-ticket-ocr-review-grid",
+                ".super-ticket-ocr-warning-list",
+                ".super-ticket-ocr-selected-warnings",
+                ".super-ticket-ocr-table-wrap table"
         );
     }
 

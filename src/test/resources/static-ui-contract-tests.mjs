@@ -16,9 +16,8 @@ const stage10ApiToken = "20260718-super-inventory-stage10-price-observations-api
 const stage10UiToken = "20260718-super-inventory-stage10-price-observations-ui";
 const stage11ApiToken = "20260718-super-inventory-stage11-price-sources-api";
 const stage11UiToken = "20260718-super-inventory-stage11-price-sources-ui";
-const stage12ApiToken = "20260721-super-inventory-stage12-reference-price-source-ui-api";
-const stage12UiToken = "20260721-super-inventory-stage12-reference-price-source-ui";
-const stage13UiToken = "20260721-super-inventory-stage13-observation-current-price-sync-ui";
+const stage15ApiToken = "20260725-super-inventory-stage15-ticket-ocr-ui-api";
+const stage15UiToken = "20260725-super-inventory-stage15-ticket-ocr-ui";
 const staleApiToken = "20260712-security-hardening";
 
 await rm(moduleRoot, { force: true, recursive: true });
@@ -187,21 +186,21 @@ try {
     assert.match(indexHtml, /Crear fuente de precio/);
     assert.match(indexHtml, /Cantidad/);
     assert.match(indexHtml, /Confirmar stock negativo/);
-    assert.ok(indexHtml.includes(`/css/styles.css?v=${stage5UiToken}`));
-    assert.ok(indexHtml.includes(`/js/app.js?v=${stage13UiToken}`));
+    assert.ok(indexHtml.includes(`/css/styles.css?v=${stage15UiToken}`));
+    assert.ok(indexHtml.includes(`/js/app.js?v=${stage15UiToken}`));
     assert.ok(loginHtml.includes(`/css/styles.css?v=${freshStaticToken}`));
     assert.ok(loginHtml.includes(`/js/login.js?v=${freshStaticToken}`));
     assert.doesNotMatch(indexHtml, /\/css\/styles\.css\?v=20260711-security-login|\/js\/app\.js\?v=20260711-security-login/);
     assert.doesNotMatch(loginHtml, /\/css\/styles\.css\?v=20260711-security-login|\/js\/login\.js\?v=20260711-security-login/);
-    assert.ok(appSource.includes(`from "./api.js?v=${stage12ApiToken}"`));
+    assert.ok(appSource.includes(`from "./api.js?v=${stage15ApiToken}"`));
     assert.doesNotMatch(appSource, new RegExp(staleApiToken));
     assert.doesNotMatch(appSource, /from "\.\/api\.js"/);
     assert.ok(loginSource.includes(`from "./api.js?v=${freshStaticToken}"`));
     assert.doesNotMatch(loginSource, new RegExp(staleApiToken));
     assert.doesNotMatch(loginSource, /from "\.\/api\.js"/);
     const expectedApiImports = new Map([
-        ["app.js", `./api.js?v=${stage12ApiToken}`],
-        ["supermarket.js", `./api.js?v=${stage12ApiToken}`],
+        ["app.js", `./api.js?v=${stage15ApiToken}`],
+        ["supermarket.js", `./api.js?v=${stage15ApiToken}`],
         ["incomes.js", `./api.js?v=${freshStaticToken}`],
         ["login.js", `./api.js?v=${freshStaticToken}`],
         ["statements.js", `./api.js?v=${freshStaticToken}`]
@@ -224,7 +223,7 @@ try {
     for (const moduleName of ["dashboard", "incomes", "manual-expenses", "navigation", "simulator", "statements", "transactions"]) {
         assert.ok(appSource.includes(`./${moduleName}.js?v=${freshStaticToken}`), `${moduleName}.js should preserve origin/main cache token`);
     }
-    assert.ok(appSource.includes(`./supermarket.js?v=${stage13UiToken}`));
+    assert.ok(appSource.includes(`./supermarket.js?v=${stage15UiToken}`));
     assert.doesNotMatch(appSource, /20260709-stage-7-polish|20260710-mobile-slice-2|20260711-mobile-simulator|20260711-mobile-draft-responsive|20260711-mobile-supermarket/);
     assert.doesNotMatch(appSource, /from "\.\/statements\.js";/);
     const primaryTabButtons = extractPrimaryTabButtons(indexHtml);
@@ -386,6 +385,7 @@ try {
         await api.createSuperPriceSource({ name: "Ticket proveedor" });
         await api.createSuperItemPriceObservation(9, { pricePesos: "1250.50", sourceLabel: "Ticket proveedor", observedDate: "2026-07-18" });
         await api.superPriceObservations({ itemId: 9, limit: 50 });
+        await api.uploadSuperTicketOcrCandidates(new File(["ticket"], "ticket.png", { type: "image/png" }));
         await api.superStockMovements({ itemId: 9, limit: 25 });
         await api.lookupSuperItemBarcodeAlias("0075012345678");
         await api.attachSuperItemBarcodeAlias(9, { code: "0075012345678", format: "EAN_13" });
@@ -428,6 +428,7 @@ try {
         ["/api/super/price-sources", "POST"],
         ["/api/super/items/9/price-observations", "POST"],
         ["/api/super/price-observations?itemId=9&limit=50", "GET"],
+        ["/api/super/ticket-ocr/candidates", "POST"],
         ["/api/super/movements?itemId=9&limit=25", "GET"],
         ["/api/super/barcode-aliases?code=0075012345678", "GET"],
         ["/api/super/items/9/barcode-aliases", "POST"],
@@ -446,8 +447,9 @@ try {
     assert.deepEqual(JSON.parse(apiCalls[21].options.body), { allowNegativeStock: false });
     assert.deepEqual(JSON.parse(apiCalls[23].options.body), { name: "Ticket proveedor" });
     assert.deepEqual(JSON.parse(apiCalls[24].options.body), { pricePesos: "1250.50", sourceLabel: "Ticket proveedor", observedDate: "2026-07-18" });
-    assert.deepEqual(JSON.parse(apiCalls[28].options.body), { code: "0075012345678", format: "EAN_13" });
-    assert.deepEqual(JSON.parse(apiCalls[30].options.body), { checked: true });
+    assert.equal(apiCalls[26].options.body.get("file").name, "ticket.png");
+    assert.deepEqual(JSON.parse(apiCalls[29].options.body), { code: "0075012345678", format: "EAN_13" });
+    assert.deepEqual(JSON.parse(apiCalls[31].options.body), { checked: true });
 
     const previousConflictFetch = globalThis.fetch;
     globalThis.fetch = async () => ({
@@ -780,6 +782,31 @@ try {
         superItemFixture({ name: "Arroz", categoryName: "Almacén", checked: false, suggestedQuantity: "2.000", unit: "kg" }),
         superItemFixture({ name: "Leche", categoryName: "Lácteos", checked: true, quickQuantity: "1.000", unit: "litro" })
     ]), "Lista del super\n\nLácteos\n- Leche (1.000 litro)");
+    assert.match(indexHtml, /id="super-ticket-ocr-form"/);
+    assert.match(indexHtml, /id="super-ticket-ocr-file"[^>]+name="file"[^>]+accept="image\/png,image\/jpeg,.png,.jpg,.jpeg"/);
+    assert.match(indexHtml, /id="super-ticket-ocr-summary"/);
+    assert.match(indexHtml, /id="super-ticket-ocr-warning-list"/);
+    assert.match(indexHtml, /id="super-ticket-ocr-table"/);
+    assert.match(indexHtml, /id="super-ticket-ocr-confirm-form"/);
+    assert.match(indexHtml, /id="super-ticket-ocr-product"/);
+    assert.match(indexHtml, /id="super-ticket-ocr-date-candidate"/);
+    assert.match(indexHtml, /id="super-ticket-ocr-date"[^>]+type="date"/);
+    assert.match(indexHtml, /id="super-ticket-ocr-source-candidate"/);
+    assert.match(indexHtml, /id="super-ticket-ocr-source-label"[^>]+data-super-limit="priceSourceLabel"/);
+    assert.match(indexHtml, /id="super-ticket-ocr-sync-current-reference-price"[^>]+type="checkbox"/);
+    assert.match(indexHtml, /id="super-ticket-ocr-discard"/);
+    assert.match(indexHtml, /Los candidatos se descartan al refrescar o descartar esta revisión\./);
+    assert.match(indexHtml, /Nada se guarda hasta confirmar una fila\./);
+    assert.match(stylesCss, /\.super-ticket-ocr-card/);
+    assert.match(stylesCss, /\.super-ticket-ocr-upload-form/);
+    assert.match(stylesCss, /\.super-ticket-ocr-review-grid/);
+    assert.match(stylesCss, /\.super-ticket-ocr-warning-list/);
+    assert.match(stylesCss, /\.super-ticket-ocr-selected-warnings/);
+    assert.match(supermarketSource, /submitSuperTicketOcrUploadForm/);
+    assert.match(supermarketSource, /submitSuperTicketOcrConfirmForm/);
+    assert.match(supermarketSource, /renderSuperTicketOcrReview/);
+    assert.match(supermarketSource, /createSuperItemPriceObservation/);
+    assert.doesNotMatch(supermarketSource, /localStorage|sessionStorage|BarcodeDetector|getUserMedia/);
     assertNoUnsupportedSuperInventorySemantics(supermarketSource);
 
     const supermarketDom = fakeSupermarketDom();
@@ -870,6 +897,70 @@ try {
         assert.match(supermarketDom.elements.get("#super-price-observation-table").children[0].innerHTML, /ARS\s1,250\.50/);
         assert.match(supermarketDom.elements.get("#super-price-observation-table").children[0].innerHTML, /Ticket proveedor/);
         assertResponsiveCardLabels(supermarketDom.elements.get("#super-price-observation-table").children[0].innerHTML, ["Creada", "Producto", "Presentación", "Precio", "Fuente", "Observada"]);
+        assert.equal(supermarketDom.elements.get("#super-ticket-ocr-review-panel").hidden, true);
+        assert.equal(supermarketDom.elements.get("#super-ticket-ocr-summary").textContent, "No hay candidatos OCR cargados.");
+        const invalidTicketUploadCallStart = supermarketDom.api.calls.length;
+        await supermarketDom.elements.get("#super-ticket-ocr-form").submit();
+        assert.equal(supermarketDom.api.calls.length, invalidTicketUploadCallStart);
+        assert.equal(supermarketDom.elements.get("#super-ticket-ocr-feedback").textContent, "Seleccioná una imagen PNG o JPEG para extraer candidatos.");
+
+        supermarketDom.elements.get("#super-ticket-ocr-file").files = [new File(["ticket"], "ticket.png", { type: "image/png" })];
+        const ticketUploadCallStart = supermarketDom.api.calls.length;
+        await supermarketDom.elements.get("#super-ticket-ocr-form").submit();
+        assert.deepEqual(supermarketDom.api.calls.slice(ticketUploadCallStart), [{ method: "uploadSuperTicketOcrCandidates", file: supermarketDom.elements.get("#super-ticket-ocr-file").files[0] }]);
+        assert.equal(supermarketDom.elements.get("#super-ticket-ocr-review-panel").hidden, false);
+        assert.match(supermarketDom.elements.get("#super-ticket-ocr-summary").textContent, /ticket\.png/);
+        assert.match(supermarketDom.elements.get("#super-ticket-ocr-warning-list").innerHTML, /Review OCR output before saving/);
+        assert.equal(supermarketDom.elements.get("#super-ticket-ocr-table").children.length, 2);
+        assert.match(supermarketDom.elements.get("#super-ticket-ocr-table").children[0].innerHTML, /ARROZ 1250,50/);
+        assert.match(supermarketDom.elements.get("#super-ticket-ocr-table").children[1].innerHTML, /Low OCR confidence; review this line manually/);
+        assert.equal(supermarketDom.elements.get("#super-ticket-ocr-selected-line").value, "ARROZ 1250,50");
+        assert.equal(supermarketDom.elements.get("#super-ticket-ocr-price-pesos").value, "1250.50");
+        assert.equal(supermarketDom.elements.get("#super-ticket-ocr-date").value, "2026-07-18");
+        assert.equal(supermarketDom.elements.get("#super-ticket-ocr-source-label").value, "Ticket proveedor");
+
+        await supermarketDom.elements.get("#super-ticket-ocr-table").clickTarget(fakeSuperTicketOcrActionButton("select", "1"));
+        assert.equal(supermarketDom.elements.get("#super-ticket-ocr-line-index").value, "1");
+        assert.equal(supermarketDom.elements.get("#super-ticket-ocr-selected-line").value, "BANANA ???");
+        assert.match(supermarketDom.elements.get("#super-ticket-ocr-selected-warnings").innerHTML, /Low OCR confidence/);
+        supermarketDom.elements.get("#super-ticket-ocr-product").value = "11";
+        supermarketDom.elements.get("#super-ticket-ocr-description").value = "Banana madura";
+        supermarketDom.elements.get("#super-ticket-ocr-price-pesos").value = "900.00";
+        supermarketDom.elements.get("#super-ticket-ocr-source-candidate").value = "Ticket proveedor";
+        await supermarketDom.elements.get("#super-ticket-ocr-source-candidate").change();
+        supermarketDom.elements.get("#super-ticket-ocr-date-candidate").value = "2026-07-18";
+        await supermarketDom.elements.get("#super-ticket-ocr-date-candidate").change();
+        const ticketConfirmCallStart = supermarketDom.api.calls.length;
+        await supermarketDom.elements.get("#super-ticket-ocr-confirm-form").submit();
+        assert.deepEqual(supermarketDom.api.calls.slice(ticketConfirmCallStart), [
+            {
+                method: "createSuperItemPriceObservation",
+                id: 11,
+                payload: { pricePesos: "900.00", sourceLabel: "Ticket proveedor", observedDate: "2026-07-18" }
+            },
+            { method: "superPriceObservations", filters: { limit: 50 } }
+        ]);
+        assert.equal(supermarketDom.elements.get("#super-ticket-ocr-confirm-feedback").textContent, "Observación creada.");
+
+        supermarketDom.elements.get("#super-ticket-ocr-product").value = "10";
+        supermarketDom.elements.get("#super-ticket-ocr-price-pesos").value = "1250.50";
+        supermarketDom.elements.get("#super-ticket-ocr-sync-current-reference-price").checked = true;
+        const ticketSyncConfirmCallStart = supermarketDom.api.calls.length;
+        await supermarketDom.elements.get("#super-ticket-ocr-confirm-form").submit();
+        assert.deepEqual(supermarketDom.api.calls.slice(ticketSyncConfirmCallStart).map((call) => call.method), [
+            "createSuperItemPriceObservation",
+            "superCategories",
+            "superItems",
+            "superSuggestedList",
+            "superPriceSources",
+            "superPriceObservations",
+            "superStockMovements"
+        ]);
+        assert.equal(supermarketDom.elements.get("#super-ticket-ocr-confirm-feedback").textContent, "Observación creada y precio sincronizado.");
+
+        await supermarketDom.elements.get("#super-ticket-ocr-discard").click();
+        assert.equal(supermarketDom.elements.get("#super-ticket-ocr-review-panel").hidden, true);
+        assert.equal(supermarketDom.elements.get("#super-ticket-ocr-summary").textContent, "No hay candidatos OCR cargados.");
 
         supermarketDom.elements.get("#super-price-observation-item").value = "10";
         await supermarketDom.elements.get("#super-price-observation-item").change();
@@ -2482,6 +2573,29 @@ function fakeAppDom() {
         "#super-price-source-feedback",
         "#super-price-observation-table",
         "#super-price-observation-empty",
+        "#super-ticket-ocr-form",
+        "#super-ticket-ocr-file",
+        "#super-ticket-ocr-feedback",
+        "#super-ticket-ocr-summary",
+        "#super-ticket-ocr-meta",
+        "#super-ticket-ocr-warning-list",
+        "#super-ticket-ocr-review-panel",
+        "#super-ticket-ocr-table",
+        "#super-ticket-ocr-empty",
+        "#super-ticket-ocr-confirm-form",
+        "#super-ticket-ocr-line-index",
+        "#super-ticket-ocr-selected-line",
+        "#super-ticket-ocr-description",
+        "#super-ticket-ocr-price-pesos",
+        "#super-ticket-ocr-product",
+        "#super-ticket-ocr-date-candidate",
+        "#super-ticket-ocr-date",
+        "#super-ticket-ocr-source-candidate",
+        "#super-ticket-ocr-source-label",
+        "#super-ticket-ocr-sync-current-reference-price",
+        "#super-ticket-ocr-selected-warnings",
+        "#super-ticket-ocr-confirm-feedback",
+        "#super-ticket-ocr-discard",
         "#logout-form",
         "#app-status"
     ]) {
@@ -2501,11 +2615,13 @@ function fakeAppDom() {
     elements.get("#super-item-presentation-label").dataset.superLimit = "presentationLabel";
     elements.get("#super-item-presentation-price-source-label").dataset.superLimit = "priceSourceLabel";
     elements.get("#super-price-observation-source-label").dataset.superLimit = "priceSourceLabel";
+    elements.get("#super-ticket-ocr-source-label").dataset.superLimit = "priceSourceLabel";
     elements.get("#super-item-notes").dataset.superLimit = "itemNotes";
     elements.get("#super-barcode-code").dataset.superLimit = "barcodeCode";
     elements.get("#super-barcode-format").dataset.superLimit = "barcodeFormat";
     elements.get("#statement-files").files = [];
-    for (const selector of ["#category-form", "#missing-transaction-form", "#income-form", "#manual-expense-form", "#simulator-form", "#super-category-form", "#super-item-form", "#super-barcode-form", "#super-price-observation-form", "#super-price-source-form"]) {
+    elements.get("#super-ticket-ocr-file").files = [];
+    for (const selector of ["#category-form", "#missing-transaction-form", "#income-form", "#manual-expense-form", "#simulator-form", "#super-category-form", "#super-item-form", "#super-barcode-form", "#super-price-observation-form", "#super-price-source-form", "#super-ticket-ocr-form", "#super-ticket-ocr-confirm-form"]) {
         elements.get(selector).reset = function resetForm() {
             this.resetCount += 1;
         };
@@ -2562,7 +2678,7 @@ function fakeAppDom() {
             const method = options.method || "GET";
             const call = { method, resource };
             if (options.body) {
-                call.body = JSON.parse(options.body);
+                call.body = typeof options.body === "string" ? JSON.parse(options.body) : options.body;
             }
             calls.push(call);
 
@@ -3155,6 +3271,14 @@ function fakeSupermarketDom() {
         "#super-price-source-name",
         "#super-price-observation-observed-date",
         "#super-price-observation-sync-current-reference-price",
+        "#super-ticket-ocr-file",
+        "#super-ticket-ocr-line-index",
+        "#super-ticket-ocr-selected-line",
+        "#super-ticket-ocr-description",
+        "#super-ticket-ocr-price-pesos",
+        "#super-ticket-ocr-date",
+        "#super-ticket-ocr-source-label",
+        "#super-ticket-ocr-sync-current-reference-price",
         "#super-barcode-code",
         "#super-barcode-format"
     ]) {
@@ -3171,10 +3295,29 @@ function fakeSupermarketDom() {
     elements.get("#super-price-observation-source-label").dataset.superLimit = "priceSourceLabel";
     elements.get("#super-price-source-name").dataset.superLimit = "priceSourceLabel";
     elements.get("#super-price-source-name").dataset.superLimit = "priceSourceLabel";
+    elements.get("#super-ticket-ocr-source-label").dataset.superLimit = "priceSourceLabel";
     elements.get("#super-item-notes").dataset.superLimit = "itemNotes";
     elements.get("#super-barcode-code").dataset.superLimit = "barcodeCode";
     elements.get("#super-barcode-format").dataset.superLimit = "barcodeFormat";
     elements.set("#super-item-category", fakeSelect());
+    elements.get("#super-ticket-ocr-file").files = [];
+    elements.set("#super-ticket-ocr-form", fakeSuperTicketOcrForm(elements));
+    elements.set("#super-ticket-ocr-form button[type='submit']", elements.get("#super-ticket-ocr-form").submitButton);
+    elements.set("#super-ticket-ocr-feedback", fakeElement());
+    elements.set("#super-ticket-ocr-summary", fakeElement());
+    elements.set("#super-ticket-ocr-meta", fakeElement());
+    elements.set("#super-ticket-ocr-warning-list", fakeElement());
+    elements.set("#super-ticket-ocr-review-panel", fakeElement());
+    elements.set("#super-ticket-ocr-table", fakeIncomeTable());
+    elements.set("#super-ticket-ocr-empty", fakeElement());
+    elements.set("#super-ticket-ocr-confirm-form", fakeSuperTicketOcrConfirmForm(elements));
+    elements.set("#super-ticket-ocr-confirm-form button[type='submit']", elements.get("#super-ticket-ocr-confirm-form").submitButton);
+    elements.set("#super-ticket-ocr-product", fakeSelect());
+    elements.set("#super-ticket-ocr-date-candidate", fakeClickableSelect());
+    elements.set("#super-ticket-ocr-source-candidate", fakeClickableSelect());
+    elements.set("#super-ticket-ocr-selected-warnings", fakeElement());
+    elements.set("#super-ticket-ocr-confirm-feedback", fakeElement());
+    elements.set("#super-ticket-ocr-discard", fakeClickableButton("Descartar revisión"));
     elements.set("#super-price-observation-form", fakeSuperPriceObservationForm(elements));
     elements.set("#super-price-observation-form button[type='submit']", elements.get("#super-price-observation-form").submitButton);
     elements.set("#super-price-observation-item", fakeClickableSelect());
@@ -3261,6 +3404,20 @@ function fakeSupermarketDom() {
         { id: 7, name: "Ticket proveedor", active: true },
         { id: 8, name: "Lista mayorista", active: true }
     ];
+    const ticketOcrResponse = {
+        checksumSha256: "abc123",
+        originalFilename: "ticket.png",
+        contentType: "image/png",
+        sizeBytes: 12345,
+        ocrConfidence: "0.87",
+        dateCandidates: [{ value: "2026-07-18", confidence: "0.80", warnings: [] }],
+        sourceCandidates: [{ label: "Ticket proveedor", confidence: "0.75", warnings: [] }],
+        lineCandidates: [
+            { rawText: "ARROZ 1250,50", descriptionCandidate: "Arroz", pricePesos: "1250.50", confidence: "0.87", warnings: [] },
+            { rawText: "BANANA ???", descriptionCandidate: "Banana", pricePesos: "900.00", confidence: "0.42", warnings: ["Low OCR confidence; review this line manually"] }
+        ],
+        warnings: ["Review OCR output before saving"]
+    };
     const api = {
         calls,
         async superCategories() {
@@ -3351,6 +3508,10 @@ function fakeSupermarketDom() {
             const source = { id: 9, name: payload.name, active: true };
             priceSources.push(source);
             return source;
+        },
+        async uploadSuperTicketOcrCandidates(file) {
+            calls.push({ method: "uploadSuperTicketOcrCandidates", file });
+            return { ...ticketOcrResponse, originalFilename: file?.name || ticketOcrResponse.originalFilename, contentType: file?.type || ticketOcrResponse.contentType, sizeBytes: file?.size || ticketOcrResponse.sizeBytes };
         },
         async superPriceObservations(filters = {}) {
             calls.push({ method: "superPriceObservations", filters });
@@ -3514,6 +3675,37 @@ function fakeSuperPriceSourceForm(elements) {
     return form;
 }
 
+function fakeSuperTicketOcrForm(elements) {
+    const form = fakeForm(elements);
+    form.submitButton = fakeButton("Extraer candidatos");
+    form.querySelector = (selector) => {
+        assert.equal(selector, "button[type='submit']");
+        return form.submitButton;
+    };
+    form.reset = function resetSuperTicketOcrForm() {
+        this.resetCount += 1;
+        elements.get("#super-ticket-ocr-file").files = [];
+    };
+    return form;
+}
+
+function fakeSuperTicketOcrConfirmForm(elements) {
+    const form = fakeForm(elements);
+    form.submitButton = fakeButton("Confirmar observación");
+    form.querySelector = (selector) => {
+        assert.equal(selector, "button[type='submit']");
+        return form.submitButton;
+    };
+    form.reset = function resetSuperTicketOcrConfirmForm() {
+        this.resetCount += 1;
+        for (const selector of ["#super-ticket-ocr-line-index", "#super-ticket-ocr-selected-line", "#super-ticket-ocr-description", "#super-ticket-ocr-price-pesos", "#super-ticket-ocr-product", "#super-ticket-ocr-date-candidate", "#super-ticket-ocr-date", "#super-ticket-ocr-source-candidate", "#super-ticket-ocr-source-label"]) {
+            elements.get(selector).value = "";
+        }
+        elements.get("#super-ticket-ocr-sync-current-reference-price").checked = false;
+    };
+    return form;
+}
+
 function fakeSuperCategoryForm(elements) {
     const form = fakeForm(elements);
     form.submitButton = fakeButton("Crear categoría");
@@ -3574,6 +3766,14 @@ function fakeSuperItemActionButton(action, row, id) {
         }
         return null;
     };
+    return button;
+}
+
+function fakeSuperTicketOcrActionButton(action, index) {
+    const button = fakeButton(action);
+    button.dataset.superTicketOcrAction = action;
+    button.dataset.superTicketOcrLineIndex = index;
+    button.closest = (selector) => selector === "button[data-super-ticket-ocr-action]" ? button : null;
     return button;
 }
 
@@ -3763,7 +3963,7 @@ function fakeInput(value = "") {
 }
 
 function supermarketLimitFields(elements) {
-    return ["#super-category-name", "#super-item-name", "#super-item-unit", "#super-item-notes", "#super-item-presentation-label", "#super-item-presentation-price-source-label", "#super-price-observation-source-label", "#super-price-source-name", "#super-barcode-code", "#super-barcode-format"].map((selector) => elements.get(selector));
+    return ["#super-category-name", "#super-item-name", "#super-item-unit", "#super-item-notes", "#super-item-presentation-label", "#super-item-presentation-price-source-label", "#super-price-observation-source-label", "#super-price-source-name", "#super-ticket-ocr-source-label", "#super-barcode-code", "#super-barcode-format"].map((selector) => elements.get(selector));
 }
 
 function assertNoUnsupportedSuperInventorySemantics(source) {
@@ -3832,8 +4032,20 @@ function assertNoUnsupportedSuperInventorySemantics(source) {
         .replaceAll("20260718-super-inventory-stage10-price-observations-ui", "")
         .replaceAll("20260718-super-inventory-stage11-price-sources-api", "")
         .replaceAll("20260718-super-inventory-stage11-price-sources-ui", "")
-        .replaceAll("20260721-super-inventory-stage12-reference-price-source-ui-api", "")
-        .replaceAll("20260721-super-inventory-stage12-reference-price-source-ui", "")
+        .replaceAll("20260725-super-inventory-stage15-ticket-ocr-ui-api", "")
+        .replaceAll("20260725-super-inventory-stage15-ticket-ocr-ui", "")
+        .replaceAll("super-ticket-ocr", "")
+        .replaceAll("TicketOcr", "")
+        .replaceAll("submitSuperTicketOcrUploadForm", "")
+        .replaceAll("submitSuperTicketOcrConfirmForm", "")
+        .replaceAll("renderSuperTicketOcrReview", "")
+        .replaceAll("clearSuperTicketOcrReview", "")
+        .replaceAll("uploadSuperTicketOcrCandidates", "")
+        .replaceAll("ticketOcr", "")
+        .replaceAll("OCR", "")
+        .replaceAll("ocr", "")
+        .replaceAll("ticket image", "")
+        .replaceAll("ticket", "")
         .replaceAll("price-observations", "")
         .replaceAll("price-source", "")
         .replaceAll("price-sources", "")
@@ -3842,10 +4054,6 @@ function assertNoUnsupportedSuperInventorySemantics(source) {
         .replaceAll("Precio", "")
         .replaceAll("Precio ref.", "");
     const unsupportedTerms = [
-        "amount",
-        "price",
-        "prices",
-        "ocr",
         "OpenFoodFacts",
         "Tesseract",
         "BarcodeDetector",

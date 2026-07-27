@@ -5,19 +5,28 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.reset;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayOutputStream;
 import java.lang.reflect.Method;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.Base64;
+import java.util.List;
 
 import jakarta.persistence.LockModeType;
+
+import javax.imageio.ImageIO;
 
 import com.gentleia.landingtarjetas.category.Category;
 import com.gentleia.landingtarjetas.category.CategoryRepository;
@@ -34,21 +43,33 @@ import com.gentleia.landingtarjetas.supermarket.SuperItemStockMovementRepository
 import com.gentleia.landingtarjetas.supermarket.SuperPriceSource;
 import com.gentleia.landingtarjetas.supermarket.SuperPriceSourceRepository;
 import com.gentleia.landingtarjetas.supermarket.SupermarketLimits;
+import com.gentleia.landingtarjetas.supermarket.TicketOcrDateCandidateResponse;
+import com.gentleia.landingtarjetas.supermarket.TicketOcrEngine;
+import com.gentleia.landingtarjetas.supermarket.TicketOcrEngineResult;
+import com.gentleia.landingtarjetas.supermarket.TicketOcrLineCandidateResponse;
+import com.gentleia.landingtarjetas.supermarket.TicketOcrSourceCandidateResponse;
+import com.gentleia.landingtarjetas.supermarket.TicketOcrUploadProperties;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.http.MediaType;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 @SpringBootTest
 @AutoConfigureMockMvc
+@ExtendWith(OutputCaptureExtension.class)
 class SupermarketControllerTests {
 
     @Autowired
@@ -63,8 +84,12 @@ class SupermarketControllerTests {
     private SuperPriceSourceRepository superPriceSourceRepository;
     @Autowired
     private SuperItemStockMovementRepository superItemStockMovementRepository;
+    @Autowired
+    private TicketOcrUploadProperties ticketOcrUploadProperties;
     @MockitoSpyBean
     private SuperItemBarcodeAliasRepository superItemBarcodeAliasRepository;
+    @MockitoBean
+    private TicketOcrEngine ticketOcrEngine;
     @Autowired
     private CategoryRepository categoryRepository;
 
@@ -82,11 +107,161 @@ class SupermarketControllerTests {
         superPriceSourceRepository.flush();
         superCategoryRepository.deleteAll();
         superCategoryRepository.flush();
+        ticketOcrUploadProperties.setMaxFileSizeBytes(1_048_576L);
+        ticketOcrUploadProperties.setMaxDecodedDimension(4_096);
     }
 
     @AfterEach
     void resetSpies() {
         reset(superItemBarcodeAliasRepository);
+    }
+
+    @Test
+    void ticketOcrValidImageReturnsTransientCandidatesWithoutPersistence() throws Exception {
+        when(ticketOcrEngine.extractCandidates(any())).thenReturn(new TicketOcrEngineResult(
+                new BigDecimal("0.87"),
+                List.of(new TicketOcrDateCandidateResponse(LocalDate.of(2026, 7, 21), new BigDecimal("0.91"), List.of())),
+                List.of(new TicketOcrSourceCandidateResponse("Supermercado Central", new BigDecimal("0.84"), List.of())),
+                List.of(new TicketOcrLineCandidateResponse(
+                        "YERBA 1KG 2500.50",
+                        "YERBA 1KG",
+                        new BigDecimal("2500.50"),
+                        new BigDecimal("0.86"),
+                        List.of("Review product before confirming"),
+                        null,
+                        null)),
+                List.of("Review OCR output before saving")));
+        MockMultipartFile ticket = new MockMultipartFile("file", "ticket.png", "image/png", tinyPngBytes());
+
+        mockMvc.perform(multipart("/api/super/ticket-ocr/candidates").file(ticket))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.checksumSha256").value("4b5c5c92cec3b23e6a294fc0eea43234ef5126c5a64f4c6c531ac8430ab0b844"))
+                .andExpect(jsonPath("$.originalFilename").value("ticket.png"))
+                .andExpect(jsonPath("$.contentType").value("image/png"))
+                .andExpect(jsonPath("$.sizeBytes").value(tinyPngBytes().length))
+                .andExpect(jsonPath("$.ocrConfidence").value(0.87))
+                .andExpect(jsonPath("$.dateCandidates[0].value").value("2026-07-21"))
+                .andExpect(jsonPath("$.sourceCandidates[0].label").value("Supermercado Central"))
+                .andExpect(jsonPath("$.lineCandidates[0].rawText").value("YERBA 1KG 2500.50"))
+                .andExpect(jsonPath("$.lineCandidates[0].descriptionCandidate").value("YERBA 1KG"))
+                .andExpect(jsonPath("$.lineCandidates[0].pricePesos").value(2500.5))
+                .andExpect(jsonPath("$.lineCandidates[0].productCandidateId").doesNotExist())
+                .andExpect(jsonPath("$.warnings[0]").value("Review OCR output before saving"));
+
+        assertSuperInventoryRepositoriesRemainEmpty();
+    }
+
+    @Test
+    void ticketOcrRejectsInvalidTypeWithoutPersistence() throws Exception {
+        MockMultipartFile textFile = new MockMultipartFile("file", "ticket.txt", "text/plain", "not an image".getBytes());
+
+        mockMvc.perform(multipart("/api/super/ticket-ocr/candidates").file(textFile))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("Only PNG or JPEG ticket images are accepted"));
+
+        verifyNoInteractions(ticketOcrEngine);
+        assertSuperInventoryRepositoriesRemainEmpty();
+    }
+
+    @Test
+    void ticketOcrRejectsInvalidDeclaredMimeTypeDespitePngExtensionWithoutPersistence() throws Exception {
+        MockMultipartFile ticket = new MockMultipartFile("file", "ticket.png", "image/gif", tinyPngBytes());
+
+        mockMvc.perform(multipart("/api/super/ticket-ocr/candidates").file(ticket))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("Only PNG or JPEG ticket images are accepted"));
+
+        verifyNoInteractions(ticketOcrEngine);
+        assertSuperInventoryRepositoriesRemainEmpty();
+    }
+
+    @Test
+    void ticketOcrRejectsInvalidDeclaredMimeTypeDespiteJpegExtensionWithoutPersistence() throws Exception {
+        MockMultipartFile ticket = new MockMultipartFile("file", "ticket.jpeg", "text/plain", tinyPngBytes());
+
+        mockMvc.perform(multipart("/api/super/ticket-ocr/candidates").file(ticket))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("Only PNG or JPEG ticket images are accepted"));
+
+        verifyNoInteractions(ticketOcrEngine);
+        assertSuperInventoryRepositoriesRemainEmpty();
+    }
+
+    @Test
+    void ticketOcrRejectsWebpBecauseRuntimeDecodingIsNotSupported() throws Exception {
+        MockMultipartFile webp = new MockMultipartFile("file", "ticket.webp", "image/webp", tinyPngBytes());
+
+        mockMvc.perform(multipart("/api/super/ticket-ocr/candidates").file(webp))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("Only PNG or JPEG ticket images are accepted"));
+
+        verifyNoInteractions(ticketOcrEngine);
+        assertSuperInventoryRepositoriesRemainEmpty();
+    }
+
+    @Test
+    void ticketOcrDoesNotLogRawTextOrCandidatePayloadBeforeConfirmation(CapturedOutput output) throws Exception {
+        when(ticketOcrEngine.extractCandidates(any())).thenReturn(new TicketOcrEngineResult(
+                new BigDecimal("0.61"),
+                List.of(),
+                List.of(),
+                List.of(new TicketOcrLineCandidateResponse(
+                        "PRIVATE OCR RAW LINE 9876.54",
+                        "PRIVATE OCR RAW LINE",
+                        new BigDecimal("9876.54"),
+                        new BigDecimal("0.61"),
+                        List.of("Review product before confirming"),
+                        null,
+                        null)),
+                List.of("Review OCR output before saving")));
+        MockMultipartFile ticket = new MockMultipartFile("file", "private-ticket.png", "image/png", tinyPngBytes());
+
+        mockMvc.perform(multipart("/api/super/ticket-ocr/candidates").file(ticket))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.lineCandidates[0].rawText").value("PRIVATE OCR RAW LINE 9876.54"));
+
+        assertThat(output.getAll()).doesNotContain("PRIVATE OCR RAW LINE 9876.54", "9876.54", "private-ticket.png");
+        assertSuperInventoryRepositoriesRemainEmpty();
+    }
+
+    @Test
+    void ticketOcrRejectsOversizedImageWithoutPersistence() throws Exception {
+        ticketOcrUploadProperties.setMaxFileSizeBytes(4L);
+        MockMultipartFile ticket = new MockMultipartFile("file", "ticket.png", "image/png", tinyPngBytes());
+
+        mockMvc.perform(multipart("/api/super/ticket-ocr/candidates").file(ticket))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("Ticket image exceeds the allowed size limit"));
+
+        verifyNoInteractions(ticketOcrEngine);
+        assertSuperInventoryRepositoriesRemainEmpty();
+    }
+
+    @Test
+    void ticketOcrRejectsOversizedDecodedDimensionsBeforeOcrWithoutLeakingImageContent(CapturedOutput output) throws Exception {
+        ticketOcrUploadProperties.setMaxDecodedDimension(1);
+        MockMultipartFile ticket = new MockMultipartFile("file", "sensitive-wide-ticket.png", "image/png", widePngBytes());
+
+        mockMvc.perform(multipart("/api/super/ticket-ocr/candidates").file(ticket))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("Ticket image dimensions exceed the allowed limit"));
+
+        verifyNoInteractions(ticketOcrEngine);
+        assertThat(output.getAll()).doesNotContain("sensitive-wide-ticket.png");
+        assertSuperInventoryRepositoriesRemainEmpty();
+    }
+
+    @Test
+    void ticketOcrRejectsMultipleImagesWithoutPersistence() throws Exception {
+        MockMultipartFile first = new MockMultipartFile("file", "first.png", "image/png", tinyPngBytes());
+        MockMultipartFile second = new MockMultipartFile("file", "second.jpg", "image/jpeg", tinyPngBytes());
+
+        mockMvc.perform(multipart("/api/super/ticket-ocr/candidates").file(first).file(second))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("Upload exactly one ticket image"));
+
+        verifyNoInteractions(ticketOcrEngine);
+        assertSuperInventoryRepositoriesRemainEmpty();
     }
 
     @Test
@@ -3445,6 +3620,26 @@ class SupermarketControllerTests {
                   "habitualObjective": %s
                 }
                 """.formatted(name, categoryId, checked, notes, habitualObjective);
+    }
+
+    private void assertSuperInventoryRepositoriesRemainEmpty() {
+        assertThat(superCategoryRepository.findAll()).isEmpty();
+        assertThat(superItemRepository.findAll()).isEmpty();
+        assertThat(superItemPriceObservationRepository.findAll()).isEmpty();
+        assertThat(superItemStockMovementRepository.findAll()).isEmpty();
+        assertThat(superItemBarcodeAliasRepository.findAll()).isEmpty();
+        assertThat(superPriceSourceRepository.findAll()).isEmpty();
+    }
+
+    private static byte[] tinyPngBytes() {
+        return Base64.getDecoder().decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=");
+    }
+
+    private static byte[] widePngBytes() throws Exception {
+        BufferedImage image = new BufferedImage(2, 1, BufferedImage.TYPE_INT_RGB);
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        ImageIO.write(image, "png", output);
+        return output.toByteArray();
     }
 
     private String itemPayloadWithoutChecked(String name, Long categoryId, String notes, String unit, String habitualObjective) {

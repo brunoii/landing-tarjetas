@@ -1,4 +1,4 @@
-import { api } from "./api.js?v=20260721-super-inventory-stage12-reference-price-source-ui-api";
+import { api } from "./api.js?v=20260725-super-inventory-stage15-ticket-ocr-ui-api";
 import { escapeHtml, formatPesos, setButtonBusy } from "./utils.js";
 
 let supermarketApi = api;
@@ -11,6 +11,7 @@ let superCategoryTableCollapsed = true;
 let superCategoryCount = 0;
 let currentBarcodeAlias = null;
 let selectedPriceObservationItem = null;
+let currentTicketOcrReview = null;
 
 const SUPER_RECENT_HISTORY_LIMIT = 50;
 
@@ -34,6 +35,7 @@ export function setupSupermarket({ apiClient = api } = {}) {
     superCategoryTableCollapsed = true;
     currentBarcodeAlias = null;
     selectedPriceObservationItem = null;
+    currentTicketOcrReview = null;
 
     applySupermarketFieldLimits();
 
@@ -63,6 +65,11 @@ export function setupSupermarket({ apiClient = api } = {}) {
     document.querySelector("#super-price-observation-form")?.addEventListener("submit", submitSuperPriceObservationForm);
     document.querySelector("#super-price-observation-global-reset")?.addEventListener("click", resetSuperPriceObservationContext);
     document.querySelector("#super-price-source-form")?.addEventListener("submit", submitSuperPriceSourceForm);
+    document.querySelector("#super-ticket-ocr-form")?.addEventListener("submit", submitSuperTicketOcrUploadForm);
+    document.querySelector("#super-ticket-ocr-confirm-form")?.addEventListener("submit", submitSuperTicketOcrConfirmForm);
+    document.querySelector("#super-ticket-ocr-discard")?.addEventListener("click", () => clearSuperTicketOcrReview("Revisión OCR descartada."));
+    document.querySelector("#super-ticket-ocr-date-candidate")?.addEventListener("change", syncSuperTicketOcrDateCandidate);
+    document.querySelector("#super-ticket-ocr-source-candidate")?.addEventListener("change", syncSuperTicketOcrSourceCandidate);
     document.querySelector("#super-item-presentation-price-source")?.addEventListener("change", () => syncSuperItemPriceSourceInputs("reusable"));
     document.querySelector("#super-item-presentation-price-source-label")?.addEventListener("input", () => syncSuperItemPriceSourceInputs("manual"));
     document.querySelector("#super-price-observation-item")?.addEventListener("change", (event) => {
@@ -90,6 +97,14 @@ export function setupSupermarket({ apiClient = api } = {}) {
             return;
         }
         await handleSuperCategoryAction(button);
+    });
+
+    document.querySelector("#super-ticket-ocr-table")?.addEventListener("click", async (event) => {
+        const button = event.target.closest("button[data-super-ticket-ocr-action]");
+        if (!button) {
+            return;
+        }
+        await handleSuperTicketOcrLineAction(button);
     });
 
     loadSupermarket();
@@ -565,6 +580,7 @@ async function loadSupermarket() {
         applySuperBarcodeHighlight(currentBarcodeAlias?.item?.id);
         await loadSuperPriceObservations();
         await loadSuperMovementHistory();
+        renderSuperTicketOcrReview();
         clearGeneratedSuperList();
         const loadedMessage = items.length ? "Lista del super cargada." : "Todavía no hay productos cargados.";
         showSuperFeedback(priceSourceState?.error ? `${loadedMessage} Fuentes de precio no disponibles por ahora.` : loadedMessage);
@@ -1408,6 +1424,335 @@ function prefillSuperPriceObservationForm(item) {
     document.querySelector("#super-price-observation-observed-date").value = item?.commercialPresentationPriceObservedDate || "";
 }
 
+async function submitSuperTicketOcrUploadForm(event) {
+    event?.preventDefault?.();
+    const form = document.querySelector("#super-ticket-ocr-form");
+    const button = form?.querySelector("button[type='submit']");
+    const file = document.querySelector("#super-ticket-ocr-file")?.files?.[0];
+    if (!file) {
+        showSuperTicketOcrFeedback("Seleccioná una imagen PNG o JPEG para extraer candidatos.", true);
+        return;
+    }
+    try {
+        setButtonBusy(button, true, "Extrayendo...");
+        const response = await supermarketApi.uploadSuperTicketOcrCandidates(file);
+        currentTicketOcrReview = buildSuperTicketOcrReviewState(response);
+        renderSuperTicketOcrReview();
+        showSuperTicketOcrFeedback("Candidatos OCR cargados. Revisá y confirmá solo las filas válidas.");
+        showSuperTicketOcrConfirmFeedback("");
+    } catch (error) {
+        clearSuperTicketOcrReview();
+        showSuperTicketOcrFeedback(`No se pudo extraer el ticket: ${error.message}`, true);
+    } finally {
+        setButtonBusy(button, false);
+    }
+}
+
+async function submitSuperTicketOcrConfirmForm(event) {
+    event?.preventDefault?.();
+    const lineIndex = Number(document.querySelector("#super-ticket-ocr-line-index")?.value || -1);
+    const line = currentTicketOcrReview?.lines?.[lineIndex];
+    const itemId = Number(document.querySelector("#super-ticket-ocr-product")?.value || 0);
+    const button = document.querySelector("#super-ticket-ocr-confirm-form")?.querySelector("button[type='submit']");
+    if (!line || lineIndex < 0) {
+        showSuperTicketOcrConfirmFeedback("Seleccioná una línea OCR para confirmar.", true);
+        return;
+    }
+    if (!itemId) {
+        showSuperTicketOcrConfirmFeedback("Seleccioná un producto existente para confirmar la observación.", true);
+        return;
+    }
+    const payload = superPriceObservationPayloadFromValues({
+        pricePesos: document.querySelector("#super-ticket-ocr-price-pesos")?.value,
+        sourceLabel: document.querySelector("#super-ticket-ocr-source-label")?.value,
+        observedDate: document.querySelector("#super-ticket-ocr-date")?.value,
+        syncCurrentReferencePrice: document.querySelector("#super-ticket-ocr-sync-current-reference-price")?.checked
+    });
+    const validationMessage = validateSuperPriceObservationPayload(payload);
+    if (validationMessage) {
+        showSuperTicketOcrConfirmFeedback(validationMessage, true);
+        return;
+    }
+    try {
+        setButtonBusy(button, true, "Confirmando...");
+        await supermarketApi.createSuperItemPriceObservation(itemId, payload);
+        line.descriptionCandidate = String(document.querySelector("#super-ticket-ocr-description")?.value || "").trim() || line.descriptionCandidate;
+        line.pricePesos = payload.pricePesos;
+        line.selectedProductId = String(itemId);
+        line.status = "confirmed";
+        line.statusMessage = payload.syncCurrentReferencePrice
+            ? "Observación creada y precio sincronizado."
+            : "Observación creada.";
+        currentTicketOcrReview.selectedDate = payload.observedDate || "";
+        currentTicketOcrReview.selectedSource = payload.sourceLabel || "";
+        if (payload.syncCurrentReferencePrice) {
+            await loadSupermarket();
+        } else {
+            await loadSuperPriceObservations();
+        }
+        selectSuperTicketOcrLine(nextPendingSuperTicketOcrLineIndex(lineIndex));
+        renderSuperTicketOcrReview();
+        showSuperTicketOcrConfirmFeedback(line.statusMessage);
+    } catch (error) {
+        showSuperTicketOcrConfirmFeedback(`No se pudo confirmar la observación: ${error.message}`, true);
+    } finally {
+        setButtonBusy(button, false);
+    }
+}
+
+async function handleSuperTicketOcrLineAction(button) {
+    const index = Number(button.dataset.superTicketOcrLineIndex || -1);
+    if (button.dataset.superTicketOcrAction === "select") {
+        selectSuperTicketOcrLine(index);
+        renderSuperTicketOcrReview();
+    }
+}
+
+function buildSuperTicketOcrReviewState(response) {
+    const dateCandidates = Array.isArray(response?.dateCandidates) ? response.dateCandidates : [];
+    const sourceCandidates = Array.isArray(response?.sourceCandidates) ? response.sourceCandidates : [];
+    const firstDate = String(dateCandidates[0]?.value || "");
+    const firstSource = String(sourceCandidates[0]?.label || "").trim();
+    return {
+        checksumSha256: String(response?.checksumSha256 || ""),
+        originalFilename: String(response?.originalFilename || "ticket-image"),
+        contentType: String(response?.contentType || "image/png"),
+        sizeBytes: Number(response?.sizeBytes || 0),
+        ocrConfidence: response?.ocrConfidence ?? null,
+        warnings: Array.isArray(response?.warnings) ? response.warnings : [],
+        dateCandidates,
+        sourceCandidates,
+        selectedDate: firstDate,
+        selectedSource: firstSource,
+        selectedLineIndex: Array.isArray(response?.lineCandidates) && response.lineCandidates.length > 0 ? 0 : -1,
+        lines: (Array.isArray(response?.lineCandidates) ? response.lineCandidates : []).map((lineCandidate, index) => ({
+            index,
+            rawText: String(lineCandidate?.rawText || ""),
+            descriptionCandidate: String(lineCandidate?.descriptionCandidate || ""),
+            pricePesos: lineCandidate?.pricePesos === null || lineCandidate?.pricePesos === undefined ? "" : String(lineCandidate.pricePesos),
+            confidence: lineCandidate?.confidence === null || lineCandidate?.confidence === undefined ? "" : String(lineCandidate.confidence),
+            warnings: Array.isArray(lineCandidate?.warnings) ? lineCandidate.warnings : [],
+            selectedProductId: lineCandidate?.productCandidateId ? String(lineCandidate.productCandidateId) : "",
+            status: "pending",
+            statusMessage: "Pendiente de confirmación."
+        }))
+    };
+}
+
+function renderSuperTicketOcrReview() {
+    const summary = document.querySelector("#super-ticket-ocr-summary");
+    const meta = document.querySelector("#super-ticket-ocr-meta");
+    const reviewPanel = document.querySelector("#super-ticket-ocr-review-panel");
+    const table = document.querySelector("#super-ticket-ocr-table");
+    const empty = document.querySelector("#super-ticket-ocr-empty");
+    const warnings = document.querySelector("#super-ticket-ocr-warning-list");
+    if (!currentTicketOcrReview) {
+        if (summary) {
+            summary.textContent = "No hay candidatos OCR cargados.";
+        }
+        if (meta) {
+            meta.innerHTML = "";
+        }
+        if (warnings) {
+            warnings.innerHTML = "";
+        }
+        if (table) {
+            table.innerHTML = "";
+        }
+        if (empty) {
+            empty.hidden = false;
+            empty.textContent = "Subí un ticket para revisar candidatos transitorios.";
+        }
+        if (reviewPanel) {
+            reviewPanel.hidden = true;
+        }
+        resetSuperTicketOcrConfirmForm();
+        return;
+    }
+    renderSuperTicketOcrCandidateSelects();
+    renderSuperTicketOcrProductOptions();
+    const lineCount = currentTicketOcrReview.lines.length;
+    if (summary) {
+        summary.textContent = `${currentTicketOcrReview.originalFilename} · ${lineCount} ${lineCount === 1 ? "línea candidata" : "líneas candidatas"} para revisar.`;
+    }
+    if (meta) {
+        meta.innerHTML = [
+            `<small>SHA-256: ${escapeHtml(currentTicketOcrReview.checksumSha256 || "—")}</small>`,
+            `<small>Tipo: ${escapeHtml(currentTicketOcrReview.contentType || "—")} · Tamaño: ${escapeHtml(String(currentTicketOcrReview.sizeBytes || 0))} bytes</small>`,
+            `<small>Confianza OCR: ${escapeHtml(currentTicketOcrReview.ocrConfidence === null || currentTicketOcrReview.ocrConfidence === undefined ? "—" : String(currentTicketOcrReview.ocrConfidence))}</small>`
+        ].join("");
+    }
+    if (warnings) {
+        warnings.innerHTML = (currentTicketOcrReview.warnings.length > 0 ? currentTicketOcrReview.warnings : ["Sin advertencias generales."])
+            .map((warning) => `<li>${escapeHtml(warning)}</li>`)
+            .join("");
+    }
+    if (table) {
+        table.innerHTML = "";
+        currentTicketOcrReview.lines.forEach((line) => {
+            const row = document.createElement("tr");
+            row.innerHTML = superTicketOcrLineRowHtml(line);
+            table.append(row);
+        });
+    }
+    if (empty) {
+        empty.hidden = lineCount > 0;
+        empty.textContent = "No se detectaron líneas OCR revisables.";
+    }
+    if (reviewPanel) {
+        reviewPanel.hidden = false;
+    }
+    if (currentTicketOcrReview.selectedLineIndex >= 0) {
+        populateSuperTicketOcrConfirmForm(currentTicketOcrReview.lines[currentTicketOcrReview.selectedLineIndex]);
+    }
+}
+
+function renderSuperTicketOcrCandidateSelects() {
+    fillSelectWithOptions(
+        document.querySelector("#super-ticket-ocr-date-candidate"),
+        currentTicketOcrReview?.dateCandidates?.map((candidate) => ({
+            value: String(candidate?.value || ""),
+            label: String(candidate?.value || "Sin fecha")
+        })) || [],
+        "Sin fecha candidata",
+        currentTicketOcrReview?.selectedDate || ""
+    );
+    fillSelectWithOptions(
+        document.querySelector("#super-ticket-ocr-source-candidate"),
+        currentTicketOcrReview?.sourceCandidates?.map((candidate) => ({
+            value: String(candidate?.label || ""),
+            label: String(candidate?.label || "Sin fuente")
+        })) || [],
+        "Sin fuente candidata",
+        currentTicketOcrReview?.selectedSource || ""
+    );
+}
+
+function renderSuperTicketOcrProductOptions() {
+    const select = document.querySelector("#super-ticket-ocr-product");
+    if (!select) {
+        return;
+    }
+    const currentValue = select.value;
+    const options = [];
+    groupSuperItems(superItems).forEach((categoryItems, categoryName) => {
+        categoryItems.forEach((item) => {
+            options.push({ value: String(item.id), label: `${item.name} · ${categoryName}` });
+        });
+    });
+    fillSelectWithOptions(select, options, "Seleccionar producto", currentValue || currentTicketOcrReview?.lines?.[currentTicketOcrReview?.selectedLineIndex]?.selectedProductId || "");
+}
+
+function fillSelectWithOptions(select, options, placeholder, selectedValue = "") {
+    if (!select) {
+        return;
+    }
+    select.innerHTML = "";
+    const placeholderOption = document.createElement("option");
+    placeholderOption.value = "";
+    placeholderOption.textContent = placeholder;
+    select.append(placeholderOption);
+    options.forEach((optionValue) => {
+        const option = document.createElement("option");
+        option.value = optionValue.value;
+        option.textContent = optionValue.label;
+        select.append(option);
+    });
+    select.value = selectedValue || "";
+}
+
+function superTicketOcrLineRowHtml(line) {
+    const warnings = line.warnings.length > 0 ? line.warnings.join(" · ") : "Sin advertencias";
+    const statusClass = line.status === "confirmed" ? " confirmed" : "";
+    return `
+        <tr>
+            <td data-label="Línea">${escapeHtml(line.rawText || "—")}</td>
+            <td data-label="Descripción">${escapeHtml(line.descriptionCandidate || "—")}</td>
+            <td data-label="Precio">${escapeHtml(line.pricePesos ? formatPesos(line.pricePesos) : "—")}</td>
+            <td data-label="Advertencias">${escapeHtml(warnings)}</td>
+            <td data-label="Estado"><span class="super-ticket-ocr-status${statusClass}">${escapeHtml(line.statusMessage)}</span></td>
+            <td data-label="Acción"><button type="button" class="secondary-button" data-super-ticket-ocr-action="select" data-super-ticket-ocr-line-index="${line.index}">Revisar</button></td>
+        </tr>
+    `;
+}
+
+function populateSuperTicketOcrConfirmForm(line) {
+    if (!line) {
+        resetSuperTicketOcrConfirmForm();
+        return;
+    }
+    document.querySelector("#super-ticket-ocr-line-index").value = String(line.index);
+    document.querySelector("#super-ticket-ocr-selected-line").value = line.rawText || "";
+    document.querySelector("#super-ticket-ocr-description").value = line.descriptionCandidate || "";
+    document.querySelector("#super-ticket-ocr-price-pesos").value = line.pricePesos || "";
+    document.querySelector("#super-ticket-ocr-product").value = line.selectedProductId || "";
+    document.querySelector("#super-ticket-ocr-date").value = currentTicketOcrReview?.selectedDate || "";
+    document.querySelector("#super-ticket-ocr-date-candidate").value = currentTicketOcrReview?.selectedDate || "";
+    document.querySelector("#super-ticket-ocr-source-label").value = currentTicketOcrReview?.selectedSource || "";
+    document.querySelector("#super-ticket-ocr-source-candidate").value = currentTicketOcrReview?.selectedSource || "";
+    document.querySelector("#super-ticket-ocr-sync-current-reference-price").checked = false;
+    const selectedWarnings = document.querySelector("#super-ticket-ocr-selected-warnings");
+    if (selectedWarnings) {
+        selectedWarnings.innerHTML = (line.warnings.length > 0 ? line.warnings : ["Sin advertencias para la línea seleccionada."])
+            .map((warning) => `<li>${escapeHtml(warning)}</li>`)
+            .join("");
+    }
+}
+
+function resetSuperTicketOcrConfirmForm() {
+    document.querySelector("#super-ticket-ocr-confirm-form")?.reset?.();
+    const selectedWarnings = document.querySelector("#super-ticket-ocr-selected-warnings");
+    if (selectedWarnings) {
+        selectedWarnings.innerHTML = "";
+    }
+    showSuperTicketOcrConfirmFeedback("");
+}
+
+function syncSuperTicketOcrDateCandidate(event) {
+    const value = String(event?.currentTarget?.value || "");
+    if (!currentTicketOcrReview) {
+        return;
+    }
+    currentTicketOcrReview.selectedDate = value;
+    document.querySelector("#super-ticket-ocr-date").value = value;
+}
+
+function syncSuperTicketOcrSourceCandidate(event) {
+    const value = String(event?.currentTarget?.value || "").trim();
+    if (!currentTicketOcrReview) {
+        return;
+    }
+    currentTicketOcrReview.selectedSource = value;
+    document.querySelector("#super-ticket-ocr-source-label").value = value;
+}
+
+function selectSuperTicketOcrLine(index) {
+    if (!currentTicketOcrReview || !Number.isInteger(index) || index < 0 || index >= currentTicketOcrReview.lines.length) {
+        return;
+    }
+    currentTicketOcrReview.selectedLineIndex = index;
+    populateSuperTicketOcrConfirmForm(currentTicketOcrReview.lines[index]);
+}
+
+function nextPendingSuperTicketOcrLineIndex(currentIndex) {
+    if (!currentTicketOcrReview) {
+        return -1;
+    }
+    const pending = currentTicketOcrReview.lines.find((line) => line.status !== "confirmed");
+    if (pending) {
+        return pending.index;
+    }
+    return currentIndex;
+}
+
+function clearSuperTicketOcrReview(message = "") {
+    currentTicketOcrReview = null;
+    renderSuperTicketOcrReview();
+    if (message) {
+        showSuperTicketOcrFeedback(message);
+    }
+}
+
 async function runSuperMovementCommand(id, type, payload) {
     const button = document.querySelector("#super-movement-submit");
     try {
@@ -1722,6 +2067,14 @@ function showSuperPriceObservationFeedback(message, isError = false, isLoading =
 
 function showSuperPriceSourceFeedback(message, isError = false, isLoading = false) {
     showFeedback("#super-price-source-feedback", message, isError, isLoading);
+}
+
+function showSuperTicketOcrFeedback(message, isError = false, isLoading = false) {
+    showFeedback("#super-ticket-ocr-feedback", message, isError, isLoading);
+}
+
+function showSuperTicketOcrConfirmFeedback(message, isError = false, isLoading = false) {
+    showFeedback("#super-ticket-ocr-confirm-feedback", message, isError, isLoading);
 }
 
 function showSuperMovementConflict(message, visible) {
