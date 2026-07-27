@@ -684,7 +684,7 @@ class StaticUiContractTests {
                 "superBarcodeAliasLabel"
         );
         assertThat(supermarket).doesNotContain("Number(code)", "parseInt(code", "parseFloat(code");
-        assertThat(supermarket).doesNotContain("BarcodeDetector", "getUserMedia");
+        assertThat(supermarket).contains("BarcodeDetector", "getUserMedia", "visibilitychange", "pagehide");
         assertThat(supermarket).doesNotContain("commercialPresentationPriceObservedAt", "observedAt", "ObservedAt", "datetime", "timestamp");
         assertThat(supermarket).doesNotContain("priceHistory", "price history", "historial de precios", "historial del precio");
         assertThat(supermarket).contains("data-super-action=\"history\"", "super-movement-history");
@@ -818,7 +818,7 @@ class StaticUiContractTests {
                 .replace("Precio", "")
                 .replace("Precio ref.", "");
         assertThat(supermarketUnsupportedScan).doesNotContain(
-                "OpenFoodFacts", "Tesseract", "BarcodeDetector", "getUserMedia",
+                "OpenFoodFacts", "Tesseract",
                 "store", "shop", "shops", "commerce", "comparison", "chart", "charts", "scraping", "automation", "total",
                 "presentations", "multiplePresentations", "externalLookup", "autoPurchase", "purchaseAutomation",
                 "persistSuggestion", "suggestionPersistence", "saveSuggestion"
@@ -857,7 +857,7 @@ class StaticUiContractTests {
         assertThat(api).contains("createSuperItemPriceObservation(id, payload)");
         assertThat(api).doesNotContain("syncCurrentReferencePrice");
         assertThat(staticFiles).doesNotContain(
-                "source admin", "comparison", "Tesseract", "getUserMedia", "Stage 15", "multiple prices"
+                "source admin", "comparison", "Tesseract", "Stage 15", "multiple prices"
         );
     }
 
@@ -907,7 +907,7 @@ class StaticUiContractTests {
                 "renderSuperTicketOcrReview",
                 "createSuperItemPriceObservation",
                 "data-super-ticket-ocr-action=\"select\""
-        ).doesNotContain("localStorage", "sessionStorage", "BarcodeDetector", "getUserMedia");
+        ).doesNotContain("localStorage", "sessionStorage");
         assertThat(styles).contains(
                 ".super-ticket-ocr-card",
                 ".super-ticket-ocr-upload-form",

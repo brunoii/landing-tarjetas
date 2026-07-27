@@ -66,10 +66,12 @@ try {
     const {
         SUPER_FIELD_LIMITS,
         generatedSuperListText,
+        getSuperBarcodeScannerAvailability,
         groupSuperItems,
         normalizeSuperBarcodeCode,
         renderSuperSuggestedItems,
         setupSupermarket,
+        shouldAcceptSuperBarcodeScan,
         superBarcodePayloadFromValues,
         superBarcodeAliasLabel,
         superItemConfigurationLabel,
@@ -734,6 +736,17 @@ try {
     assert.equal(normalizeSuperBarcodeCode(75012345678), "75012345678");
     assert.deepEqual(superBarcodePayloadFromValues({ code: "  0075012345678  ", format: " EAN_13 " }), { code: "0075012345678", format: "EAN_13" });
     assert.deepEqual(superBarcodePayloadFromValues({ code: "00042", format: " " }), { code: "00042" });
+    assert.deepEqual(getSuperBarcodeScannerAvailability({ isSecureContext: true, BarcodeDetector: class BarcodeDetector {}, navigator: { mediaDevices: { getUserMedia() {} } } }), {
+        secureContext: true,
+        hasBarcodeDetector: true,
+        hasMediaDevices: true,
+        supported: true
+    });
+    assert.equal(getSuperBarcodeScannerAvailability({ isSecureContext: false, BarcodeDetector: class BarcodeDetector {}, navigator: { mediaDevices: { getUserMedia() {} } } }).supported, false);
+    assert.equal(shouldAcceptSuperBarcodeScan({ nextCode: "0075012345678", lastCode: "", lastAcceptedAt: 0, now: 1000 }), true);
+    assert.equal(shouldAcceptSuperBarcodeScan({ nextCode: "0075012345678", lastCode: "0075012345678", lastAcceptedAt: 1000, now: 2500 }), false);
+    assert.equal(shouldAcceptSuperBarcodeScan({ nextCode: "0075012345678", lastCode: "0075012345678", lastAcceptedAt: 1000, now: 3501 }), true);
+    assert.equal(shouldAcceptSuperBarcodeScan({ nextCode: "0075012345678", lastCode: "0000000000001", lastAcceptedAt: 1000, now: 1500, lookupInFlight: true }), false);
     assert.equal(validateSuperBarcodeLookup({ code: "" }), "Ingresá un código de barras para buscar.");
     assert.equal(validateSuperBarcodeLookup({ code: "0".repeat(SUPER_FIELD_LIMITS.barcodeCode + 1) }), `El código de barras no puede superar ${SUPER_FIELD_LIMITS.barcodeCode} caracteres.`);
     assert.equal(validateSuperBarcodeLookup({ code: "0075012345678" }), "");
@@ -826,7 +839,11 @@ try {
     assert.match(supermarketSource, /submitSuperTicketOcrConfirmForm/);
     assert.match(supermarketSource, /renderSuperTicketOcrReview/);
     assert.match(supermarketSource, /createSuperItemPriceObservation/);
-    assert.doesNotMatch(supermarketSource, /localStorage|sessionStorage|BarcodeDetector|getUserMedia/);
+    assert.doesNotMatch(supermarketSource, /localStorage|sessionStorage/);
+    assert.match(supermarketSource, /BarcodeDetector/);
+    assert.match(supermarketSource, /getUserMedia/);
+    assert.match(supermarketSource, /visibilitychange/);
+    assert.match(supermarketSource, /pagehide/);
     assertNoUnsupportedSuperInventorySemantics(supermarketSource);
 
     const supermarketDom = fakeSupermarketDom();
@@ -835,15 +852,55 @@ try {
     const previousSupermarketNavigator = globalThis.navigator;
     const previousSupermarketOpen = globalThis.open;
     const previousSupermarketConsole = globalThis.console;
+    const previousSupermarketBarcodeDetector = globalThis.BarcodeDetector;
+    const previousSupermarketSecureContext = globalThis.isSecureContext;
+    const previousSupermarketAddEventListener = globalThis.addEventListener;
+    const previousSupermarketRequestAnimationFrame = globalThis.requestAnimationFrame;
+    const previousSupermarketCancelAnimationFrame = globalThis.cancelAnimationFrame;
     const supermarketConfirmMessages = [];
+    const supermarketGlobalListeners = new Map();
+    const scheduledAnimationFrames = [];
+    const detectorResults = [];
+    const deniedError = new Error("Permiso denegado");
+    deniedError.name = "NotAllowedError";
+    let streamStopCount = 0;
+    let denyCameraAccess = false;
+    let lastRequestedStream = null;
     globalThis.document = supermarketDom.document;
     globalThis.confirm = (message) => {
         supermarketConfirmMessages.push(message);
         return true;
     };
+    globalThis.BarcodeDetector = class BarcodeDetector {
+        async detect() {
+            return detectorResults.shift() || [];
+        }
+    };
+    globalThis.isSecureContext = true;
+    globalThis.addEventListener = (type, listener) => {
+        supermarketGlobalListeners.set(type, listener);
+    };
+    globalThis.requestAnimationFrame = (callback) => {
+        scheduledAnimationFrames.push(callback);
+        return scheduledAnimationFrames.length;
+    };
+    globalThis.cancelAnimationFrame = () => {};
     Object.defineProperty(globalThis, "navigator", {
         configurable: true,
-        value: { clipboard: { async writeText(text) { supermarketDom.copiedText = text; } } }
+        value: {
+            clipboard: { async writeText(text) { supermarketDom.copiedText = text; } },
+            mediaDevices: {
+                async getUserMedia() {
+                    if (denyCameraAccess) {
+                        throw deniedError;
+                    }
+                    lastRequestedStream = fakeMediaStream(() => {
+                        streamStopCount += 1;
+                    });
+                    return lastRequestedStream;
+                }
+            }
+        }
     });
     globalThis.open = (url) => {
         supermarketDom.openedUrl = url;
@@ -1106,6 +1163,50 @@ try {
             },
             { method: "superPriceObservations", filters: { limit: 50 } }
         ]);
+
+        detectorResults.push([{ rawValue: "  0075012345678  ", format: " EAN_13 " }]);
+        await supermarketDom.elements.get("#super-barcode-scan-start").click();
+        assert.equal(supermarketDom.elements.get("#super-barcode-scan-start").disabled, true);
+        assert.equal(supermarketDom.elements.get("#super-barcode-scan-stop").disabled, false);
+        assert.equal(supermarketDom.elements.get("#super-barcode-scanner").hidden, false);
+        assert.equal(supermarketDom.elements.get("#super-barcode-scanner-preview").hidden, false);
+        assert.equal(supermarketDom.elements.get("#super-barcode-scanner-status").textContent, "Escaneando... Apuntá al código de barras.");
+        await scheduledAnimationFrames.shift()?.();
+        await flushAsyncWork();
+        assert.equal(supermarketDom.elements.get("#super-barcode-code").value, "0075012345678");
+        assert.equal(supermarketDom.elements.get("#super-barcode-format").value, "EAN_13");
+        assert.equal(supermarketDom.elements.get("#super-barcode-actions").hidden, false);
+        assert.equal(supermarketDom.elements.get("#super-barcode-purchase").disabled, false);
+        assert.equal(supermarketDom.elements.get("#super-barcode-consume").disabled, false);
+        assert.equal(supermarketDom.elements.get("#super-barcode-scanner").hidden, true);
+        assert.equal(supermarketDom.elements.get("#super-barcode-scanner-preview").srcObject, null);
+        assert.equal(streamStopCount > 0, true);
+        assert.equal(supermarketDom.elements.get("#super-barcode-scanner-status").textContent, "Escaneo listo para Arroz. Confirmá compra o consumo por separado.");
+
+        await supermarketDom.elements.get("#super-barcode-purchase").click();
+        assert.equal(supermarketDom.elements.get("#super-movement-modal").hidden, false);
+        assert.equal(supermarketDom.elements.get("#super-movement-title").textContent, "Registrar compra");
+        supermarketDom.elements.get("#super-movement-modal").hidden = true;
+
+        detectorResults.push([]);
+        await supermarketDom.elements.get("#super-barcode-scan-start").click();
+        supermarketDom.document.hidden = true;
+        supermarketDom.document.dispatchEvent({ type: "visibilitychange" });
+        assert.equal(supermarketDom.elements.get("#super-barcode-scanner").hidden, true);
+        assert.equal(supermarketDom.elements.get("#super-barcode-scanner-status").textContent, "Escaneo detenido al ocultarse la página. Podés retomarlo cuando quieras.");
+        supermarketDom.document.hidden = false;
+
+        denyCameraAccess = true;
+        await supermarketDom.elements.get("#super-barcode-scan-start").click();
+        assert.equal(supermarketDom.elements.get("#super-barcode-scanner-status").textContent, "Permiso de cámara denegado. Ingresá el código manualmente.");
+        assert.equal(supermarketDom.elements.get("#super-barcode-code").focused, true);
+        denyCameraAccess = false;
+
+        detectorResults.push([]);
+        await supermarketDom.elements.get("#super-barcode-scan-start").click();
+        supermarketGlobalListeners.get("pagehide")?.({ type: "pagehide" });
+        assert.equal(supermarketDom.elements.get("#super-barcode-scanner").hidden, true);
+        assert.equal(lastRequestedStream.getTracks()[0].stopped, true);
 
         supermarketDom.elements.get("#super-barcode-code").value = "  0075012345678  ";
         const barcodeFoundCallStart = supermarketDom.api.calls.length;
@@ -1590,6 +1691,31 @@ try {
             delete globalThis.console;
         } else {
             globalThis.console = previousSupermarketConsole;
+        }
+        if (previousSupermarketBarcodeDetector === undefined) {
+            delete globalThis.BarcodeDetector;
+        } else {
+            globalThis.BarcodeDetector = previousSupermarketBarcodeDetector;
+        }
+        if (previousSupermarketSecureContext === undefined) {
+            delete globalThis.isSecureContext;
+        } else {
+            globalThis.isSecureContext = previousSupermarketSecureContext;
+        }
+        if (previousSupermarketAddEventListener === undefined) {
+            delete globalThis.addEventListener;
+        } else {
+            globalThis.addEventListener = previousSupermarketAddEventListener;
+        }
+        if (previousSupermarketRequestAnimationFrame === undefined) {
+            delete globalThis.requestAnimationFrame;
+        } else {
+            globalThis.requestAnimationFrame = previousSupermarketRequestAnimationFrame;
+        }
+        if (previousSupermarketCancelAnimationFrame === undefined) {
+            delete globalThis.cancelAnimationFrame;
+        } else {
+            globalThis.cancelAnimationFrame = previousSupermarketCancelAnimationFrame;
         }
     }
 
@@ -2530,6 +2656,14 @@ function fakeAppDom() {
         "#super-barcode-item",
         "#super-barcode-attach",
         "#super-barcode-remove",
+        "#super-barcode-scan-start",
+        "#super-barcode-scan-stop",
+        "#super-barcode-scanner",
+        "#super-barcode-scanner-preview",
+        "#super-barcode-scanner-status",
+        "#super-barcode-actions",
+        "#super-barcode-purchase",
+        "#super-barcode-consume",
         "#super-barcode-feedback",
         "#super-barcode-result",
         "#super-item-form",
@@ -2657,6 +2791,9 @@ function fakeAppDom() {
             addEventListener(type, listener) {
                 if (type === "DOMContentLoaded") {
                     domContentLoadedListeners.push(listener);
+                    return;
+                }
+                if (type === "visibilitychange") {
                     return;
                 }
                 throw new Error(`Unexpected app document listener: ${type}`);
@@ -3080,6 +3217,13 @@ function fakeElement() {
     };
 }
 
+function fakeVideoElement() {
+    const video = fakeElement();
+    video.srcObject = null;
+    video.play = async () => {};
+    return video;
+}
+
 function fakeLoginDom(search) {
     const feedbackClasses = new Set();
     const feedback = {
@@ -3270,6 +3414,7 @@ function fakeManualExpenseDom() {
 
 function fakeSupermarketDom() {
     const elements = new Map();
+    const documentListeners = new Map();
     const table = fakeIncomeTable();
     const superItemForm = fakeSuperItemForm(elements);
     const superCategoryForm = fakeSuperCategoryForm(elements);
@@ -3356,6 +3501,22 @@ function fakeSupermarketDom() {
     elements.set("#super-barcode-item", fakeSelect());
     elements.set("#super-barcode-attach", fakeClickableButton("Asociar a producto existente"));
     elements.set("#super-barcode-remove", fakeClickableButton("Quitar alias"));
+    elements.set("#super-barcode-scan-start", fakeClickableButton("Escanear código"));
+    elements.set("#super-barcode-scan-stop", fakeClickableButton("Detener escaneo"));
+    elements.get("#super-barcode-scan-stop").disabled = true;
+    elements.set("#super-barcode-scanner", fakeElement());
+    elements.get("#super-barcode-scanner").hidden = true;
+    elements.set("#super-barcode-scanner-preview", fakeVideoElement());
+    elements.get("#super-barcode-scanner-preview").hidden = true;
+    elements.set("#super-barcode-scanner-status", fakeElement());
+    elements.set("#super-barcode-actions", fakeElement());
+    elements.get("#super-barcode-actions").hidden = true;
+    elements.set("#super-barcode-purchase", fakeClickableButton("Registrar compra"));
+    elements.get("#super-barcode-purchase").dataset.superBarcodeStockAction = "purchase";
+    elements.get("#super-barcode-purchase").disabled = true;
+    elements.set("#super-barcode-consume", fakeClickableButton("Registrar consumo"));
+    elements.get("#super-barcode-consume").dataset.superBarcodeStockAction = "consume";
+    elements.get("#super-barcode-consume").disabled = true;
     elements.set("#super-barcode-feedback", fakeElement());
     elements.set("#super-barcode-result", fakeElement());
     elements.set("#super-category-form", superCategoryForm);
@@ -3576,6 +3737,10 @@ function fakeSupermarketDom() {
         api,
         copiedText: "",
         document: {
+            hidden: false,
+            addEventListener(type, listener) {
+                documentListeners.set(type, listener);
+            },
             createElement(tagName) {
                 assert.ok(["a", "form", "option", "p", "tr"].includes(tagName), `Unexpected supermarket element: ${tagName}`);
                 if (tagName === "option") {
@@ -3598,6 +3763,9 @@ function fakeSupermarketDom() {
                     return supermarketLimitFields(elements);
                 }
                 throw new Error(`Unexpected supermarket selectorAll: ${selector}`);
+            },
+            dispatchEvent(event) {
+                documentListeners.get(event.type)?.(event);
             }
         },
         elements
@@ -3974,10 +4142,29 @@ function fakeInput(value = "") {
     return {
         attributes: new Map(),
         dataset: {},
+        focused: false,
         maxLength: -1,
         value,
+        focus() {
+            this.focused = true;
+        },
         setAttribute(name, attributeValue) {
             this.attributes.set(name, attributeValue);
+        }
+    };
+}
+
+function fakeMediaStream(onStop) {
+    const track = {
+        stopped: false,
+        stop() {
+            this.stopped = true;
+            onStop?.();
+        }
+    };
+    return {
+        getTracks() {
+            return [track];
         }
     };
 }
@@ -4076,8 +4263,6 @@ function assertNoUnsupportedSuperInventorySemantics(source) {
     const unsupportedTerms = [
         "OpenFoodFacts",
         "Tesseract",
-        "BarcodeDetector",
-        "getUserMedia",
         "externalLookup",
         "store",
         "shop",

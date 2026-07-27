@@ -12,8 +12,10 @@ let superCategoryCount = 0;
 let currentBarcodeAlias = null;
 let selectedPriceObservationItem = null;
 let currentTicketOcrReview = null;
+let superBarcodeScannerState = createSuperBarcodeScannerState();
 
 const SUPER_RECENT_HISTORY_LIMIT = 50;
+const SUPER_BARCODE_SCAN_DEBOUNCE_MS = 2000;
 
 export const SUPER_FIELD_LIMITS = Object.freeze({
     categoryName: 80,
@@ -28,6 +30,7 @@ export const SUPER_FIELD_LIMITS = Object.freeze({
 
 export function setupSupermarket({ apiClient = api } = {}) {
     supermarketApi = apiClient;
+    stopSuperBarcodeScanner({ nextPhase: "idle", statusMessage: "", announce: false });
     superPriceSources = [];
     editingItemId = null;
     editingItemOriginalStock = null;
@@ -36,6 +39,7 @@ export function setupSupermarket({ apiClient = api } = {}) {
     currentBarcodeAlias = null;
     selectedPriceObservationItem = null;
     currentTicketOcrReview = null;
+    superBarcodeScannerState = createSuperBarcodeScannerState();
 
     applySupermarketFieldLimits();
 
@@ -53,6 +57,10 @@ export function setupSupermarket({ apiClient = api } = {}) {
     document.querySelector("#super-barcode-form")?.addEventListener("submit", submitSuperBarcodeLookup);
     document.querySelector("#super-barcode-attach")?.addEventListener("click", attachSuperBarcodeAlias);
     document.querySelector("#super-barcode-remove")?.addEventListener("click", removeSuperBarcodeAlias);
+    document.querySelector("#super-barcode-scan-start")?.addEventListener("click", () => startSuperBarcodeScanner());
+    document.querySelector("#super-barcode-scan-stop")?.addEventListener("click", () => stopSuperBarcodeScanner({ nextPhase: "idle", statusMessage: "Escaneo detenido. Podés ingresar el código manualmente." }));
+    document.querySelector("#super-barcode-purchase")?.addEventListener("click", handleSuperBarcodeResolvedAction);
+    document.querySelector("#super-barcode-consume")?.addEventListener("click", handleSuperBarcodeResolvedAction);
     document.querySelector("#super-category-toggle")?.addEventListener("click", toggleSuperCategoryTable);
     document.querySelector("#super-generate-list")?.addEventListener("click", generateSuperList);
     document.querySelector("#super-copy-list")?.addEventListener("click", copyGeneratedSuperList);
@@ -75,6 +83,11 @@ export function setupSupermarket({ apiClient = api } = {}) {
     document.querySelector("#super-price-observation-item")?.addEventListener("change", (event) => {
         prefillSuperPriceObservationForm(itemById(event.currentTarget.value));
     });
+    document.addEventListener?.("visibilitychange", handleSuperBarcodeVisibilityLoss);
+    globalThis.addEventListener?.("pagehide", handleSuperBarcodePageHide);
+
+    syncSuperBarcodeScannerUi();
+    syncSuperBarcodeResolvedActions();
 
     document.querySelector("#super-items-table")?.addEventListener("change", async (event) => {
         const checkbox = event.target.closest("input[data-super-action='checked']");
@@ -337,6 +350,22 @@ export function normalizeSuperBarcodeCode(value) {
     return String(value ?? "").trim();
 }
 
+function createSuperBarcodeScannerState() {
+    return { phase: "idle", statusMessage: "", detector: null, stream: null, animationFrameId: null, lookupInFlight: false, lastCode: "", lastAcceptedAt: 0 };
+}
+
+export function getSuperBarcodeScannerAvailability(environment = globalThis) {
+    const secureContext = Boolean(environment?.isSecureContext);
+    const hasBarcodeDetector = typeof environment?.BarcodeDetector === "function";
+    const hasMediaDevices = typeof environment?.navigator?.mediaDevices?.getUserMedia === "function";
+    return { secureContext, hasBarcodeDetector, hasMediaDevices, supported: secureContext && hasBarcodeDetector && hasMediaDevices };
+}
+
+export function shouldAcceptSuperBarcodeScan({ nextCode, lastCode = "", lastAcceptedAt = 0, now = Date.now(), debounceMs = SUPER_BARCODE_SCAN_DEBOUNCE_MS, lookupInFlight = false }) {
+    const normalizedCode = normalizeSuperBarcodeCode(nextCode);
+    return Boolean(normalizedCode) && !lookupInFlight && (normalizedCode !== normalizeSuperBarcodeCode(lastCode) || now - Number(lastAcceptedAt || 0) >= debounceMs);
+}
+
 export function superBarcodePayloadFromValues(values) {
     const payload = { code: normalizeSuperBarcodeCode(values?.code) };
     const format = String(values?.format || "").trim();
@@ -578,6 +607,7 @@ async function loadSupermarket() {
         renderSuperItems(items);
         renderSuperSuggestedItems(suggestedItems);
         applySuperBarcodeHighlight(currentBarcodeAlias?.item?.id);
+        syncSuperBarcodeResolvedActions();
         await loadSuperPriceObservations();
         await loadSuperMovementHistory();
         renderSuperTicketOcrReview();
@@ -1099,6 +1129,7 @@ async function submitSuperBarcodeLookup(event) {
             setSuperBarcodeAttachEnabled(false);
             setSuperBarcodeRemoveVisible(true);
             applySuperBarcodeHighlight(lookup.item.id);
+            syncSuperBarcodeResolvedActions();
             return;
         }
         currentBarcodeAlias = { code: payload.code, format: payload.format || null, item: null, aliasId: null };
@@ -1107,9 +1138,11 @@ async function submitSuperBarcodeLookup(event) {
         setSuperBarcodeAttachEnabled(true);
         setSuperBarcodeRemoveVisible(false);
         applySuperBarcodeHighlight(null);
+        syncSuperBarcodeResolvedActions();
     } catch (error) {
         showSuperBarcodeFeedback(`No se pudo buscar el código: ${error.message}`, true);
     } finally {
+        superBarcodeScannerState.lookupInFlight = false;
         setButtonBusy(button, false);
     }
 }
@@ -1140,6 +1173,7 @@ async function attachSuperBarcodeAlias() {
         setSuperBarcodeAttachEnabled(false);
         setSuperBarcodeRemoveVisible(Boolean(currentBarcodeAlias.aliasId));
         applySuperBarcodeHighlight(item.id);
+        syncSuperBarcodeResolvedActions();
     } catch (error) {
         showSuperBarcodeFeedback(`No se pudo asociar el código: ${error.message}`, true);
     } finally {
@@ -1162,6 +1196,7 @@ async function removeSuperBarcodeAlias() {
         setSuperBarcodeAttachEnabled(true);
         setSuperBarcodeRemoveVisible(false);
         applySuperBarcodeHighlight(null);
+        syncSuperBarcodeResolvedActions();
     } catch (error) {
         showSuperBarcodeFeedback(`No se pudo quitar el alias: ${error.message}`, true);
     } finally {
@@ -1202,6 +1237,166 @@ function showSuperBarcodeResult(message) {
     if (result) {
         result.textContent = message;
     }
+}
+
+function superBarcodeScannerElements() {
+    return { codeInput: document.querySelector("#super-barcode-code"), formatInput: document.querySelector("#super-barcode-format"), startButton: document.querySelector("#super-barcode-scan-start"), stopButton: document.querySelector("#super-barcode-scan-stop"), scannerPanel: document.querySelector("#super-barcode-scanner"), preview: document.querySelector("#super-barcode-scanner-preview"), status: document.querySelector("#super-barcode-scanner-status") };
+}
+
+function syncSuperBarcodeScannerUi() {
+    const availability = getSuperBarcodeScannerAvailability();
+    const { startButton, stopButton, scannerPanel, preview, status } = superBarcodeScannerElements();
+    const isActive = ["starting", "scanning", "resolving"].includes(superBarcodeScannerState.phase);
+    if (startButton) startButton.disabled = ["starting", "scanning", "resolving"].includes(superBarcodeScannerState.phase);
+    if (stopButton) stopButton.disabled = !["starting", "scanning"].includes(superBarcodeScannerState.phase);
+    if (scannerPanel) scannerPanel.hidden = !isActive;
+    if (preview) preview.hidden = !superBarcodeScannerState.stream;
+    if (status) {
+        if (superBarcodeScannerState.statusMessage) {
+            status.textContent = superBarcodeScannerState.statusMessage;
+        } else if (!availability.supported) {
+            status.textContent = "Escaneo no disponible en este navegador o contexto. Ingresá el código manualmente.";
+        } else {
+            status.textContent = "Escáner listo. Podés iniciar la cámara o seguir con el ingreso manual.";
+        }
+    }
+}
+
+function syncSuperBarcodeResolvedActions() {
+    const actions = document.querySelector("#super-barcode-actions");
+    const purchaseButton = document.querySelector("#super-barcode-purchase");
+    const consumeButton = document.querySelector("#super-barcode-consume");
+    const hasResolvedItem = Boolean(currentBarcodeAlias?.item?.id);
+    if (actions) actions.hidden = !hasResolvedItem;
+    if (purchaseButton) purchaseButton.disabled = !hasResolvedItem;
+    if (consumeButton) consumeButton.disabled = !hasResolvedItem;
+}
+
+async function startSuperBarcodeScanner() {
+    const availability = getSuperBarcodeScannerAvailability();
+    if (!availability.supported) {
+        setSuperBarcodeScannerPhase("unavailable", "Escaneo no disponible en este navegador o contexto. Ingresá el código manualmente.");
+        focusSuperBarcodeCodeField();
+        return;
+    }
+    try {
+        setSuperBarcodeScannerPhase("starting", "Iniciando cámara...");
+        const stream = await globalThis.navigator.mediaDevices.getUserMedia({
+            audio: false,
+            video: { facingMode: { ideal: "environment" } }
+        });
+        superBarcodeScannerState.stream = stream;
+        superBarcodeScannerState.detector = new globalThis.BarcodeDetector();
+        const { preview } = superBarcodeScannerElements();
+        if (preview) {
+            preview.srcObject = stream;
+            preview.hidden = false;
+            await preview.play?.();
+        }
+        setSuperBarcodeScannerPhase("scanning", "Escaneando... Apuntá al código de barras.");
+        scheduleSuperBarcodeDetection();
+    } catch (error) {
+        const denied = error?.name === "NotAllowedError" || error?.name === "PermissionDeniedError";
+        stopSuperBarcodeScanner({
+            nextPhase: denied ? "denied" : "error",
+            statusMessage: denied
+                ? "Permiso de cámara denegado. Ingresá el código manualmente."
+                : `No se pudo iniciar la cámara: ${error.message}`
+        });
+        focusSuperBarcodeCodeField();
+    }
+}
+
+function scheduleSuperBarcodeDetection() {
+    if (superBarcodeScannerState.phase !== "scanning") {
+        return;
+    }
+    if (typeof globalThis.requestAnimationFrame === "function") {
+        superBarcodeScannerState.animationFrameId = globalThis.requestAnimationFrame(() => {
+            void pollSuperBarcodeDetector();
+        });
+        return;
+    }
+    void pollSuperBarcodeDetector();
+}
+
+async function pollSuperBarcodeDetector() {
+    if (superBarcodeScannerState.phase !== "scanning" || !superBarcodeScannerState.detector) {
+        return;
+    }
+    try {
+        const { preview } = superBarcodeScannerElements();
+        const detections = await superBarcodeScannerState.detector.detect(preview);
+        const acceptedDetection = Array.isArray(detections) ? detections.find((detection) => shouldAcceptSuperBarcodeScan({ nextCode: detection?.rawValue, lastCode: superBarcodeScannerState.lastCode, lastAcceptedAt: superBarcodeScannerState.lastAcceptedAt, lookupInFlight: superBarcodeScannerState.lookupInFlight })) : null;
+        if (acceptedDetection) {
+            await acceptSuperBarcodeDetection(acceptedDetection);
+            return;
+        }
+    } catch (error) {
+        stopSuperBarcodeScanner({ nextPhase: "error", statusMessage: `No se pudo continuar el escaneo: ${error.message}` });
+        focusSuperBarcodeCodeField();
+        return;
+    }
+    scheduleSuperBarcodeDetection();
+}
+
+async function acceptSuperBarcodeDetection(detection) {
+    const payload = superBarcodePayloadFromValues({ code: detection?.rawValue, format: detection?.format });
+    const validationMessage = validateSuperBarcodeLookup(payload);
+    if (validationMessage) {
+        showSuperBarcodeFeedback(validationMessage, true);
+        scheduleSuperBarcodeDetection();
+        return;
+    }
+    const { codeInput, formatInput } = superBarcodeScannerElements();
+    if (codeInput) codeInput.value = payload.code;
+    if (formatInput) formatInput.value = payload.format || "";
+    superBarcodeScannerState.lookupInFlight = true;
+    superBarcodeScannerState.lastCode = payload.code;
+    superBarcodeScannerState.lastAcceptedAt = Date.now();
+    stopSuperBarcodeScanner({ nextPhase: "resolving", statusMessage: `Código ${payload.code} detectado. Resolviendo producto...` });
+    await submitSuperBarcodeLookup();
+    const resolvedMessage = currentBarcodeAlias?.item ? `Escaneo listo para ${currentBarcodeAlias.item.name}. Confirmá compra o consumo por separado.` : `Código ${payload.code} detectado. Podés asociarlo manualmente.`;
+    setSuperBarcodeScannerPhase("idle", resolvedMessage);
+}
+
+function stopSuperBarcodeScanner({ nextPhase = "idle", statusMessage = "", announce = true } = {}) {
+    if (superBarcodeScannerState.animationFrameId !== null && typeof globalThis.cancelAnimationFrame === "function") globalThis.cancelAnimationFrame(superBarcodeScannerState.animationFrameId);
+    superBarcodeScannerState.animationFrameId = null;
+    for (const track of superBarcodeScannerState.stream?.getTracks?.() || []) track.stop?.();
+    superBarcodeScannerState.stream = null;
+    superBarcodeScannerState.detector = null;
+    const { preview } = superBarcodeScannerElements();
+    if (preview) {
+        preview.srcObject = null;
+        preview.hidden = true;
+    }
+    setSuperBarcodeScannerPhase(nextPhase, statusMessage, announce);
+}
+
+function setSuperBarcodeScannerPhase(phase, statusMessage = "", announce = true) {
+    superBarcodeScannerState.phase = phase;
+    superBarcodeScannerState.statusMessage = announce ? statusMessage : "";
+    syncSuperBarcodeScannerUi();
+}
+
+function focusSuperBarcodeCodeField() { document.querySelector("#super-barcode-code")?.focus?.(); }
+
+function handleSuperBarcodeVisibilityLoss() {
+    if (document.hidden && ["starting", "scanning"].includes(superBarcodeScannerState.phase)) stopSuperBarcodeScanner({ nextPhase: "idle", statusMessage: "Escaneo detenido al ocultarse la página. Podés retomarlo cuando quieras." });
+}
+
+function handleSuperBarcodePageHide() {
+    if (["starting", "scanning"].includes(superBarcodeScannerState.phase)) stopSuperBarcodeScanner({ nextPhase: "idle", statusMessage: "Escaneo detenido al salir de la página.", announce: false });
+}
+
+function handleSuperBarcodeResolvedAction(event) {
+    const type = event?.currentTarget?.dataset?.superBarcodeStockAction;
+    if (!currentBarcodeAlias?.item?.id || !["purchase", "consume"].includes(type)) {
+        showSuperBarcodeFeedback("Primero resolvé un producto antes de registrar movimientos.", true);
+        return;
+    }
+    openSuperMovementModal(type, currentBarcodeAlias.item.id);
 }
 
 function shouldAdjustSuperItemStock(currentStock) {

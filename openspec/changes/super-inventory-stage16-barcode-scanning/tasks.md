@@ -32,9 +32,9 @@ Chain strategy: stacked-to-main
 
 ## Phase 2: Core Implementation
 
-- [ ] 2.1 Wire `src/main/resources/static/js/supermarket.js` scanner state skeleton: capability checks, idle/starting/scanning/unavailable states, and safe stop/reset hooks.
-- [ ] 2.2 Connect scan result handoff to the existing barcode lookup path in `src/main/resources/static/js/supermarket.js`, preserving text values and manual fallback.
-- [ ] 2.3 Gate resolved-item actions in `src/main/resources/static/js/supermarket.js` so purchase/consume buttons call the existing movement modal only after explicit user action.
+- [x] 2.1 Wire `src/main/resources/static/js/supermarket.js` scanner state skeleton: capability checks, idle/starting/scanning/unavailable states, and safe stop/reset hooks.
+- [x] 2.2 Connect scan result handoff to the existing barcode lookup path in `src/main/resources/static/js/supermarket.js`, preserving text values and manual fallback.
+- [x] 2.3 Gate resolved-item actions in `src/main/resources/static/js/supermarket.js` so purchase/consume buttons call the existing movement modal only after explicit user action.
 - [ ] 2.4 Rebase PR 2 onto updated `main` after PR 1 merges; keep the JS diff free of PR 1 UI-only changes.
 
 ## Phase 3: Testing / Verification
@@ -42,9 +42,9 @@ Chain strategy: stacked-to-main
 - [x] 3.1 Write RED tests in `src/test/resources/static-ui-contract-tests.mjs` for scanner UI presence, manual fallback visibility, and no OCR API drift.
 - [x] 3.2 Write RED tests in `src/test/java/com/gentleia/landingtarjetas/StaticUiContractTests.java` for the same static contract boundaries.
 - [x] 3.3 Verify the first slice with `mvn test -Dtest=StaticUiContractTests` and confirm the diff stays within the PR 1 boundary.
-- [ ] 3.4 Verify PR 2 with the same targeted test command plus a manual secure-context camera check for start/stop, denied permission, and explicit modal handoff.
+- [x] 3.4 Verify PR 2 with the same targeted test command plus a manual secure-context camera check for start/stop, denied permission, and explicit modal handoff.
 
 ## Phase 4: Cleanup / Documentation
 
 - [x] 4.1 Keep comments and labels in `src/main/resources/static/index.html` and `src/main/resources/static/js/supermarket.js` aligned with the manual-first, no-auto-mutation contract.
-- [ ] 4.2 Remove any temporary scan-layout markup or CSS experiments before handing off PR 1.
+- [x] 4.2 Remove any temporary scan-layout markup or CSS experiments before handing off PR 1.
