@@ -17,6 +17,7 @@ public class SupermarketService {
 
     private static final String MANUAL_SOURCE = "MANUAL";
     private static final String QUICK_SOURCE = "QUICK";
+    private static final String SCAN_SESSION_SOURCE = "SCAN_SESSION";
     private static final int DEFAULT_MOVEMENT_LIMIT = 50;
     private static final int MAX_MOVEMENT_LIMIT = 100;
     private static final int DEFAULT_PRICE_OBSERVATION_LIMIT = 50;
@@ -148,8 +149,9 @@ public class SupermarketService {
         SuperItem item = getActiveItemForStockCommand(id);
         BigDecimal previousStock = requireKnownStock(item);
         BigDecimal resultingStock = previousStock.add(request.quantity());
-        return applyStockMovement(item, SuperItemStockMovement.MovementType.PURCHASE, request.quantity(), request.notes(), MANUAL_SOURCE,
+        applyStockMovement(item, SuperItemStockMovement.MovementType.PURCHASE, request.quantity(), request.notes(), MANUAL_SOURCE,
                 previousStock, resultingStock, false);
+        return SuperItemResponse.from(item);
     }
 
     @Transactional
@@ -157,8 +159,9 @@ public class SupermarketService {
         SuperItem item = getActiveItemForStockCommand(id);
         BigDecimal previousStock = requireKnownStock(item);
         BigDecimal resultingStock = previousStock.subtract(request.quantity());
-        return applyStockMovement(item, SuperItemStockMovement.MovementType.CONSUMPTION, request.quantity(), request.notes(), MANUAL_SOURCE,
+        applyStockMovement(item, SuperItemStockMovement.MovementType.CONSUMPTION, request.quantity(), request.notes(), MANUAL_SOURCE,
                 previousStock, resultingStock, request.allowsNegativeStock());
+        return SuperItemResponse.from(item);
     }
 
     @Transactional
@@ -170,8 +173,9 @@ public class SupermarketService {
             throw new IllegalArgumentException("Configure una cantidad rápida positiva antes de usar consumo rápido");
         }
         BigDecimal resultingStock = previousStock.subtract(quantity);
-        return applyStockMovement(item, SuperItemStockMovement.MovementType.QUICK_CONSUMPTION, quantity, null, QUICK_SOURCE,
+        applyStockMovement(item, SuperItemStockMovement.MovementType.QUICK_CONSUMPTION, quantity, null, QUICK_SOURCE,
                 previousStock, resultingStock, request.allowsNegativeStock());
+        return SuperItemResponse.from(item);
     }
 
     @Transactional(readOnly = true)
@@ -296,22 +300,33 @@ public class SupermarketService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "No se encontró el producto del super"));
     }
 
-    private BigDecimal requireKnownStock(SuperItem item) {
+    BigDecimal requireKnownStock(SuperItem item) {
         if (item.getCurrentStock() == null) {
             throw new IllegalArgumentException("Inicialice el stock con un ajuste antes de registrar movimientos");
         }
         return item.getCurrentStock();
     }
 
-    private SuperItemResponse applyStockMovement(SuperItem item, SuperItemStockMovement.MovementType movementType, BigDecimal quantity,
+    SuperItemStockMovement applyScanSessionMovement(SuperItem item, SuperInventoryScanLine draft) {
+        BigDecimal previousStock = requireKnownStock(item);
+        BigDecimal resultingStock = draft.getDraftType() == SuperInventoryScanDraftType.PURCHASE
+                ? previousStock.add(draft.getQuantity())
+                : previousStock.subtract(draft.getQuantity());
+        SuperItemStockMovement.MovementType movementType = draft.getDraftType() == SuperInventoryScanDraftType.PURCHASE
+                ? SuperItemStockMovement.MovementType.PURCHASE
+                : SuperItemStockMovement.MovementType.CONSUMPTION;
+        return applyStockMovement(item, movementType, draft.getQuantity(), draft.getNotes(), SCAN_SESSION_SOURCE,
+                previousStock, resultingStock, draft.isAllowNegativeStock());
+    }
+
+    private SuperItemStockMovement applyStockMovement(SuperItem item, SuperItemStockMovement.MovementType movementType, BigDecimal quantity,
             String notes, String source, BigDecimal previousStock, BigDecimal resultingStock, boolean allowNegativeStock) {
         if (resultingStock.signum() < 0 && !allowNegativeStock) {
             throw new SuperItemStockConflictException(item, quantity, resultingStock, movementType, allowNegativeStock);
         }
         item.setCurrentStock(resultingStock);
-        stockMovementRepository.save(new SuperItemStockMovement(item, movementType, previousStock, resultingStock, quantity,
+        return stockMovementRepository.save(new SuperItemStockMovement(item, movementType, previousStock, resultingStock, quantity,
                 trimToNull(notes), source));
-        return SuperItemResponse.from(item);
     }
 
     private int normalizeMovementLimit(int requestedLimit) {

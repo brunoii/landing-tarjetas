@@ -3,8 +3,8 @@
 **Change**: `super-inventory-stage16-barcode-scanning`
 **Mode**: Strict TDD
 **Artifact store**: hybrid
-**Current slice**: PR 2 — scanner lifecycle, lookup handoff, and explicit movement-modal actions
-**Status**: completed (PR 2 implementation slice; PR 2 rebase task still user-owned)
+**Current slice**: PR 2 — integration/rebase bookkeeping on updated `main`
+**Status**: completed (all Stage 16 tasks complete; PR 2 integrated on updated `main`)
 
 ## Completed Tasks
 
@@ -15,6 +15,7 @@
 - [x] 2.1 Wire `src/main/resources/static/js/supermarket.js` scanner state skeleton: capability checks, idle/starting/scanning/unavailable states, and safe stop/reset hooks.
 - [x] 2.2 Connect scan result handoff to the existing barcode lookup path in `src/main/resources/static/js/supermarket.js`, preserving text values and manual fallback.
 - [x] 2.3 Gate resolved-item actions in `src/main/resources/static/js/supermarket.js` so purchase/consume buttons call the existing movement modal only after explicit user action.
+- [x] 2.4 Rebase PR 2 onto updated `main` after PR 1 merges; keep the JS diff free of PR 1 UI-only changes.
 - [x] 3.1 Write RED tests in `src/test/resources/static-ui-contract-tests.mjs` for scanner UI presence, manual fallback visibility, and no OCR API drift.
 - [x] 3.2 Write RED tests in `src/test/java/com/gentleia/landingtarjetas/StaticUiContractTests.java` for the same static contract boundaries.
 - [x] 3.3 Verify the first slice with `mvn test -Dtest=StaticUiContractTests` and confirm the diff stays within the PR 1 boundary.
@@ -31,8 +32,8 @@
 | `src/main/resources/static/js/supermarket.js` | Modified | Added bounded scanner lifecycle state, capability detection, secure-context camera startup/cleanup, duplicate-scan gating, lookup handoff, and explicit purchase/consume modal actions. |
 | `src/test/resources/static-ui-contract-tests.mjs` | Modified | Added RED→GREEN secure-context scanner lifecycle, denied-permission fallback, visibility/pagehide cleanup, and explicit action-handoff regression coverage. |
 | `src/test/java/com/gentleia/landingtarjetas/StaticUiContractTests.java` | Modified | Updated static JS contract expectations so the focused Maven target accepts bounded scanner APIs while preserving OCR isolation constraints. |
-| `openspec/changes/super-inventory-stage16-barcode-scanning/tasks.md` | Modified | Marked PR 2 lifecycle/handoff tasks complete while leaving task 2.4 pending for the user-owned rebase step. |
-| `openspec/changes/super-inventory-stage16-barcode-scanning/apply-progress.md` | Modified | Merged prior PR 1 progress with the new PR 2 implementation evidence and review-budget audit. |
+| `openspec/changes/super-inventory-stage16-barcode-scanning/tasks.md` | Modified | Marked task 2.4 complete after the orchestrator verified updated-main integration and clean stacked-to-main ancestry. |
+| `openspec/changes/super-inventory-stage16-barcode-scanning/apply-progress.md` | Modified | Merged prior PR 1/PR 2 evidence with the final 2.4 bookkeeping completion and ready-for-verify status. |
 
 ## TDD Cycle Evidence
 
@@ -45,6 +46,7 @@
 | 2.1 | `src/test/resources/static-ui-contract-tests.mjs`, `src/test/java/com/gentleia/landingtarjetas/StaticUiContractTests.java` | JS unit/static harness | ✅ `mvn test -Dtest=StaticUiContractTests` → 29/29 passing baseline | ✅ Added failing lifecycle/source assertions for capability detection, start/stop controls, denied permission, and cleanup hooks before wiring `supermarket.js` | ✅ `mvn test -Dtest=StaticUiContractTests` → 29/29 passing after lifecycle wiring | ✅ Covered supported start flow plus denied-permission and visibility/pagehide cleanup branches | ✅ Extracted bounded scanner helpers so lifecycle state stays isolated from OCR and movement APIs |
 | 2.2 | `src/test/resources/static-ui-contract-tests.mjs`, `src/test/java/com/gentleia/landingtarjetas/StaticUiContractTests.java` | JS unit/static harness | ✅ Same baseline | ✅ Added failing scan-detection assertions for trimmed text handoff, preserved leading zeroes, and duplicate-acceptance gates | ✅ Included in final 29/29 passing run | ✅ Covered supported detection handoff plus debounce/in-flight rejection cases | ✅ Reused existing lookup validation/payload helpers instead of introducing a parallel scanner payload path |
 | 2.3 | `src/test/resources/static-ui-contract-tests.mjs`, `src/test/java/com/gentleia/landingtarjetas/StaticUiContractTests.java` | JS unit/static harness | ✅ Same baseline | ✅ Added failing action-gating assertions so scanner purchase/consume buttons stay disabled until a resolved item exists and only open the existing modal | ✅ Included in final 29/29 passing run | ✅ Covered resolved action enablement plus explicit modal-only handoff and no direct stock mutation | ✅ Shared action sync with existing alias attach/remove states to keep rollback bounded |
+| 2.4 | N/A — integration bookkeeping only | Integration bookkeeping | ➖ No file-modification safety net required in this batch; orchestrator verified `HEAD == origin/main == 8cdf39b`, clean worktree, and Stage 16 PR1 commit `ebcbb56` as ancestor | ➖ No new RED test: this task records already-verified stacked-to-main integration state and introduces no product change | ➖ No GREEN execution: no implementation/test cycle was performed in this bookkeeping-only completion | ➖ Triangulation skipped: no behavior branch or production change exists for the rebase/integration receipt | ➖ No refactor: artifact-only completion after integration evidence was supplied |
 | 3.1 | `src/test/resources/static-ui-contract-tests.mjs` | Static UI contract | ✅ Same baseline | ✅ Added failing assertions for scanner UI presence, fallback copy, and disabled stock-action handoff | ✅ Included in passing focused suite | ✅ Non-empty scanner controls plus OCR-boundary coverage | ➖ None needed |
 | 3.2 | `src/test/java/com/gentleia/landingtarjetas/StaticUiContractTests.java` | Static UI contract | ✅ Same baseline | ✅ Added failing resource assertions for the same scanner boundary | ✅ Included in passing focused suite | ✅ Markup strings plus CSS selector coverage | ➖ None needed |
 | 3.3 | `src/test/resources/static-ui-contract-tests.mjs`, `src/test/java/com/gentleia/landingtarjetas/StaticUiContractTests.java` | Static UI contract | ✅ Same baseline | ✅ Verification target defined before implementation via focused contracts | ✅ `mvn test -Dtest=StaticUiContractTests` → 29 tests, 0 failures, 0 errors | ✅ RED failure was observed first, then full focused suite passed | ➖ None needed |
@@ -59,6 +61,7 @@
 - **Layers used**: Static UI contract + JS runtime harness simulation inside the focused Node/JUnit target
 - **Approval tests**: None — additive scanner lifecycle slice
 - **Pure functions created**: 2 (`getSuperBarcodeScannerAvailability`, `shouldAcceptSuperBarcodeScan`)
+- **Bookkeeping-only tasks**: 1 (`2.4` integration/rebase completion with no new implementation or test cycle)
 
 ## Work Unit Evidence
 
@@ -68,25 +71,33 @@
 | Runtime harness command/scenario and exact result | `mvn test -Dtest=StaticUiContractTests` → headless secure-context scanner harness inside `static-ui-contract-tests.mjs` simulated camera start/stop, denied permission, visibility/pagehide cleanup, trimmed code handoff, and explicit purchase-modal opening; final result **PASS** inside the same 29/29 run |
 | Rollback boundary | Revert only `src/main/resources/static/js/supermarket.js`, `src/test/resources/static-ui-contract-tests.mjs`, and `src/test/java/com/gentleia/landingtarjetas/StaticUiContractTests.java` to remove PR 2 scanner lifecycle/handoff behavior without affecting PR 1 markup/CSS, OCR flow, or existing manual barcode/movement contracts |
 
+## Integration / Bookkeeping Evidence (Task 2.4)
+
+| Evidence | Value |
+|---|---|
+| Focused command and exact result | N/A — no new test command was run in this artifact-only batch. Orchestrator-provided integration evidence: `HEAD` and `origin/main` both at `8cdf39b`, worktree clean, and Stage 16 PR1 commit `ebcbb56` is an ancestor, so PR2 is already integrated on updated `main`. |
+| Runtime harness command/scenario and exact result | N/A — task 2.4 is stacked-to-main integration bookkeeping only and introduces no runtime behavior change. |
+| Rollback boundary | Revert only `openspec/changes/super-inventory-stage16-barcode-scanning/tasks.md` and `openspec/changes/super-inventory-stage16-barcode-scanning/apply-progress.md` if this bookkeeping completion must be withdrawn; product code/tests remain untouched. |
+
 ## Deviations from Design
 
 None — implementation stays inside the PR 2 boundary, uses `BarcodeDetector` + `getUserMedia` only in `supermarket.js`, preserves text-based alias lookup, stops scanning on accepted reads/visibility loss, and routes purchase/consume only through the existing movement modal.
 
 ## Issues Found
 
-- A physical secure-context browser/camera check was not available in this headless workspace; the focused runtime evidence therefore uses the existing Node static harness to simulate supported, denied, and cleanup paths.
+- A physical secure-context browser/camera check was not available in the earlier headless implementation workspace; the focused runtime evidence therefore uses the existing Node static harness to simulate supported, denied, and cleanup paths.
 
 ## Remaining Tasks
 
-- [ ] 2.4 Rebase PR 2 onto updated `main` after PR 1 merges; keep the JS diff free of PR 1 UI-only changes.
+- None.
 
 ## Workload / PR Boundary
 
 - **Mode**: stacked PR slice (`stacked-to-main`)
-- **Current work unit**: Unit 2 / PR 2
-- **Boundary**: starts at `supermarket.js` scanner lifecycle + focused regression tests, ends before the user-owned rebase/retarget task 2.4
-- **Estimated review budget impact**: `git diff --numstat` across the three PR 2 implementation/test files = 396 authored lines (`additions + deletions`), staying within the 400-line cap
+- **Current work unit**: Unit 2 / PR 2 integration bookkeeping
+- **Boundary**: starts from the already-implemented PR 2 lifecycle/handoff slice and ends with artifact synchronization proving the rebased slice is integrated on updated `main`
+- **Estimated review budget impact**: no new product diff; this batch updates only OpenSpec bookkeeping artifacts while preserving the previously verified 396-line PR 2 authored scope
 
 ## Status
 
-13/14 tasks complete. PR 2 lifecycle/handoff code is ready for the user-owned rebase step in 2.4; after that, the next recommended phase is verify/review on the rebased diff.
+14/14 tasks complete. Stage 16 is ready for verify on the integrated updated-main state.

@@ -35,7 +35,7 @@ Chain strategy: stacked-to-main
 - [x] 2.1 Wire `src/main/resources/static/js/supermarket.js` scanner state skeleton: capability checks, idle/starting/scanning/unavailable states, and safe stop/reset hooks.
 - [x] 2.2 Connect scan result handoff to the existing barcode lookup path in `src/main/resources/static/js/supermarket.js`, preserving text values and manual fallback.
 - [x] 2.3 Gate resolved-item actions in `src/main/resources/static/js/supermarket.js` so purchase/consume buttons call the existing movement modal only after explicit user action.
-- [ ] 2.4 Rebase PR 2 onto updated `main` after PR 1 merges; keep the JS diff free of PR 1 UI-only changes.
+- [x] 2.4 Rebase PR 2 onto updated `main` after PR 1 merges; keep the JS diff free of PR 1 UI-only changes.
 
 ## Phase 3: Testing / Verification
 

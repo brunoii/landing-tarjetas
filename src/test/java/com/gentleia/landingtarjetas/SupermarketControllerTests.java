@@ -20,6 +20,7 @@ import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.lang.reflect.Method;
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.Base64;
 import java.util.List;
@@ -28,6 +29,8 @@ import jakarta.persistence.LockModeType;
 
 import javax.imageio.ImageIO;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.gentleia.landingtarjetas.category.Category;
 import com.gentleia.landingtarjetas.category.CategoryRepository;
 import com.gentleia.landingtarjetas.supermarket.SuperCategory;
@@ -62,7 +65,9 @@ import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.mock.web.MockHttpSession;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -92,9 +97,15 @@ class SupermarketControllerTests {
     private TicketOcrEngine ticketOcrEngine;
     @Autowired
     private CategoryRepository categoryRepository;
+    @Autowired
+    private ObjectMapper objectMapper;
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
 
     @BeforeEach
     void cleanDatabase() {
+        jdbcTemplate.update("delete from super_inventory_scan_lines");
+        jdbcTemplate.update("delete from super_inventory_scan_sessions");
         superItemBarcodeAliasRepository.deleteAll();
         superItemBarcodeAliasRepository.flush();
         superItemPriceObservationRepository.deleteAll();
@@ -3061,6 +3072,314 @@ class SupermarketControllerTests {
                 .andExpect(jsonPath("$.details[?(@ == 'Unidad: no puede superar 40 caracteres')]").exists());
     }
 
+    @Test
+    void scanSessionActiveLifecycleOwnershipExpiryAndNoMutation() throws Exception {
+        SuperCategory almacen = superCategoryRepository.save(new SuperCategory("Almacén"));
+        SuperItem item = superItemRepository.save(configuredStockItem("Arroz", almacen, "kg", "3.000", "7.500"));
+        item.setChecked(true);
+        superItemRepository.saveAndFlush(item);
+        MockHttpSession ownerSession = new MockHttpSession();
+
+        String activePayload = mockMvc.perform(get("/api/super/scan-sessions/active").session(ownerSession))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.state").value("ACTIVE"))
+                .andExpect(jsonPath("$.resolvedItems").isArray())
+                .andExpect(jsonPath("$.drafts").isArray())
+                .andReturn().getResponse().getContentAsString();
+        Long activeSessionId = json(activePayload).path("id").asLong();
+
+        mockMvc.perform(post("/api/super/scan-sessions/{id}/resolved-items", activeSessionId)
+                        .session(ownerSession)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "itemId": %d,
+                                  "barcodeCode": "7790000000001"
+                                }
+                                """.formatted(item.getId())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.resolvedItems.length()").value(1))
+                .andExpect(jsonPath("$.resolvedItems[0].itemId").value(item.getId()))
+                .andExpect(jsonPath("$.resolvedItems[0].barcodeCode").value("7790000000001"));
+
+        mockMvc.perform(post("/api/super/scan-sessions/{id}/resolved-items", activeSessionId)
+                        .session(new MockHttpSession())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"itemId\": %d}".formatted(item.getId())))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error").value("No se encontró la sesión de escaneo activa"));
+
+        jdbcTemplate.update("update super_inventory_scan_sessions set expires_at = ? where id = ?",
+                Instant.now().minusSeconds(5), activeSessionId);
+
+        mockMvc.perform(post("/api/super/scan-sessions/{id}/resolved-items", activeSessionId)
+                        .session(ownerSession)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"itemId\": %d}".formatted(item.getId())))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error").value("La sesión de escaneo expiró"));
+
+        mockMvc.perform(get("/api/super/scan-sessions/active").session(ownerSession))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.resolvedItems.length()").value(0))
+                .andExpect(jsonPath("$.drafts.length()").value(0));
+
+        assertInventoryState(item.getId(), true, "7.500", 0);
+    }
+
+    @Test
+    void scanSessionEnforcesFiftyLineCapWithoutStockMutation() throws Exception {
+        SuperCategory almacen = superCategoryRepository.save(new SuperCategory("Almacén"));
+        SuperItem item = superItemRepository.save(configuredStockItem("Yerba", almacen, "kg", "2.000", "4.000"));
+        MockHttpSession ownerSession = new MockHttpSession();
+        Long activeSessionId = json(mockMvc.perform(get("/api/super/scan-sessions/active").session(ownerSession))
+                .andReturn().getResponse().getContentAsString()).path("id").asLong();
+
+        for (int index = 0; index < 50; index++) {
+            mockMvc.perform(post("/api/super/scan-sessions/{id}/resolved-items", activeSessionId)
+                            .session(ownerSession)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"itemId\": %d, \"barcodeCode\": \"779%010d\"}".formatted(item.getId(), index)))
+                    .andExpect(status().isOk());
+        }
+
+        mockMvc.perform(post("/api/super/scan-sessions/{id}/resolved-items", activeSessionId)
+                        .session(ownerSession)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"itemId\": %d}".formatted(item.getId())))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error").value("La sesión de escaneo alcanzó el límite de 50 líneas"));
+
+        assertInventoryState(item.getId(), false, "4.000", 0);
+    }
+
+    @Test
+    void scanSessionDraftCrudRemainsNonMutating() throws Exception {
+        SuperCategory almacen = superCategoryRepository.save(new SuperCategory("Almacén"));
+        SuperItem item = superItemRepository.save(configuredStockItem("Fideos", almacen, "kg", "2.000", "5.500"));
+        MockHttpSession ownerSession = new MockHttpSession();
+        Long activeSessionId = json(mockMvc.perform(get("/api/super/scan-sessions/active").session(ownerSession))
+                .andReturn().getResponse().getContentAsString()).path("id").asLong();
+
+        String createPayload = mockMvc.perform(post("/api/super/scan-sessions/{id}/drafts", activeSessionId)
+                        .session(ownerSession)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "itemId": %d,
+                                  "type": "PURCHASE",
+                                  "quantity": 1.250,
+                                  "notes": "Weekly restock",
+                                  "allowNegativeStock": true
+                                }
+                                """.formatted(item.getId())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.drafts.length()").value(1))
+                .andExpect(jsonPath("$.drafts[0].type").value("PURCHASE"))
+                .andExpect(jsonPath("$.drafts[0].quantity").value(1.25))
+                .andReturn().getResponse().getContentAsString();
+        Long draftId = json(createPayload).path("drafts").get(0).path("id").asLong();
+
+        mockMvc.perform(put("/api/super/scan-sessions/{id}/drafts/{draftId}", activeSessionId, draftId)
+                        .session(ownerSession)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "itemId": %d,
+                                  "type": "CONSUMPTION",
+                                  "quantity": 0.750,
+                                  "notes": "Cooked today",
+                                  "allowNegativeStock": false
+                                }
+                                """.formatted(item.getId())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.drafts[0].type").value("CONSUMPTION"))
+                .andExpect(jsonPath("$.drafts[0].quantity").value(0.75))
+                .andExpect(jsonPath("$.drafts[0].allowNegativeStock").value(false));
+
+        mockMvc.perform(delete("/api/super/scan-sessions/{id}/drafts/{draftId}", activeSessionId, draftId)
+                        .session(ownerSession))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.drafts.length()").value(0));
+
+        assertInventoryState(item.getId(), false, "5.500", 0);
+    }
+
+    @Test
+    void scanSessionConfirmAppliesDraftsAtomicallyAndRejectsRepeatedConfirmation() throws Exception {
+        SuperCategory almacen = superCategoryRepository.save(new SuperCategory("Almacén"));
+        SuperItem yerba = superItemRepository.save(configuredStockItem("Yerba", almacen, "kg", "3.000", "5.000"));
+        SuperItem arroz = superItemRepository.save(configuredStockItem("Arroz", almacen, "kg", "2.000", "2.500"));
+        MockHttpSession ownerSession = new MockHttpSession();
+        Long activeSessionId = json(mockMvc.perform(get("/api/super/scan-sessions/active").session(ownerSession))
+                .andReturn().getResponse().getContentAsString()).path("id").asLong();
+
+        mockMvc.perform(post("/api/super/scan-sessions/{id}/drafts", activeSessionId)
+                        .session(ownerSession)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "itemId": %d,
+                                  "type": "PURCHASE",
+                                  "quantity": 2.000,
+                                  "notes": "Weekly restock"
+                                }
+                                """.formatted(yerba.getId())))
+                .andExpect(status().isOk());
+        mockMvc.perform(post("/api/super/scan-sessions/{id}/drafts", activeSessionId)
+                        .session(ownerSession)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "itemId": %d,
+                                  "type": "CONSUMPTION",
+                                  "quantity": 1.250,
+                                  "notes": "Cooked today",
+                                  "allowNegativeStock": false
+                                }
+                                """.formatted(arroz.getId())))
+                .andExpect(status().isOk());
+
+        assertInventoryState(yerba.getId(), false, "5.000", 0);
+        assertInventoryState(arroz.getId(), false, "2.500", 0);
+
+        mockMvc.perform(post("/api/super/scan-sessions/{id}/confirm", activeSessionId)
+                        .session(ownerSession))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.session.state").value("CONFIRMED"))
+                .andExpect(jsonPath("$.movements.length()").value(2))
+                .andExpect(jsonPath("$.movements[0].itemId").value(yerba.getId()))
+                .andExpect(jsonPath("$.movements[0].movementType").value("PURCHASE"))
+                .andExpect(jsonPath("$.movements[0].resultingStock").value(7.0))
+                .andExpect(jsonPath("$.movements[0].source").value("SCAN_SESSION"))
+                .andExpect(jsonPath("$.movements[1].itemId").value(arroz.getId()))
+                .andExpect(jsonPath("$.movements[1].movementType").value("CONSUMPTION"))
+                .andExpect(jsonPath("$.movements[1].resultingStock").value(1.25))
+                .andExpect(jsonPath("$.movements[1].source").value("SCAN_SESSION"));
+
+        assertInventoryState(yerba.getId(), false, "7.000", 2);
+        assertInventoryState(arroz.getId(), false, "1.250", 2);
+
+        mockMvc.perform(post("/api/super/scan-sessions/{id}/confirm", activeSessionId)
+                        .session(ownerSession))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error").value("La sesión de escaneo ya fue confirmada"));
+
+        assertInventoryState(yerba.getId(), false, "7.000", 2);
+        assertInventoryState(arroz.getId(), false, "1.250", 2);
+    }
+
+    @Test
+    void scanSessionConfirmRejectsUnknownStockConsumptionWithoutMutation() throws Exception {
+        SuperCategory almacen = superCategoryRepository.save(new SuperCategory("Almacén"));
+        SuperItem item = new SuperItem("Aceite", almacen);
+        item.setUnit("litro");
+        item.setHabitualObjective(new BigDecimal("1.000"));
+        SuperItem savedItem = superItemRepository.save(item);
+        MockHttpSession ownerSession = new MockHttpSession();
+        Long activeSessionId = json(mockMvc.perform(get("/api/super/scan-sessions/active").session(ownerSession))
+                .andReturn().getResponse().getContentAsString()).path("id").asLong();
+
+        mockMvc.perform(post("/api/super/scan-sessions/{id}/drafts", activeSessionId)
+                        .session(ownerSession)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "itemId": %d,
+                                  "type": "CONSUMPTION",
+                                  "quantity": 1.000,
+                                  "allowNegativeStock": false
+                                }
+                                """.formatted(savedItem.getId())))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(post("/api/super/scan-sessions/{id}/confirm", activeSessionId)
+                        .session(ownerSession))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("Inicialice el stock con un ajuste antes de registrar movimientos"));
+
+        assertThat(superItemRepository.findById(savedItem.getId())).isPresent()
+                .get()
+                .satisfies(persisted -> assertThat(persisted.getCurrentStock()).isNull());
+        assertThat(superItemStockMovementRepository.findAll()).isEmpty();
+    }
+
+    @Test
+    void scanSessionConfirmRejectsNegativeConsumptionWithoutExplicitAllowance() throws Exception {
+        SuperCategory almacen = superCategoryRepository.save(new SuperCategory("Almacén"));
+        SuperItem item = superItemRepository.save(configuredStockItem("Pan", almacen, "u", "6.000", "1.000"));
+        MockHttpSession ownerSession = new MockHttpSession();
+        Long activeSessionId = json(mockMvc.perform(get("/api/super/scan-sessions/active").session(ownerSession))
+                .andReturn().getResponse().getContentAsString()).path("id").asLong();
+
+        mockMvc.perform(post("/api/super/scan-sessions/{id}/drafts", activeSessionId)
+                        .session(ownerSession)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "itemId": %d,
+                                  "type": "CONSUMPTION",
+                                  "quantity": 2.000,
+                                  "allowNegativeStock": false
+                                }
+                                """.formatted(item.getId())))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(post("/api/super/scan-sessions/{id}/confirm", activeSessionId)
+                        .session(ownerSession))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error").value("El consumo dejaría stock negativo. Confirme para continuar."))
+                .andExpect(jsonPath("$.details[?(@ == 'Reintente con allowNegativeStock=true para confirmar.')]" ).exists());
+
+        assertInventoryState(item.getId(), false, "1.000", 0);
+    }
+
+    @Test
+    void scanSessionConfirmRollsBackAllMutationsWhenAnyDraftFailsValidation() throws Exception {
+        SuperCategory almacen = superCategoryRepository.save(new SuperCategory("Almacén"));
+        SuperItem yerba = superItemRepository.save(configuredStockItem("Yerba", almacen, "kg", "3.000", "5.000"));
+        SuperItem arroz = superItemRepository.save(configuredStockItem("Arroz", almacen, "kg", "2.000", "1.000"));
+        MockHttpSession ownerSession = new MockHttpSession();
+        Long activeSessionId = json(mockMvc.perform(get("/api/super/scan-sessions/active").session(ownerSession))
+                .andReturn().getResponse().getContentAsString()).path("id").asLong();
+
+        mockMvc.perform(post("/api/super/scan-sessions/{id}/drafts", activeSessionId)
+                        .session(ownerSession)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "itemId": %d,
+                                  "type": "PURCHASE",
+                                  "quantity": 2.000
+                                }
+                                """.formatted(yerba.getId())))
+                .andExpect(status().isOk());
+        mockMvc.perform(post("/api/super/scan-sessions/{id}/drafts", activeSessionId)
+                        .session(ownerSession)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "itemId": %d,
+                                  "type": "CONSUMPTION",
+                                  "quantity": 2.000,
+                                  "allowNegativeStock": false
+                                }
+                                """.formatted(arroz.getId())))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(post("/api/super/scan-sessions/{id}/confirm", activeSessionId)
+                        .session(ownerSession))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error").value("El consumo dejaría stock negativo. Confirme para continuar."));
+
+        assertInventoryState(yerba.getId(), false, "5.000", 0);
+        assertInventoryState(arroz.getId(), false, "1.000", 0);
+        mockMvc.perform(get("/api/super/scan-sessions/active").session(ownerSession))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.state").value("ACTIVE"))
+                .andExpect(jsonPath("$.drafts.length()").value(2));
+    }
+
     private void assertInventoryState(Long itemId, boolean expectedChecked, String expectedCurrentStock, int expectedMovementRows) {
         assertThat(superItemRepository.findById(itemId)).isPresent()
                 .get()
@@ -3147,6 +3466,10 @@ class SupermarketControllerTests {
                   "format": "%s"
                 }
                 """.formatted(code, format);
+    }
+
+    private JsonNode json(String value) throws Exception {
+        return objectMapper.readTree(value);
     }
 
     private SuperItem checkedItem(String name, SuperCategory category, boolean checked) {
