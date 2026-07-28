@@ -75,3 +75,4 @@ application-prod-local.yml
 
 # Maven wrapper cache if added later
 .mvn/wrapper/maven-wrapper.jar
+archivosJPG/

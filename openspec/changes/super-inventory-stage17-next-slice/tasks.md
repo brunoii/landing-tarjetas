@@ -44,11 +44,11 @@ Chain strategy: stacked-to-main
 
 ## Phase 4: Testing / Verification
 
-- [x] 4.1 Add RED tests for draft edit/remove/cancel remaining non-mutating and confirm applying existing movement rules only.
+- [ ] 4.1 Add RED tests for draft edit/remove/cancel remaining non-mutating and confirm applying existing movement rules only.
 - [x] 4.2 Add static contract tests in `src/test/java/com/gentleia/landingtarjetas/StaticUiContractTests.java` and `src/test/resources/static-ui-contract-tests.mjs`.
-- [x] 4.3 Verify session expiry, wrong-owner rejection, invalid stock, negative-stock denial, and rollback-on-failure scenarios.
+- [ ] 4.3 Verify session expiry, wrong-owner rejection, invalid stock, negative-stock denial, and rollback-on-failure scenarios.
 
 ## Phase 5: Cleanup / Documentation
 
-- [x] 5.1 Remove obsolete UI coupling to the direct movement modal where the new scan session panel owns batch review.
-- [x] 5.2 Update inline comments or docs only where they clarify confirm-only mutation and preserve the existing direct movement flow.
+- [ ] 5.1 Remove obsolete UI coupling to the direct movement modal where the new scan session panel owns batch review.
+- [ ] 5.2 Update inline comments or docs only where they clarify confirm-only mutation and preserve the existing direct movement flow.
