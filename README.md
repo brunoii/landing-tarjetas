@@ -105,10 +105,13 @@ Parsing is intentionally conservative. Missing or low-confidence fields remain `
 
 Ticket OCR remains local-only and must be configured with runtime assets outside the repository.
 
+- Install a compatible local `tesseract` binary on the host. The app now invokes the CLI directly; Tess4J/JNA is no longer used.
+- `APP_SUPER_TICKET_OCR_UPLOAD_EXECUTABLE` can override the binary path when `tesseract` is not on `PATH`.
+- `APP_SUPER_TICKET_OCR_UPLOAD_TIMEOUT` controls the maximum OCR runtime per request. The default is `15s`; timeouts return the existing sanitized `RUNTIME_UNAVAILABLE` outcome.
 - `TESSDATA_PATH` must point to the actual `tessdata` directory, not only its parent folder.
-- Tess4J already bundles the Windows native DLLs plus `eng` and `osd` language data in the Maven dependency, so a system-wide `tesseract.exe` install is optional for local development.
 - The default app language setting is `spa+eng`. If your external `tessdata` directory does not contain `spa.traineddata`, local OCR will report `RUNTIME_UNAVAILABLE` until you either add that language pack or temporarily override the runtime language set.
 - For a portable local override, use an environment or command-line property such as `APP_SUPER_TICKET_OCR_UPLOAD_LANGUAGES=eng` or `--app.super.ticket-ocr-upload.languages=eng`.
+- Runtime failures intentionally stay sanitized. The app does not expose OCR stderr, local filesystem paths, or recognized OCR payloads in responses or operator-facing warnings.
 - Keep any authorized JPG verification folder outside the repository. Do not copy, move, persist, cache, log, or commit ticket images or recognized OCR payloads.
 
 ## Local database backup and recovery
