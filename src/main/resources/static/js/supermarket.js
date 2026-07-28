@@ -1,4 +1,4 @@
-import { api } from "./api.js?v=20260727-super-inventory-stage17-session-shell-api";
+import { api } from "./api.js?v=20260727-mobile-scanner-ocr-pwa-foundation-api";
 import { escapeHtml, formatPesos, setButtonBusy } from "./utils.js";
 
 let supermarketApi = api;
@@ -364,7 +364,7 @@ export function normalizeSuperBarcodeCode(value) {
 }
 
 function createSuperBarcodeScannerState() {
-    return { phase: "idle", statusMessage: "", detector: null, stream: null, animationFrameId: null, lookupInFlight: false, lastCode: "", lastAcceptedAt: 0 };
+    return { phase: "idle", statusMessage: "", detector: null, stream: null, animationFrameId: null, lookupInFlight: false, lastCode: "", lastAcceptedAt: 0, runId: 0 };
 }
 
 export function getSuperBarcodeScannerAvailability(environment = globalThis) {
@@ -1293,12 +1293,18 @@ async function startSuperBarcodeScanner() {
         focusSuperBarcodeCodeField();
         return;
     }
+    const runId = superBarcodeScannerState.runId + 1;
+    superBarcodeScannerState.runId = runId;
     try {
         setSuperBarcodeScannerPhase("starting", "Iniciando cámara...");
         const stream = await globalThis.navigator.mediaDevices.getUserMedia({
             audio: false,
             video: { facingMode: { ideal: "environment" } }
         });
+        if (runId !== superBarcodeScannerState.runId || superBarcodeScannerState.phase !== "starting") {
+            for (const track of stream?.getTracks?.() || []) track.stop?.();
+            return;
+        }
         superBarcodeScannerState.stream = stream;
         superBarcodeScannerState.detector = new globalThis.BarcodeDetector();
         const { preview } = superBarcodeScannerElements();
@@ -1377,6 +1383,7 @@ async function acceptSuperBarcodeDetection(detection) {
 }
 
 function stopSuperBarcodeScanner({ nextPhase = "idle", statusMessage = "", announce = true } = {}) {
+    superBarcodeScannerState.runId += 1;
     if (superBarcodeScannerState.animationFrameId !== null && typeof globalThis.cancelAnimationFrame === "function") globalThis.cancelAnimationFrame(superBarcodeScannerState.animationFrameId);
     superBarcodeScannerState.animationFrameId = null;
     for (const track of superBarcodeScannerState.stream?.getTracks?.() || []) track.stop?.();

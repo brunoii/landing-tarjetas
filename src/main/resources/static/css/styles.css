@@ -1163,6 +1163,39 @@ td {
     align-items: center;
 }
 
+.super-mobile-shell-nav {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 0.85rem 1rem;
+    align-items: center;
+    margin-top: 1rem;
+    padding: 1rem;
+    border: 1px solid rgba(125, 211, 252, 0.24);
+    border-radius: 22px;
+    background: rgba(125, 211, 252, 0.06);
+}
+
+.super-mobile-shell-links {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 0.65rem;
+}
+
+.super-mobile-shell-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: var(--tap-target-min);
+    padding: 0.7rem 0.95rem;
+    border: 1px solid rgba(125, 211, 252, 0.3);
+    border-radius: 999px;
+    background: rgba(125, 211, 252, 0.14);
+    color: #e0f2fe;
+    font-weight: 800;
+    text-decoration: none;
+}
+
 .super-items-table-wrap table {
     min-width: var(--supermarket-table-min-width);
 }
@@ -1450,6 +1483,7 @@ td {
     }
 
     .card-detail-grid,
+    .super-mobile-shell-nav,
     .category-form,
     .super-barcode-form,
     .super-barcode-action-group,
@@ -1625,7 +1659,8 @@ td {
 
     .super-barcode-scan-controls,
     .super-barcode-action-buttons,
-    .super-session-actions {
+    .super-session-actions,
+    .super-mobile-shell-links {
         display: grid;
         grid-template-columns: 1fr;
     }

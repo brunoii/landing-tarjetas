@@ -3,8 +3,10 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#070b16">
     <title>Panel de tarjetas</title>
-    <link rel="stylesheet" href="/css/styles.css?v=20260727-super-inventory-stage17-session-shell-ui">
+    <link rel="manifest" href="/manifest.webmanifest">
+    <link rel="stylesheet" href="/css/styles.css?v=20260727-mobile-scanner-ocr-pwa-foundation-ui">
 </head>
 <body>
 <header class="topbar tab-section" id="tab-summary" data-tab-panel="summary" role="tabpanel" aria-labelledby="primary-tab-summary">
@@ -717,6 +719,18 @@
             <button type="button" id="super-generate-list">Generar lista</button>
             <button type="button" class="secondary-button" id="super-uncheck-all">Desmarcar todos</button>
         </div>
+        <nav class="super-mobile-shell-nav" id="super-mobile-shell-nav" aria-label="Atajos móviles del super">
+            <div>
+                <p class="eyebrow">Atajos móviles</p>
+                <p class="section-note">Barcode manual y revisión OCR siguen disponibles aunque la cámara falle.</p>
+            </div>
+            <div class="super-mobile-shell-links">
+                <a class="super-mobile-shell-link" href="#super-barcode-title">Barcode</a>
+                <a class="super-mobile-shell-link" href="#super-session-title">Sesión</a>
+                <a class="super-mobile-shell-link" href="#super-ticket-ocr-title">OCR</a>
+                <a class="super-mobile-shell-link" href="#super-product-title">Productos</a>
+            </div>
+        </nav>
         <section class="supermarket-card super-barcode-card" aria-labelledby="super-barcode-title">
             <div class="section-heading">
                 <div>
@@ -774,8 +788,8 @@
                 </div>
                 <p class="section-note">La sesión revisa borradores no mutantes. El modal directo sigue disponible solo desde la tabla de productos.</p>
             </div>
-            <p class="filter-summary super-session-summary" id="super-session-summary" aria-live="polite">La sesión aparecerá acá cuando el próximo slice conecte el escaneo con borradores editables.</p>
-            <p class="form-feedback" id="super-session-status" role="status" aria-live="polite">Sin sesión activa vinculada desde la UI todavía.</p>
+            <p class="filter-summary super-session-summary" id="super-session-summary" aria-live="polite">La sesión reúne borradores vinculados desde barcode para revisarlos antes de confirmar stock.</p>
+            <p class="form-feedback" id="super-session-status" role="status" aria-live="polite">No hay una sesión activa vinculada desde barcode local.</p>
             <div class="table-wrap super-session-table-wrap responsive-card-table">
                 <table>
                     <thead>
@@ -1190,6 +1204,13 @@
     </section>
 </main>
 
-<script type="module" src="/js/app.js?v=20260727-super-inventory-stage17-session-shell-ui"></script>
+<script type="module" src="/js/app.js?v=20260727-mobile-scanner-ocr-pwa-foundation-ui"></script>
+<script>
+    if (window.isSecureContext && "serviceWorker" in navigator) {
+        window.addEventListener("load", () => {
+            navigator.serviceWorker.register("/service-worker.js", { scope: "/" }).catch(() => {});
+        }, { once: true });
+    }
+</script>
 </body>
 </html>

@@ -3,6 +3,7 @@ import { copyFile, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
+import vm from "node:vm";
 
 const sourceRoot = path.resolve("src/main/resources/static/js");
 const moduleRoot = path.join(tmpdir(), `landing-tarjetas-static-ui-${process.pid}`);
@@ -18,8 +19,8 @@ const stage11ApiToken = "20260718-super-inventory-stage11-price-sources-api";
 const stage11UiToken = "20260718-super-inventory-stage11-price-sources-ui";
 const stage15ApiToken = "20260725-super-inventory-stage15-ticket-ocr-ui-api";
 const stage15UiToken = "20260725-super-inventory-stage15-ticket-ocr-ui";
-const stage17ApiToken = "20260727-super-inventory-stage17-session-shell-api";
-const stage17UiToken = "20260727-super-inventory-stage17-session-shell-ui";
+const foundationApiToken = "20260727-mobile-scanner-ocr-pwa-foundation-api";
+const foundationUiToken = "20260727-mobile-scanner-ocr-pwa-foundation-ui";
 const staleApiToken = "20260712-security-hardening";
 
 await rm(moduleRoot, { force: true, recursive: true });
@@ -113,6 +114,11 @@ try {
 
     const indexHtml = await readFile(path.resolve("src/main/resources/static/index.html"), "utf8");
     const loginHtml = await readFile(path.resolve("src/main/resources/static/login.html"), "utf8");
+    const manifestSource = await readFile(path.resolve("src/main/resources/static/manifest.webmanifest"), "utf8");
+    const offlineHtml = await readFile(path.resolve("src/main/resources/static/offline.html"), "utf8");
+    const serviceWorkerSource = await readFile(path.resolve("src/main/resources/static/service-worker.js"), "utf8");
+    const icon192Source = await readFile(path.resolve("src/main/resources/static/icons/icon-192.svg"), "utf8");
+    const icon512Source = await readFile(path.resolve("src/main/resources/static/icons/icon-512.svg"), "utf8");
     const stylesCss = await readFile(path.resolve("src/main/resources/static/css/styles.css"), "utf8");
     const appSource = await readFile(path.resolve("src/main/resources/static/js/app.js"), "utf8");
     const supermarketSource = await readFile(path.resolve("src/main/resources/static/js/supermarket.js"), "utf8");
@@ -171,6 +177,13 @@ try {
     assert.match(indexHtml, /id="super-barcode-actions"[^>]+hidden/);
     assert.match(indexHtml, /id="super-barcode-purchase"[^>]+data-super-barcode-stock-action="purchase"[^>]+aria-controls="super-session-panel"[^>]+disabled/);
     assert.match(indexHtml, /id="super-barcode-consume"[^>]+data-super-barcode-stock-action="consume"[^>]+aria-controls="super-session-panel"[^>]+disabled/);
+    assert.match(indexHtml, /id="super-mobile-shell-nav"/);
+    assert.match(indexHtml, /Atajos móviles/);
+    assert.match(indexHtml, /Barcode manual y revisión OCR siguen disponibles aunque la cámara falle/);
+    assert.match(indexHtml, /href="#super-barcode-title"/);
+    assert.match(indexHtml, /href="#super-session-title"/);
+    assert.match(indexHtml, /href="#super-ticket-ocr-title"/);
+    assert.match(indexHtml, /href="#super-product-title"/);
     assert.match(indexHtml, /Buscar código local/);
     assert.match(indexHtml, /Escanear código/);
     assert.match(indexHtml, /Detener escaneo/);
@@ -204,21 +217,73 @@ try {
     assert.match(indexHtml, /Crear fuente de precio/);
     assert.match(indexHtml, /Cantidad/);
     assert.match(indexHtml, /Confirmar stock negativo/);
-    assert.ok(indexHtml.includes(`/css/styles.css?v=${stage17UiToken}`));
-    assert.ok(indexHtml.includes(`/js/app.js?v=${stage17UiToken}`));
+    assert.match(indexHtml, /<link rel="manifest" href="\/manifest\.webmanifest">/);
+    assert.match(indexHtml, /navigator\.serviceWorker\.register\("\/service-worker\.js", \{ scope: "\/" \}\)/);
+    assert.match(indexHtml, /window\.isSecureContext/);
+    assert.match(indexHtml, /"serviceWorker" in navigator/);
+    assert.doesNotMatch(indexHtml, /localStorage|sessionStorage|archivosJPG/);
+    assert.match(manifestSource, /"name": "Landing Tarjetas"/);
+    assert.match(manifestSource, /"short_name": "Tarjetas"/);
+    assert.match(manifestSource, /"src": "\/icons\/icon-192\.svg"/);
+    assert.match(manifestSource, /"src": "\/icons\/icon-512\.svg"/);
+    assert.doesNotMatch(manifestSource, /ticket|ocr|api|auth|archivosJPG/i);
+    assert.match(offlineHtml, /Sin conexión/);
+    assert.match(offlineHtml, /solo conserva una copia mínima del shell público/);
+    assert.match(offlineHtml, /Volver a intentar/);
+    assert.doesNotMatch(offlineHtml, /ticket|ocr|api|auth|pdf|archivosJPG/i);
+    assert.match(icon192Source, /<svg/);
+    assert.match(icon512Source, /<svg/);
+    assert.doesNotMatch(icon192Source, /ticket|ocr/i);
+    assert.doesNotMatch(icon512Source, /ticket|ocr/i);
+    const serviceWorkerRuntime = createServiceWorkerRuntime(serviceWorkerSource);
+    await serviceWorkerRuntime.dispatchInstall();
+    await serviceWorkerRuntime.dispatchActivate();
+    const allowlistedResponse = await serviceWorkerRuntime.dispatchFetch("https://example.com/", {
+        mode: "navigate",
+        accept: "text/html",
+        network: () => new Response("<html>shell</html>", { status: 200, headers: { "content-type": "text/html" } })
+    });
+    assert.equal(await allowlistedResponse.text(), "<html>shell</html>");
+    assert.equal(serviceWorkerRuntime.wasCached("/"), true);
+    const apiResponse = await serviceWorkerRuntime.dispatchFetch("https://example.com/api/super/items", {
+        network: () => new Response("[]", { status: 200, headers: { "content-type": "application/json" } })
+    });
+    assert.equal(await apiResponse.text(), "[]");
+    assert.equal(serviceWorkerRuntime.wasCached("/api/super/items"), false);
+    const loginResponse = await serviceWorkerRuntime.dispatchFetch("https://example.com/login", {
+        network: () => new Response("login", { status: 200, headers: { "content-type": "text/html" } })
+    });
+    assert.equal(await loginResponse.text(), "login");
+    assert.equal(serviceWorkerRuntime.wasCached("/login"), false);
+    const ticketResponse = await serviceWorkerRuntime.dispatchFetch("https://example.com/tickets/private-scan.pdf", {
+        network: () => new Response("private", { status: 200, headers: { "content-type": "application/pdf" } })
+    });
+    assert.equal(await ticketResponse.text(), "private");
+    assert.equal(serviceWorkerRuntime.wasCached("/tickets/private-scan.pdf"), false);
+    const fallbackResponse = await serviceWorkerRuntime.dispatchFetch("https://example.com/some/offline/page", {
+        mode: "navigate",
+        accept: "text/html",
+        network: () => {
+            throw new Error("offline");
+        }
+    });
+    assert.match(await fallbackResponse.text(), /Sin conexión/);
+    assert.ok(indexHtml.includes(`/css/styles.css?v=${foundationUiToken}`));
+    assert.ok(indexHtml.includes(`/js/app.js?v=${foundationUiToken}`));
     assert.ok(loginHtml.includes(`/css/styles.css?v=${freshStaticToken}`));
     assert.ok(loginHtml.includes(`/js/login.js?v=${freshStaticToken}`));
     assert.doesNotMatch(indexHtml, /\/css\/styles\.css\?v=20260711-security-login|\/js\/app\.js\?v=20260711-security-login/);
     assert.doesNotMatch(loginHtml, /\/css\/styles\.css\?v=20260711-security-login|\/js\/login\.js\?v=20260711-security-login/);
-    assert.ok(appSource.includes(`from "./api.js?v=${stage17ApiToken}"`));
+    assert.ok(appSource.includes(`from "./api.js?v=${foundationApiToken}"`));
+    assert.doesNotMatch(indexHtml, /super-inventory-stage17-session-shell/);
     assert.doesNotMatch(appSource, new RegExp(staleApiToken));
     assert.doesNotMatch(appSource, /from "\.\/api\.js"/);
     assert.ok(loginSource.includes(`from "./api.js?v=${freshStaticToken}"`));
     assert.doesNotMatch(loginSource, new RegExp(staleApiToken));
     assert.doesNotMatch(loginSource, /from "\.\/api\.js"/);
     const expectedApiImports = new Map([
-        ["app.js", `./api.js?v=${stage17ApiToken}`],
-        ["supermarket.js", `./api.js?v=${stage17ApiToken}`],
+        ["app.js", `./api.js?v=${foundationApiToken}`],
+        ["supermarket.js", `./api.js?v=${foundationApiToken}`],
         ["incomes.js", `./api.js?v=${freshStaticToken}`],
         ["login.js", `./api.js?v=${freshStaticToken}`],
         ["statements.js", `./api.js?v=${freshStaticToken}`]
@@ -241,7 +306,7 @@ try {
     for (const moduleName of ["dashboard", "incomes", "manual-expenses", "navigation", "simulator", "statements", "transactions"]) {
         assert.ok(appSource.includes(`./${moduleName}.js?v=${freshStaticToken}`), `${moduleName}.js should preserve origin/main cache token`);
     }
-    assert.ok(appSource.includes(`./supermarket.js?v=${stage17UiToken}`));
+    assert.ok(appSource.includes(`./supermarket.js?v=${foundationUiToken}`));
     assert.match(indexHtml, /id="super-session-panel"/);
     assert.match(indexHtml, /id="super-session-title"/);
     assert.match(indexHtml, /Revisar sesión antes de confirmar/);
@@ -260,9 +325,14 @@ try {
     assert.match(indexHtml, /id="super-session-save-draft"[^>]+disabled/);
     assert.match(indexHtml, /id="super-session-confirm"[^>]+disabled/);
     assert.match(indexHtml, /La sesión revisa borradores no mutantes\. El modal directo sigue disponible solo desde la tabla de productos\./);
+    assert.match(indexHtml, /La sesión reúne borradores vinculados desde barcode para revisarlos antes de confirmar stock\./);
+    assert.match(indexHtml, /No hay una sesión activa vinculada desde barcode local\./);
+    assert.doesNotMatch(indexHtml, /próximo slice|todavía/);
     assert.ok(indexHtml.indexOf('id="super-session-panel"') < indexHtml.indexOf('id="super-items-table"'));
     assert.match(stylesCss, /\.super-session-panel/);
     assert.match(stylesCss, /\.super-session-summary/);
+    assert.match(stylesCss, /\.super-mobile-shell-nav/);
+    assert.match(stylesCss, /\.super-mobile-shell-link/);
     assert.match(stylesCss, /\.super-session-table-wrap table/);
     assert.match(stylesCss, /\.super-session-draft-form/);
     assert.match(stylesCss, /\.super-session-actions/);
@@ -1283,6 +1353,32 @@ try {
         supermarketGlobalListeners.get("pagehide")?.({ type: "pagehide" });
         assert.equal(supermarketDom.elements.get("#super-barcode-scanner").hidden, true);
         assert.equal(lastRequestedStream.getTracks()[0].stopped, true);
+
+        let resolvePendingCamera;
+        let pendingStreamStopCount = 0;
+        const pendingStream = fakeMediaStream(() => {
+            pendingStreamStopCount += 1;
+        });
+        globalThis.navigator.mediaDevices.getUserMedia = async () => new Promise((resolve) => {
+            resolvePendingCamera = () => resolve(pendingStream);
+        });
+        detectorResults.push([]);
+        const pendingStartClick = supermarketDom.elements.get("#super-barcode-scan-start").click();
+        await flushAsyncWork();
+        await supermarketDom.elements.get("#super-barcode-scan-stop").click();
+        resolvePendingCamera();
+        await pendingStartClick;
+        await flushAsyncWork();
+        assert.equal(supermarketDom.elements.get("#super-barcode-scanner").hidden, true);
+        assert.equal(supermarketDom.elements.get("#super-barcode-scanner-preview").srcObject, null);
+        assert.equal(pendingStreamStopCount, 1);
+        assert.equal(supermarketDom.elements.get("#super-barcode-scanner-status").textContent, "Escaneo detenido. Podés ingresar el código manualmente.");
+        globalThis.navigator.mediaDevices.getUserMedia = async () => {
+            lastRequestedStream = fakeMediaStream(() => {
+                streamStopCount += 1;
+            });
+            return lastRequestedStream;
+        };
 
         supermarketDom.elements.get("#super-barcode-code").value = "  0075012345678  ";
         const barcodeFoundCallStart = supermarketDom.api.calls.length;
@@ -4972,6 +5068,121 @@ function cssDeclarationMap(ruleBody) {
             const separatorIndex = declaration.indexOf(":");
             return [declaration.slice(0, separatorIndex).trim(), declaration.slice(separatorIndex + 1).trim()];
         }));
+}
+
+function createServiceWorkerRuntime(source) {
+    const listeners = new Map();
+    const stores = new Map();
+    const self = {
+        location: { origin: "https://example.com" },
+        skipWaiting() {
+            return Promise.resolve();
+        },
+        clients: {
+            claim() {
+                return Promise.resolve();
+            }
+        },
+        addEventListener(type, listener) {
+            listeners.set(type, listener);
+        }
+    };
+    const caches = {
+        async open(name) {
+            if (!stores.has(name)) {
+                stores.set(name, new Map());
+            }
+            const store = stores.get(name);
+            return {
+                async put(key, response) {
+                    store.set(normalizeCacheKey(key), response.clone());
+                },
+                async match(key) {
+                    const response = store.get(normalizeCacheKey(key));
+                    return response ? response.clone() : undefined;
+                }
+            };
+        },
+        async keys() {
+            return [...stores.keys()];
+        },
+        async delete(name) {
+            return stores.delete(name);
+        },
+        async match(key) {
+            const normalized = normalizeCacheKey(key);
+            for (const store of stores.values()) {
+                const response = store.get(normalized);
+                if (response) {
+                    return response.clone();
+                }
+            }
+            return undefined;
+        }
+    };
+    const context = vm.createContext({
+        self,
+        caches,
+        URL,
+        Request,
+        Response,
+        Headers,
+        console,
+        fetch: async () => new Response("<html><body>Sin conexión</body></html>", { status: 200, headers: { "content-type": "text/html" } })
+    });
+    new vm.Script(source).runInContext(context);
+
+    async function dispatchLifecycleEvent(type) {
+        const listener = listeners.get(type);
+        const waits = [];
+        listener?.({
+            waitUntil(promise) {
+                waits.push(Promise.resolve(promise));
+            }
+        });
+        await Promise.all(waits);
+    }
+
+    return {
+        dispatchInstall() {
+            return dispatchLifecycleEvent("install");
+        },
+        dispatchActivate() {
+            return dispatchLifecycleEvent("activate");
+        },
+        async dispatchFetch(input, { method = "GET", mode = "same-origin", accept = "", network } = {}) {
+            const listener = listeners.get("fetch");
+            context.fetch = async (request) => network?.(normalizeRequest(request));
+            const request = new Request(input, { method, headers: accept ? { accept } : undefined });
+            Object.defineProperty(request, "mode", { configurable: true, value: mode });
+            let responsePromise = null;
+            listener?.({
+                request,
+                respondWith(promise) {
+                    responsePromise = Promise.resolve(promise);
+                }
+            });
+            return responsePromise ? responsePromise : context.fetch(request);
+        },
+        wasCached(cacheKey) {
+            const normalized = normalizeCacheKey(cacheKey);
+            for (const store of stores.values()) {
+                if (store.has(normalized)) {
+                    return true;
+                }
+            }
+            return false;
+        }
+    };
+}
+
+function normalizeCacheKey(key) {
+    const url = typeof key === "string" ? new URL(key, "https://example.com") : new URL(key.url);
+    return `${url.pathname}${url.search}` || "/";
+}
+
+function normalizeRequest(request) {
+    return request instanceof Request ? request : new Request(request);
 }
 
 function fakeForm(elements = new Map()) {
