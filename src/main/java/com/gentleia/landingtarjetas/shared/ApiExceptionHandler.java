@@ -9,6 +9,7 @@ import jakarta.servlet.http.HttpServletRequest;
 
 import com.fasterxml.jackson.databind.exc.InvalidFormatException;
 import com.gentleia.landingtarjetas.supermarket.SuperItemStockConflictException;
+import com.gentleia.landingtarjetas.supermarket.TicketOcrException;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -84,6 +85,18 @@ public class ApiExceptionHandler {
         logHandledFailure(request, HttpStatus.BAD_REQUEST, exception.getMessage());
         return ResponseEntity.badRequest()
                 .body(ApiErrorResponse.of(HttpStatus.BAD_REQUEST.value(), exception.getMessage(), List.of()));
+    }
+
+    @ExceptionHandler(TicketOcrException.class)
+    ResponseEntity<ApiErrorResponse> handleTicketOcr(TicketOcrException exception, HttpServletRequest request) {
+        logHandledFailure(request, HttpStatus.BAD_REQUEST, exception.getMessage());
+        return ResponseEntity.badRequest()
+                .body(ApiErrorResponse.of(
+                        HttpStatus.BAD_REQUEST.value(),
+                        exception.getMessage(),
+                        List.of(),
+                        exception.getOutcome().name()
+                ));
     }
 
     @ExceptionHandler(DateTimeParseException.class)

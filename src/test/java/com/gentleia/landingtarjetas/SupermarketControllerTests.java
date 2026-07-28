@@ -169,6 +169,7 @@ class SupermarketControllerTests {
 
         mockMvc.perform(multipart("/api/super/ticket-ocr/candidates").file(textFile))
                 .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.outcome").value("INVALID_FILE"))
                 .andExpect(jsonPath("$.error").value("Only PNG or JPEG ticket images are accepted"));
 
         verifyNoInteractions(ticketOcrEngine);
@@ -221,6 +222,7 @@ class SupermarketControllerTests {
 
         mockMvc.perform(multipart("/api/super/ticket-ocr/candidates").file(webp))
                 .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.outcome").value("INVALID_FILE"))
                 .andExpect(jsonPath("$.error").value("Only PNG or JPEG ticket images are accepted"));
 
         verifyNoInteractions(ticketOcrEngine);
@@ -249,6 +251,63 @@ class SupermarketControllerTests {
                 .andExpect(jsonPath("$.lineCandidates[0].rawText").value("PRIVATE OCR RAW LINE 9876.54"));
 
         assertThat(output.getAll()).doesNotContain("PRIVATE OCR RAW LINE 9876.54", "9876.54", "private-ticket.png");
+        assertSuperInventoryRepositoriesRemainEmpty();
+    }
+
+    @Test
+    void ticketOcrRejectsUndecodableImageWithDecodeFailureOutcome() throws Exception {
+        MockMultipartFile undecodable = new MockMultipartFile(
+                "file",
+                "ticket.jpg",
+                "image/jpeg",
+                "not a decodable jpeg".getBytes(StandardCharsets.UTF_8));
+
+        mockMvc.perform(multipart("/api/super/ticket-ocr/candidates").file(undecodable))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.outcome").value("DECODE_FAILED"))
+                .andExpect(jsonPath("$.error").value("Ticket image could not be decoded"));
+
+        verifyNoInteractions(ticketOcrEngine);
+        assertSuperInventoryRepositoriesRemainEmpty();
+    }
+
+    @Test
+    void ticketOcrReturnsRuntimeUnavailableOutcomeWhenEngineReportsReadinessWarning() throws Exception {
+        when(ticketOcrEngine.extractCandidates(any())).thenReturn(new TicketOcrEngineResult(
+                null,
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of("ticket-ocr-runtime-native: Ticket OCR native runtime is unavailable; review image manually")));
+        MockMultipartFile ticket = new MockMultipartFile("file", "ticket.png", "image/png", tinyPngBytes());
+
+        mockMvc.perform(multipart("/api/super/ticket-ocr/candidates").file(ticket))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.outcome").value("RUNTIME_UNAVAILABLE"))
+                .andExpect(jsonPath("$.warnings[0]").value("ticket-ocr-runtime-native: Ticket OCR native runtime is unavailable; review image manually"))
+                .andExpect(jsonPath("$.lineCandidates").isEmpty());
+
+        assertSuperInventoryRepositoriesRemainEmpty();
+    }
+
+    @Test
+    void ticketOcrReturnsEmptyExtractionOutcomeWhenNoUsableCandidatesExist() throws Exception {
+        when(ticketOcrEngine.extractCandidates(any())).thenReturn(new TicketOcrEngineResult(
+                null,
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of("Review image manually before retrying OCR")));
+        MockMultipartFile ticket = new MockMultipartFile("file", "ticket.png", "image/png", tinyPngBytes());
+
+        mockMvc.perform(multipart("/api/super/ticket-ocr/candidates").file(ticket))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.outcome").value("EMPTY_EXTRACTION"))
+                .andExpect(jsonPath("$.warnings[0]").value("Review image manually before retrying OCR"))
+                .andExpect(jsonPath("$.lineCandidates").isEmpty())
+                .andExpect(jsonPath("$.dateCandidates").isEmpty())
+                .andExpect(jsonPath("$.sourceCandidates").isEmpty());
+
         assertSuperInventoryRepositoriesRemainEmpty();
     }
 

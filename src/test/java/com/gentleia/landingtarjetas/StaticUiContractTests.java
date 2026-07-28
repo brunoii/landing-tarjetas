@@ -956,7 +956,8 @@ class StaticUiContractTests {
                 "Confirmar observación",
                 "Descartar revisión",
                 "Los candidatos se descartan al refrescar o descartar esta revisión.",
-                "Nada se guarda hasta confirmar una fila."
+                "Nada se guarda hasta confirmar una fila.",
+                "Usá JPG locales autorizados solo para verificación manual. No los copies, persistas ni los compartas."
         );
         assertThat(index).doesNotContain("sessionStorage", "localStorage", "BarcodeDetector", "getUserMedia");
         assertThat(api).contains(
@@ -969,7 +970,11 @@ class StaticUiContractTests {
                 "submitSuperTicketOcrConfirmForm",
                 "renderSuperTicketOcrReview",
                 "createSuperItemPriceObservation",
-                "data-super-ticket-ocr-action=\"select\""
+                "data-super-ticket-ocr-action=\"select\"",
+                "RUNTIME_UNAVAILABLE",
+                "EMPTY_EXTRACTION",
+                "INVALID_FILE",
+                "DECODE_FAILED"
         ).doesNotContain("localStorage", "sessionStorage");
         assertThat(styles).contains(
                 ".super-ticket-ocr-card",

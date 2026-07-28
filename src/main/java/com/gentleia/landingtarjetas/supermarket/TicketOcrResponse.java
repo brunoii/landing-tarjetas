@@ -4,6 +4,7 @@ import java.math.BigDecimal;
 import java.util.List;
 
 public record TicketOcrResponse(
+        TicketOcrOutcome outcome,
         String checksumSha256,
         String originalFilename,
         String contentType,

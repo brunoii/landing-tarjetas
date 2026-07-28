@@ -15,6 +15,12 @@ let currentTicketOcrReview = null;
 let currentSuperScanSession = null, editingSuperScanDraftId = null, selectedSuperScanItem = null;
 let superBarcodeScannerState = createSuperBarcodeScannerState();
 
+const OCR_READY_OUTCOME = "READY";
+const OCR_INVALID_FILE_OUTCOME = "INVALID_FILE";
+const OCR_DECODE_FAILED_OUTCOME = "DECODE_FAILED";
+const OCR_RUNTIME_UNAVAILABLE_OUTCOME = "RUNTIME_UNAVAILABLE";
+const OCR_EMPTY_EXTRACTION_OUTCOME = "EMPTY_EXTRACTION";
+
 const SUPER_RECENT_HISTORY_LIMIT = 50;
 const SUPER_BARCODE_SCAN_DEBOUNCE_MS = 2000;
 
@@ -1852,11 +1858,11 @@ async function submitSuperTicketOcrUploadForm(event) {
         const response = await supermarketApi.uploadSuperTicketOcrCandidates(file);
         currentTicketOcrReview = buildSuperTicketOcrReviewState(response);
         renderSuperTicketOcrReview();
-        showSuperTicketOcrFeedback("Candidatos OCR cargados. Revisá y confirmá solo las filas válidas.");
+        showSuperTicketOcrFeedback(superTicketOcrOutcomeFeedback(currentTicketOcrReview?.outcome));
         showSuperTicketOcrConfirmFeedback("");
     } catch (error) {
         clearSuperTicketOcrReview();
-        showSuperTicketOcrFeedback(`No se pudo extraer el ticket: ${error.message}`, true);
+        showSuperTicketOcrFeedback(superTicketOcrErrorFeedback(error), true);
     } finally {
         setButtonBusy(button, false);
     }
@@ -1928,6 +1934,7 @@ function buildSuperTicketOcrReviewState(response) {
     const firstDate = String(dateCandidates[0]?.value || "");
     const firstSource = String(sourceCandidates[0]?.label || "").trim();
     return {
+        outcome: String(response?.outcome || OCR_READY_OUTCOME),
         checksumSha256: String(response?.checksumSha256 || ""),
         originalFilename: String(response?.originalFilename || "ticket-image"),
         contentType: String(response?.contentType || "image/png"),
@@ -1951,6 +1958,28 @@ function buildSuperTicketOcrReviewState(response) {
             statusMessage: "Pendiente de confirmación."
         }))
     };
+}
+
+function superTicketOcrOutcomeFeedback(outcome) {
+    switch (String(outcome || OCR_READY_OUTCOME)) {
+        case OCR_RUNTIME_UNAVAILABLE_OUTCOME:
+            return "OCR no está listo en este entorno. Revisá el ticket manualmente o corregí la configuración antes de reintentar.";
+        case OCR_EMPTY_EXTRACTION_OUTCOME:
+            return "OCR terminó sin líneas utilizables. Revisá el ticket manualmente o probá otra imagen local autorizada.";
+        default:
+            return "Candidatos OCR cargados. Revisá y confirmá solo las filas válidas.";
+    }
+}
+
+function superTicketOcrErrorFeedback(error) {
+    const outcome = String(error?.body?.outcome || "");
+    if (outcome === OCR_INVALID_FILE_OUTCOME) {
+        return "El archivo no cumple el contrato OCR: usá solo PNG o JPEG válidos para la revisión local.";
+    }
+    if (outcome === OCR_DECODE_FAILED_OUTCOME) {
+        return "La imagen no se pudo decodificar. Probá otra captura local o revisala manualmente.";
+    }
+    return `No se pudo extraer el ticket: ${error.message}`;
 }
 
 function renderSuperTicketOcrReview() {
