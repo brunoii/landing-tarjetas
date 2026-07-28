@@ -505,9 +505,9 @@ class StaticUiContractTests {
                 "Escanear código",
                 "Detener escaneo",
                 "La cámara es opcional. Si no está disponible, ingresá el código manualmente.",
-                "El escaneo solo resuelve el producto. Confirmá la compra o el consumo por separado.",
-                "Registrar compra",
-                "Registrar consumo",
+                "El escaneo solo resuelve el producto. Enviá compra o consumo a la sesión para revisarlo antes de confirmar stock.",
+                "Preparar compra",
+                "Preparar consumo",
                 "Asociar a producto existente",
                 "Quitar alias",
                 "Copiar",
@@ -854,7 +854,7 @@ class StaticUiContractTests {
                 "id=\"super-session-save-draft\"",
                 "id=\"super-session-confirm\""
         );
-        assertThat(index).contains("El escaneo solo prepara borradores revisables. Confirmá el lote para aplicar movimientos.");
+        assertThat(index).contains("La sesión revisa borradores no mutantes. El modal directo sigue disponible solo desde la tabla de productos.");
         assertThat(index.indexOf("id=\"super-session-panel\"")).isLessThan(index.indexOf("id=\"super-items-table\""));
         assertThat(api).contains(
                 "activeSuperScanSession()",

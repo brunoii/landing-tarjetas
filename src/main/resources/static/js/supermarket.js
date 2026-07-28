@@ -1370,7 +1370,9 @@ async function acceptSuperBarcodeDetection(detection) {
     superBarcodeScannerState.lastAcceptedAt = Date.now();
     stopSuperBarcodeScanner({ nextPhase: "resolving", statusMessage: `Código ${payload.code} detectado. Resolviendo producto...` });
     await submitSuperBarcodeLookup();
-    const resolvedMessage = currentBarcodeAlias?.item ? `Escaneo listo para ${currentBarcodeAlias.item.name}. Confirmá compra o consumo por separado.` : `Código ${payload.code} detectado. Podés asociarlo manualmente.`;
+    const resolvedMessage = currentBarcodeAlias?.item
+        ? `Escaneo listo para ${currentBarcodeAlias.item.name}. Enviá compra o consumo a la sesión para revisarlo antes de confirmar stock.`
+        : `Código ${payload.code} detectado. Podés asociarlo manualmente.`;
     setSuperBarcodeScannerPhase("idle", resolvedMessage);
 }
 
@@ -1410,6 +1412,7 @@ function handleSuperBarcodeResolvedAction(event) {
         showSuperBarcodeFeedback("Primero resolvé un producto antes de registrar movimientos.", true);
         return;
     }
+    // Barcode handoff only prepares a session draft; direct modal movements stay owned by item-table actions.
     void handoffSuperBarcodeToSession(type, currentBarcodeAlias);
 }
 

@@ -175,9 +175,9 @@ try {
     assert.match(indexHtml, /Escanear código/);
     assert.match(indexHtml, /Detener escaneo/);
     assert.match(indexHtml, /La cámara es opcional\. Si no está disponible, ingresá el código manualmente\./);
-    assert.match(indexHtml, /El escaneo solo resuelve el producto\. Confirmá la compra o el consumo por separado\./);
-    assert.match(indexHtml, /Registrar compra/);
-    assert.match(indexHtml, /Registrar consumo/);
+    assert.match(indexHtml, /El escaneo solo resuelve el producto\. Enviá compra o consumo a la sesión para revisarlo antes de confirmar stock\./);
+    assert.match(indexHtml, /Preparar compra/);
+    assert.match(indexHtml, /Preparar consumo/);
     assert.match(indexHtml, /<th>Presentación<\/th>/);
     assert.match(indexHtml, /<th>Precio ref\.<\/th>/);
     assert.match(indexHtml, /<th>Stock<\/th>/);
@@ -259,7 +259,7 @@ try {
     assert.match(indexHtml, /id="super-session-clear"[^>]+disabled/);
     assert.match(indexHtml, /id="super-session-save-draft"[^>]+disabled/);
     assert.match(indexHtml, /id="super-session-confirm"[^>]+disabled/);
-    assert.match(indexHtml, /El escaneo solo prepara borradores revisables\. Confirmá el lote para aplicar movimientos\./);
+    assert.match(indexHtml, /La sesión revisa borradores no mutantes\. El modal directo sigue disponible solo desde la tabla de productos\./);
     assert.ok(indexHtml.indexOf('id="super-session-panel"') < indexHtml.indexOf('id="super-items-table"'));
     assert.match(stylesCss, /\.super-session-panel/);
     assert.match(stylesCss, /\.super-session-summary/);
@@ -1251,7 +1251,7 @@ try {
         assert.equal(supermarketDom.elements.get("#super-barcode-scanner").hidden, true);
         assert.equal(supermarketDom.elements.get("#super-barcode-scanner-preview").srcObject, null);
         assert.equal(streamStopCount > 0, true);
-        assert.equal(supermarketDom.elements.get("#super-barcode-scanner-status").textContent, "Escaneo listo para Arroz. Confirmá compra o consumo por separado.");
+        assert.equal(supermarketDom.elements.get("#super-barcode-scanner-status").textContent, "Escaneo listo para Arroz. Enviá compra o consumo a la sesión para revisarlo antes de confirmar stock.");
 
         const scanSessionCallStart = supermarketDom.api.calls.length;
         await supermarketDom.elements.get("#super-barcode-purchase").click();

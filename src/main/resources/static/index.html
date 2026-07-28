@@ -757,12 +757,12 @@
             <section id="super-barcode-actions" hidden aria-labelledby="super-barcode-actions-title" class="super-barcode-action-group">
                 <div>
                     <p class="eyebrow">Siguiente paso</p>
-                    <h4 id="super-barcode-actions-title">Acciones explícitas de stock</h4>
+                    <h4 id="super-barcode-actions-title">Enviar a revisión</h4>
                 </div>
-                <p class="section-note">El escaneo solo resuelve el producto. Confirmá la compra o el consumo por separado.</p>
+                <p class="section-note">El escaneo solo resuelve el producto. Enviá compra o consumo a la sesión para revisarlo antes de confirmar stock.</p>
                 <div class="super-barcode-action-buttons">
-                    <button id="super-barcode-purchase" data-super-barcode-stock-action="purchase" aria-controls="super-session-panel" disabled type="button">Registrar compra</button>
-                    <button id="super-barcode-consume" data-super-barcode-stock-action="consume" aria-controls="super-session-panel" disabled type="button" class="secondary-button">Registrar consumo</button>
+                    <button id="super-barcode-purchase" data-super-barcode-stock-action="purchase" aria-controls="super-session-panel" disabled type="button">Preparar compra</button>
+                    <button id="super-barcode-consume" data-super-barcode-stock-action="consume" aria-controls="super-session-panel" disabled type="button" class="secondary-button">Preparar consumo</button>
                 </div>
             </section>
         </section>
@@ -772,7 +772,7 @@
                     <p class="eyebrow">Sesión de escaneo</p>
                     <h3 id="super-session-title">Revisar sesión antes de confirmar</h3>
                 </div>
-                <p class="section-note">El escaneo solo prepara borradores revisables. Confirmá el lote para aplicar movimientos.</p>
+                <p class="section-note">La sesión revisa borradores no mutantes. El modal directo sigue disponible solo desde la tabla de productos.</p>
             </div>
             <p class="filter-summary super-session-summary" id="super-session-summary" aria-live="polite">La sesión aparecerá acá cuando el próximo slice conecte el escaneo con borradores editables.</p>
             <p class="form-feedback" id="super-session-status" role="status" aria-live="polite">Sin sesión activa vinculada desde la UI todavía.</p>

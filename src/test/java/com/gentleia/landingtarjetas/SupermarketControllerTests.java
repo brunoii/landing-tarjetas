@@ -3206,6 +3206,35 @@ class SupermarketControllerTests {
     }
 
     @Test
+    void scanSessionConfirmRejectsWrongOwnerWithoutMutation() throws Exception {
+        SuperCategory almacen = superCategoryRepository.save(new SuperCategory("Almacén"));
+        SuperItem item = superItemRepository.save(configuredStockItem("Harina", almacen, "kg", "3.000", "6.000"));
+        MockHttpSession ownerSession = new MockHttpSession();
+        Long activeSessionId = json(mockMvc.perform(get("/api/super/scan-sessions/active").session(ownerSession))
+                .andReturn().getResponse().getContentAsString()).path("id").asLong();
+
+        mockMvc.perform(post("/api/super/scan-sessions/{id}/drafts", activeSessionId)
+                        .session(ownerSession)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "itemId": %d,
+                                  "type": "PURCHASE",
+                                  "quantity": 1.500,
+                                  "notes": "Owner only"
+                                }
+                                """.formatted(item.getId())))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(post("/api/super/scan-sessions/{id}/confirm", activeSessionId)
+                        .session(new MockHttpSession()))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error").value("No se encontró la sesión de escaneo activa"));
+
+        assertInventoryState(item.getId(), false, "6.000", 0);
+    }
+
+    @Test
     void scanSessionConfirmAppliesDraftsAtomicallyAndRejectsRepeatedConfirmation() throws Exception {
         SuperCategory almacen = superCategoryRepository.save(new SuperCategory("Almacén"));
         SuperItem yerba = superItemRepository.save(configuredStockItem("Yerba", almacen, "kg", "3.000", "5.000"));
@@ -3332,6 +3361,38 @@ class SupermarketControllerTests {
                 .andExpect(jsonPath("$.details[?(@ == 'Reintente con allowNegativeStock=true para confirmar.')]" ).exists());
 
         assertInventoryState(item.getId(), false, "1.000", 0);
+    }
+
+    @Test
+    void scanSessionConfirmRejectsExpiredSessionWithoutMutation() throws Exception {
+        SuperCategory almacen = superCategoryRepository.save(new SuperCategory("Almacén"));
+        SuperItem item = superItemRepository.save(configuredStockItem("Leche", almacen, "l", "2.000", "4.000"));
+        MockHttpSession ownerSession = new MockHttpSession();
+        Long activeSessionId = json(mockMvc.perform(get("/api/super/scan-sessions/active").session(ownerSession))
+                .andReturn().getResponse().getContentAsString()).path("id").asLong();
+
+        mockMvc.perform(post("/api/super/scan-sessions/{id}/drafts", activeSessionId)
+                        .session(ownerSession)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "itemId": %d,
+                                  "type": "PURCHASE",
+                                  "quantity": 1.000,
+                                  "notes": "Expire before confirm"
+                                }
+                                """.formatted(item.getId())))
+                .andExpect(status().isOk());
+
+        jdbcTemplate.update("update super_inventory_scan_sessions set expires_at = ? where id = ?",
+                Instant.now().minusSeconds(5), activeSessionId);
+
+        mockMvc.perform(post("/api/super/scan-sessions/{id}/confirm", activeSessionId)
+                        .session(ownerSession))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error").value("La sesión de escaneo expiró"));
+
+        assertInventoryState(item.getId(), false, "4.000", 0);
     }
 
     @Test
