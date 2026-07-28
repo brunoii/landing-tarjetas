@@ -223,7 +223,7 @@ El sistema MUST persistir códigos de barcode como texto asociado solo a un `Sup
 
 ### Requirement: Barcode manual-first sin impacto en inventario
 
-Las operaciones de barcode MUST NOT modificar `currentStock`, `checked` ni movimientos. La entrada manual o pegado MUST estar disponible; cámara o `BarcodeDetector` MAY existir solo como mejora progresiva. El comportamiento de Etapas 1, 2 y 3 MUST permanecer intacto.
+Las operaciones de barcode MUST NOT modificar `currentStock`, `checked` ni movimientos. La entrada manual o pegado MUST seguir disponible como fallback obligatorio. Cámara o `BarcodeDetector` MAY existir solo como mejora progresiva, debe reconocer si corre en contexto seguro, debe exponer mensajes de readiness cuando el escaneo no pueda iniciar y debe permitir reinicios start/stop repetibles sin filtrar listeners duplicados ni streams de media. El comportamiento de Etapas 1, 2 y 3 MUST permanecer intacto. El sistema MUST suprimir lecturas duplicadas del mismo barcode en vivo hasta que cambie el estado del escaneo o el usuario reinicie el flujo.
 
 #### Scenario: Estado de inventario preservado
 - GIVEN un producto con `currentStock`, `checked` e historial de movimientos
@@ -235,6 +235,18 @@ Las operaciones de barcode MUST NOT modificar `currentStock`, `checked` ni movim
 - GIVEN el navegador no soporta cámara o deniega permisos
 - WHEN el usuario ingresa o pega un código manualmente
 - THEN el lookup y la asociación manual MUST seguir disponibles
+
+#### Scenario: Barcode duplicado en vivo se ignora
+- GIVEN el scanner en vivo ya resolvió un barcode
+- WHEN la cámara emite el mismo valor otra vez sin reinicio ni cambio de estado
+- THEN el sistema MUST suprimir la lectura duplicada
+- AND MUST NOT repetir lookup, asociación ni handoff automático a stock
+
+#### Scenario: Reinicio del scanner con cleanup limpio
+- GIVEN el usuario inicia, detiene y vuelve a iniciar el scanner en la misma sesión
+- WHEN el flujo se reanuda o falla por secure-context/readiness
+- THEN el sistema MUST mantener mensajes de readiness
+- AND MUST evitar listeners duplicados o streams filtrados
 
 #### Scenario: Etapas previas intactas
 - GIVEN categorías, lista manual, snapshot, cantidad rápida y movimientos existentes

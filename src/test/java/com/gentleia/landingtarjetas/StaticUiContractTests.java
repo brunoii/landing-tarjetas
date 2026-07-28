@@ -32,8 +32,8 @@ class StaticUiContractTests {
     private static final String STAGE11_UI_TOKEN = "20260718-super-inventory-stage11-price-sources-ui";
     private static final String STAGE15_API_TOKEN = "20260725-super-inventory-stage15-ticket-ocr-ui-api";
     private static final String STAGE15_UI_TOKEN = "20260725-super-inventory-stage15-ticket-ocr-ui";
-    private static final String STAGE17_API_TOKEN = "20260727-super-inventory-stage17-session-shell-api";
-    private static final String STAGE17_UI_TOKEN = "20260727-super-inventory-stage17-session-shell-ui";
+    private static final String FOUNDATION_API_TOKEN = "20260727-mobile-scanner-ocr-pwa-foundation-api";
+    private static final String FOUNDATION_UI_TOKEN = "20260727-mobile-scanner-ocr-pwa-foundation-ui";
     private static final String STALE_API_TOKEN = "20260712-security-hardening";
 
     @Test
@@ -42,15 +42,16 @@ class StaticUiContractTests {
         String login = readStatic("login.html");
         String app = readStatic("js/app.js");
 
-        assertThat(index).contains("<link rel=\"stylesheet\" href=\"/css/styles.css?v=" + STAGE17_UI_TOKEN + "\">");
+        assertThat(index).contains("<link rel=\"stylesheet\" href=\"/css/styles.css?v=" + FOUNDATION_UI_TOKEN + "\">");
         assertThat(index).doesNotContain("<link rel=\"stylesheet\" href=\"/css/styles.css\">");
-        assertThat(index).contains("<script type=\"module\" src=\"/js/app.js?v=" + STAGE17_UI_TOKEN + "\"></script>");
+        assertThat(index).contains("<script type=\"module\" src=\"/js/app.js?v=" + FOUNDATION_UI_TOKEN + "\"></script>");
         assertThat(index).doesNotContain("/css/styles.css?v=20260711-security-login", "/js/app.js?v=20260711-security-login");
         assertThat(login).contains("<link rel=\"stylesheet\" href=\"/css/styles.css?v=" + FRESH_STATIC_TOKEN + "\">")
                 .contains("/js/login.js?v=" + FRESH_STATIC_TOKEN)
                 .doesNotContain("/css/styles.css?v=20260711-security-login", "/js/login.js?v=20260711-security-login");
         assertThat(app)
-                .contains("./api.js?v=" + STAGE17_API_TOKEN, "./categories.js", "./dashboard.js?v=" + FRESH_STATIC_TOKEN, "./incomes.js?v=" + FRESH_STATIC_TOKEN, "./manual-expenses.js?v=" + FRESH_STATIC_TOKEN, "./navigation.js?v=" + FRESH_STATIC_TOKEN, "./simulator.js?v=" + FRESH_STATIC_TOKEN, "./statements.js?v=" + FRESH_STATIC_TOKEN, "./supermarket.js?v=" + STAGE17_UI_TOKEN, "./transactions.js?v=" + FRESH_STATIC_TOKEN, "./utils.js")
+                .contains("./api.js?v=" + FOUNDATION_API_TOKEN, "./categories.js", "./dashboard.js?v=" + FRESH_STATIC_TOKEN, "./incomes.js?v=" + FRESH_STATIC_TOKEN, "./manual-expenses.js?v=" + FRESH_STATIC_TOKEN, "./navigation.js?v=" + FRESH_STATIC_TOKEN, "./simulator.js?v=" + FRESH_STATIC_TOKEN, "./statements.js?v=" + FRESH_STATIC_TOKEN, "./supermarket.js?v=" + FOUNDATION_UI_TOKEN, "./transactions.js?v=" + FRESH_STATIC_TOKEN, "./utils.js")
+                .doesNotContain("super-inventory-stage17-session-shell")
                 .doesNotContain("./api.js\";")
                 .doesNotContain("./statements.js\";", "20260709-stage-7-polish", "20260710-mobile-slice-2", "20260711-mobile-simulator", "20260711-mobile-draft-responsive", "20260711-mobile-supermarket");
     }
@@ -96,8 +97,8 @@ class StaticUiContractTests {
     @Test
     void directApiImportsUseExpectedCacheVersions() throws IOException {
         Map<String, String> expectedApiImports = Map.of(
-                "js/app.js", "./api.js?v=" + STAGE17_API_TOKEN,
-                "js/supermarket.js", "./api.js?v=" + STAGE17_API_TOKEN,
+                "js/app.js", "./api.js?v=" + FOUNDATION_API_TOKEN,
+                "js/supermarket.js", "./api.js?v=" + FOUNDATION_API_TOKEN,
                 "js/incomes.js", "./api.js?v=" + FRESH_STATIC_TOKEN,
                 "js/login.js", "./api.js?v=" + FRESH_STATIC_TOKEN,
                 "js/statements.js", "./api.js?v=" + FRESH_STATIC_TOKEN
@@ -291,7 +292,7 @@ class StaticUiContractTests {
                 "name=\"password\"",
                 "/js/login.js?v=" + FRESH_STATIC_TOKEN
         );
-        assertThat(app).contains("from \"./api.js?v=" + STAGE17_API_TOKEN + "\"")
+        assertThat(app).contains("from \"./api.js?v=" + FOUNDATION_API_TOKEN + "\"")
                 .doesNotContain(STALE_API_TOKEN)
                 .doesNotContain("from \"./api.js\"");
         assertThat(loginJs).contains("from \"./api.js?v=" + FRESH_STATIC_TOKEN + "\"")
@@ -978,6 +979,61 @@ class StaticUiContractTests {
                 ".super-ticket-ocr-selected-warnings",
                 ".super-ticket-ocr-table-wrap table"
         );
+    }
+
+    @Test
+    void privacySafePwaShellPublishesManifestWorkerOfflineAndSafeIcons() throws IOException {
+        String index = readStatic("index.html");
+        String manifest = readStatic("manifest.webmanifest");
+        String worker = readStatic("service-worker.js");
+        String offline = readStatic("offline.html");
+        String icon192 = readStatic("icons/icon-192.svg");
+        String icon512 = readStatic("icons/icon-512.svg");
+
+        assertThat(index).contains(
+                "<link rel=\"manifest\" href=\"/manifest.webmanifest\">",
+                "navigator.serviceWorker.register(\"/service-worker.js\", { scope: \"/\" })",
+                "window.isSecureContext",
+                "serviceWorker\" in navigator"
+        );
+        assertThat(index).doesNotContain("localStorage", "sessionStorage", "archivosJPG");
+
+        assertThat(manifest).contains(
+                "\"name\": \"Landing Tarjetas\"",
+                "\"short_name\": \"Tarjetas\"",
+                "\"start_url\": \"/\"",
+                "\"display\": \"standalone\"",
+                "\"src\": \"/icons/icon-192.svg\"",
+                "\"src\": \"/icons/icon-512.svg\""
+        );
+        assertThat(manifest).doesNotContain("ticket", "ocr", "api", "auth", "archivosJPG");
+
+        assertThat(worker).contains(
+                "const SHELL_CACHE_NAME = \"privacy-safe-shell-v1\";",
+                "const OFFLINE_DOCUMENT_URL = \"/offline.html\";",
+                "const CACHEABLE_SHELL_URLS = new Set([",
+                "const NETWORK_ONLY_PATTERNS = [",
+                "self.addEventListener(\"fetch\"",
+                "request.method !== \"GET\"",
+                "url.pathname.startsWith(\"/api/\")",
+                "url.pathname === \"/login\"",
+                "pathname.includes(\"ticket\")",
+                "pathname.includes(\"upload\")",
+                "pathname.includes(\"private\")",
+                "pathname.endsWith(\".pdf\")",
+                "cache.put(cacheKey, networkResponse.clone())"
+        );
+        assertThat(worker).doesNotContain("localStorage", "sessionStorage", "indexedDB", "archivosJPG");
+
+        assertThat(offline).contains(
+                "Sin conexión",
+                "solo conserva una copia mínima del shell público",
+                "Volver a intentar"
+        );
+        assertThat(offline).doesNotContain("ticket", "ocr", "api", "auth", "pdf", "archivosJPG");
+
+        assertThat(icon192).contains("<svg", "Landing Tarjetas").doesNotContain("ticket", "ocr");
+        assertThat(icon512).contains("<svg", "Landing Tarjetas").doesNotContain("ticket", "ocr");
     }
 
     @Test

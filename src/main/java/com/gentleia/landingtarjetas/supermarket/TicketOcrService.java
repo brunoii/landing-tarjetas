@@ -22,6 +22,7 @@ public class TicketOcrService {
 
     private static final List<String> ALLOWED_CONTENT_TYPES = List.of("image/png", "image/jpeg");
     private static final List<String> ALLOWED_EXTENSIONS = List.of(".png", ".jpg", ".jpeg");
+    private static final List<String> ALLOWED_FORMAT_NAMES = List.of("png", "jpeg");
 
     private final TicketOcrUploadProperties properties;
     private final TicketOcrEngine ticketOcrEngine;
@@ -92,6 +93,7 @@ public class TicketOcrService {
             ImageReader reader = readers.next();
             try {
                 reader.setInput(input, true, true);
+                validateDecodedFormat(reader);
                 validateDecodedDimensions(reader.getWidth(0), reader.getHeight(0));
                 return reader.read(0);
             } finally {
@@ -99,6 +101,13 @@ public class TicketOcrService {
             }
         } catch (IOException exception) {
             throw new IllegalArgumentException("Ticket image could not be decoded");
+        }
+    }
+
+    private void validateDecodedFormat(ImageReader reader) throws IOException {
+        String format = reader.getFormatName();
+        if (format == null || !ALLOWED_FORMAT_NAMES.contains(format.trim().toLowerCase(Locale.ROOT))) {
+            throw new IllegalArgumentException("Only PNG or JPEG ticket images are accepted");
         }
     }
 

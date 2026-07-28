@@ -20,6 +20,7 @@ import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.lang.reflect.Method;
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.Base64;
@@ -191,6 +192,22 @@ class SupermarketControllerTests {
         MockMultipartFile ticket = new MockMultipartFile("file", "ticket.jpeg", "text/plain", tinyPngBytes());
 
         mockMvc.perform(multipart("/api/super/ticket-ocr/candidates").file(ticket))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("Only PNG or JPEG ticket images are accepted"));
+
+        verifyNoInteractions(ticketOcrEngine);
+        assertSuperInventoryRepositoriesRemainEmpty();
+    }
+
+    @Test
+    void ticketOcrRejectsDisguisedGifPayloadDespitePngExtensionWithoutPersistence() throws Exception {
+        MockMultipartFile disguisedGif = new MockMultipartFile(
+                "file",
+                "ticket.png",
+                null,
+                "GIF89a privacy-bound payload".getBytes(StandardCharsets.UTF_8));
+
+        mockMvc.perform(multipart("/api/super/ticket-ocr/candidates").file(disguisedGif))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error").value("Only PNG or JPEG ticket images are accepted"));
 
