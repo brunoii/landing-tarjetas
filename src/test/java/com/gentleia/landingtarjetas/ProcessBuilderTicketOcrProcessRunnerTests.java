@@ -43,6 +43,8 @@ class ProcessBuilderTicketOcrProcessRunnerTests {
         assertThat(result.status()).isEqualTo(TicketOcrProcessResult.Status.NON_ZERO_EXIT);
         assertThat(result.succeeded()).isFalse();
         assertThat(result.stdout()).isEmpty();
+        assertThat(result.stderr()).contains("PRIVATE OCR LINE");
+        assertThat(result.exitCode()).isEqualTo(2);
         assertThat(result.diagnostic()).isEqualTo("ticket-ocr-runtime-unavailable: Ticket OCR runtime is unavailable; review image manually");
         assertThat(result.diagnostic()).doesNotContain("C:/secret", "PRIVATE OCR LINE", "ticket.png");
     }

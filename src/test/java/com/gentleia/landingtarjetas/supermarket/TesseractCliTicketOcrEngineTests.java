@@ -24,6 +24,7 @@ class TesseractCliTicketOcrEngineTests {
                 properties("custom-tesseract", "spa+eng", "C:/ocr/tessdata", Duration.ofSeconds(7)),
                 new TicketOcrCandidateParser(),
                 runner,
+                readiness(properties("custom-tesseract", "spa+eng", "C:/ocr/tessdata", Duration.ofSeconds(7)), runner),
                 new TesseractCliTicketOcrEngine.PngTempFileStore(tempDirectory));
 
         TicketOcrEngineResult result = engine.extractCandidates(new BufferedImage(2, 2, BufferedImage.TYPE_INT_RGB));
@@ -56,14 +57,39 @@ class TesseractCliTicketOcrEngineTests {
                         TicketOcrProcessResult.Status.NON_ZERO_EXIT,
                         "",
                         ProcessBuilderTicketOcrProcessRunner.SAFE_DIAGNOSTIC)),
+                unavailableReadiness(TicketOcrRuntimeWarning.TESSDATA_PATH_EMPTY),
                 new TesseractCliTicketOcrEngine.PngTempFileStore(tempDirectory));
 
         TicketOcrEngineResult result = engine.extractCandidates(new BufferedImage(1, 1, BufferedImage.TYPE_INT_RGB));
 
-        assertThat(result.warnings()).containsExactly(ProcessBuilderTicketOcrProcessRunner.SAFE_DIAGNOSTIC);
+        assertThat(result.warnings()).containsExactly(TicketOcrRuntimeWarning.TESSDATA_PATH_EMPTY.publicWarning());
         assertThat(result.sourceCandidates()).isEmpty();
         assertThat(result.dateCandidates()).isEmpty();
         assertThat(result.lineCandidates()).isEmpty();
+        assertThat(tempDirectory).isEmptyDirectory();
+    }
+
+    @Test
+    void mapsOcrCliExitToGranularPublicWarningWithoutExposingProcessOutput() throws Exception {
+        Path tempDirectory = Files.createTempDirectory("ticket-ocr-cli-engine");
+        CapturingRunner runner = new CapturingRunner(new TicketOcrProcessResult(
+                TicketOcrProcessResult.Status.NON_ZERO_EXIT,
+                "PRIVATE OCR TEXT",
+                "C:/private/ticket.png",
+                2,
+                ProcessBuilderTicketOcrProcessRunner.SAFE_DIAGNOSTIC));
+        TicketOcrUploadProperties properties = properties("tesseract", "spa+eng", "C:/ocr/tessdata", Duration.ofSeconds(5));
+        TesseractCliTicketOcrEngine engine = new TesseractCliTicketOcrEngine(
+                properties,
+                new TicketOcrCandidateParser(),
+                runner,
+                readiness(properties, runner),
+                new TesseractCliTicketOcrEngine.PngTempFileStore(tempDirectory));
+
+        TicketOcrEngineResult result = engine.extractCandidates(new BufferedImage(1, 1, BufferedImage.TYPE_INT_RGB));
+
+        assertThat(result.warnings()).containsExactly(TicketOcrRuntimeWarning.CLI_EXIT_NONZERO.publicWarning());
+        assertThat(result.warnings().get(0)).doesNotContain("PRIVATE OCR TEXT", "C:/private", "ticket.png");
         assertThat(tempDirectory).isEmptyDirectory();
     }
 
@@ -76,11 +102,12 @@ class TesseractCliTicketOcrEngineTests {
                         TicketOcrProcessResult.Status.SUCCESS,
                         "Supermercado Central",
                         "")),
+                unavailableReadiness(TicketOcrRuntimeWarning.TESSDATA_PATH_EMPTY),
                 new FailingDeleteTempFileStore());
 
         TicketOcrEngineResult result = engine.extractCandidates(new BufferedImage(1, 1, BufferedImage.TYPE_INT_RGB));
 
-        assertThat(result.warnings()).containsExactly(ProcessBuilderTicketOcrProcessRunner.SAFE_DIAGNOSTIC);
+        assertThat(result.warnings()).containsExactly(TicketOcrRuntimeWarning.TESSDATA_PATH_EMPTY.publicWarning());
         assertThat(result.sourceCandidates()).isEmpty();
         assertThat(result.dateCandidates()).isEmpty();
         assertThat(result.lineCandidates()).isEmpty();
@@ -93,6 +120,20 @@ class TesseractCliTicketOcrEngineTests {
         properties.setDatapath(datapath);
         properties.setTimeout(timeout);
         return properties;
+    }
+
+    private TicketOcrCliReadiness readiness(TicketOcrUploadProperties properties, TicketOcrProcessRunner runner) {
+        return new TicketOcrCliReadiness(properties, runner, new AvailableFiles());
+    }
+
+    private TicketOcrCliReadiness unavailableReadiness(TicketOcrRuntimeWarning warning) {
+        TicketOcrUploadProperties properties = switch (warning) {
+            case TESSDATA_PATH_EMPTY -> properties("tesseract", "spa+eng", "", Duration.ofSeconds(5));
+            default -> throw new IllegalArgumentException("Unsupported test readiness warning");
+        };
+        return new TicketOcrCliReadiness(properties, (command, timeout) -> {
+            throw new AssertionError("Readiness must fail before running a command");
+        }, new AvailableFiles());
     }
 
     private static final class CapturingRunner implements TicketOcrProcessRunner {
@@ -109,6 +150,12 @@ class TesseractCliTicketOcrEngineTests {
 
         @Override
         public TicketOcrProcessResult run(List<String> command, Duration timeout) {
+            if (command.contains("--version")) {
+                return new TicketOcrProcessResult(TicketOcrProcessResult.Status.SUCCESS, "tesseract 5.0", "");
+            }
+            if (command.contains("--list-langs")) {
+                return new TicketOcrProcessResult(TicketOcrProcessResult.Status.SUCCESS, "List of available languages (2):\nspa\neng", "");
+            }
             this.command = List.copyOf(command);
             this.timeout = timeout;
             Path input = Path.of(command.get(1));
@@ -140,6 +187,24 @@ class TesseractCliTicketOcrEngineTests {
 
         private boolean inputStartedAsPng() {
             return inputStartedAsPng;
+        }
+    }
+
+    private static final class AvailableFiles implements TicketOcrCliReadiness.FileSystemChecks {
+
+        @Override
+        public boolean exists(String path) {
+            return true;
+        }
+
+        @Override
+        public boolean executable(String path) {
+            return true;
+        }
+
+        @Override
+        public boolean directory(String path) {
+            return true;
         }
     }
 

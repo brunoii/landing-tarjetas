@@ -24,29 +24,37 @@ public class TesseractCliTicketOcrEngine implements TicketOcrEngine {
     private final TicketOcrUploadProperties properties;
     private final TicketOcrCandidateParser parser;
     private final TicketOcrProcessRunner processRunner;
+    private final TicketOcrCliReadiness readiness;
     private final TempFileStore tempFileStore;
 
     @Autowired
     public TesseractCliTicketOcrEngine(
             TicketOcrUploadProperties properties,
             TicketOcrCandidateParser parser,
-            TicketOcrProcessRunner processRunner) {
-        this(properties, parser, processRunner, new PngTempFileStore(null));
+            TicketOcrProcessRunner processRunner,
+            TicketOcrCliReadiness readiness) {
+        this(properties, parser, processRunner, readiness, new PngTempFileStore(null));
     }
 
     TesseractCliTicketOcrEngine(
             TicketOcrUploadProperties properties,
             TicketOcrCandidateParser parser,
             TicketOcrProcessRunner processRunner,
+            TicketOcrCliReadiness readiness,
             TempFileStore tempFileStore) {
         this.properties = properties;
         this.parser = parser;
         this.processRunner = processRunner;
+        this.readiness = readiness;
         this.tempFileStore = tempFileStore;
     }
 
     @Override
     public TicketOcrEngineResult extractCandidates(BufferedImage image) {
+        TicketOcrRuntimeWarning readinessFailure = readiness.check();
+        if (readinessFailure != null) {
+            return safeFailure(readinessFailure.publicWarning());
+        }
         Path tempFile = null;
         TicketOcrEngineResult result;
         boolean cleanupFailed = false;
@@ -55,9 +63,9 @@ public class TesseractCliTicketOcrEngine implements TicketOcrEngine {
             TicketOcrProcessResult processResult = processRunner.run(buildCommand(tempFile), timeout());
             result = processResult.succeeded()
                     ? parser.parse(processResult.stdout(), null)
-                    : safeFailure(processResult.diagnostic());
+                    : safeFailure(TicketOcrRuntimeWarning.fromProcessStatus(processResult.status()).publicWarning());
         } catch (IOException | RuntimeException exception) {
-            result = safeFailure(ProcessBuilderTicketOcrProcessRunner.SAFE_DIAGNOSTIC);
+            result = safeFailure(TicketOcrRuntimeWarning.PROCESS_START_FAILED.publicWarning());
         } finally {
             if (tempFile != null) {
                 try {
@@ -67,7 +75,7 @@ public class TesseractCliTicketOcrEngine implements TicketOcrEngine {
                 }
             }
         }
-        return cleanupFailed ? safeFailure(ProcessBuilderTicketOcrProcessRunner.SAFE_DIAGNOSTIC) : result;
+        return cleanupFailed ? safeFailure(TicketOcrRuntimeWarning.PROCESS_START_FAILED.publicWarning()) : result;
     }
 
     private List<String> buildCommand(Path tempFile) {
@@ -103,7 +111,7 @@ public class TesseractCliTicketOcrEngine implements TicketOcrEngine {
 
     private TicketOcrEngineResult safeFailure(String warning) {
         return new TicketOcrEngineResult(null, List.of(), List.of(), List.of(), List.of(
-                isBlank(warning) ? ProcessBuilderTicketOcrProcessRunner.SAFE_DIAGNOSTIC : warning.trim()));
+                isBlank(warning) ? TicketOcrRuntimeWarning.PROCESS_START_FAILED.publicWarning() : warning.trim()));
     }
 
     interface TempFileStore {

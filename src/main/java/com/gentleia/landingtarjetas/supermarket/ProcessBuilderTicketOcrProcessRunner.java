@@ -36,11 +36,12 @@ public class ProcessBuilderTicketOcrProcessRunner implements TicketOcrProcessRun
             }
 
             String stdout = readBounded(process.stdoutStream());
-            readBounded(process.stderrStream());
-            if (process.exitCode() != 0) {
-                return new TicketOcrProcessResult(TicketOcrProcessResult.Status.NON_ZERO_EXIT, "", SAFE_DIAGNOSTIC);
+            String stderr = readBounded(process.stderrStream());
+            int exitCode = process.exitCode();
+            if (exitCode != 0) {
+                return new TicketOcrProcessResult(TicketOcrProcessResult.Status.NON_ZERO_EXIT, "", stderr, exitCode, SAFE_DIAGNOSTIC);
             }
-            return new TicketOcrProcessResult(TicketOcrProcessResult.Status.SUCCESS, stdout, "");
+            return new TicketOcrProcessResult(TicketOcrProcessResult.Status.SUCCESS, stdout, stderr, exitCode, "");
         } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();
             return new TicketOcrProcessResult(TicketOcrProcessResult.Status.INTERRUPTED, "", SAFE_DIAGNOSTIC);

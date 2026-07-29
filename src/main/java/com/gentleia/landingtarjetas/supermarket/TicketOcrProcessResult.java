@@ -1,6 +1,10 @@
 package com.gentleia.landingtarjetas.supermarket;
 
-public record TicketOcrProcessResult(Status status, String stdout, String diagnostic) {
+public record TicketOcrProcessResult(Status status, String stdout, String stderr, Integer exitCode, String diagnostic) {
+
+    public TicketOcrProcessResult(Status status, String stdout, String diagnostic) {
+        this(status, stdout, "", null, diagnostic);
+    }
 
     public enum Status {
         SUCCESS,
