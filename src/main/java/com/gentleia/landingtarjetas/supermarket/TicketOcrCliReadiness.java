@@ -9,6 +9,7 @@ import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -21,6 +22,7 @@ class TicketOcrCliReadiness {
     private final TicketOcrProcessRunner processRunner;
     private final FileSystemChecks fileSystemChecks;
 
+    @Autowired
     TicketOcrCliReadiness(TicketOcrUploadProperties properties, TicketOcrProcessRunner processRunner) {
         this(properties, processRunner, new SystemFileSystemChecks());
     }

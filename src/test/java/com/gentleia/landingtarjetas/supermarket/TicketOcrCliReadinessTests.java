@@ -7,8 +7,19 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.junit.jupiter.api.Test;
+import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 
 class TicketOcrCliReadinessTests {
+
+    private final ApplicationContextRunner contextRunner = new ApplicationContextRunner()
+            .withBean(TicketOcrUploadProperties.class)
+            .withBean(ProcessBuilderTicketOcrProcessRunner.class)
+            .withBean(TicketOcrCliReadiness.class);
+
+    @Test
+    void injectsProductionDependenciesIntoTheSpringBean() {
+        contextRunner.run(context -> assertThat(context).hasSingleBean(TicketOcrCliReadiness.class));
+    }
 
     @Test
     void probesConfiguredExecutableAndLanguagesBeforeOcr() {
