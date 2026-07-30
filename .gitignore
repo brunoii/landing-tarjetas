@@ -76,3 +76,6 @@ application-prod-local.yml
 # Maven wrapper cache if added later
 .mvn/wrapper/maven-wrapper.jar
 archivosJPG/
+
+# Local planning notes kept outside version control
+md/

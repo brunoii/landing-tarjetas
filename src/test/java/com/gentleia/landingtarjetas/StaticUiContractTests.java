@@ -926,7 +926,7 @@ class StaticUiContractTests {
 
         assertThat(index).contains(
                 "role=\"tablist\"",
-                "aria-label=\"Supermarket sections\"",
+                "aria-label=\"Secciones de stock\"",
                 "id=\"super-tablist\"",
                 "id=\"super-tab-list\"",
                 "id=\"super-tab-barcode\"",
@@ -1238,7 +1238,8 @@ class StaticUiContractTests {
                 "repeat(auto-fit, minmax(13rem, 1fr))",
                 "@media (max-width: 520px)"
         );
-        assertThat(styles).doesNotContain("--border-strong", ".placeholder-panel .empty-state", ".wide-field");
+        assertThat(styles).contains("--border-strong");
+        assertThat(styles).doesNotContain(".placeholder-panel .empty-state", ".wide-field");
         assertThat(index).doesNotContain("class=\"wide-field\"");
         assertThat(app).contains("No se pudieron cargar los datos del panel", "No se pudieron cargar los gastos", "setButtonBusy");
         assertThat(statements).contains("No se pudo completar la carga", "No se muestra texto del resumen ni contenido del PDF original", "parserDisplayLabel", "setButtonBusy");

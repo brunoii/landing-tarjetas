@@ -7,11 +7,12 @@
     <title>Sin conexión</title>
     <style>
         :root { color-scheme: dark; font-family: Inter, ui-sans-serif, system-ui, sans-serif; }
-        body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: #070b16; color: #e5e7eb; }
-        main { width: min(100% - 2rem, 36rem); padding: 1.5rem; border: 1px solid rgba(148, 163, 184, 0.22); border-radius: 24px; background: rgba(15, 23, 42, 0.96); }
-        h1 { margin-top: 0; }
-        p { line-height: 1.6; color: #9ca3af; }
-        a { display: inline-flex; margin-top: 0.75rem; color: #7dd3fc; font-weight: 700; }
+        body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: radial-gradient(circle at 12% 0, rgba(84, 201, 242, .12), transparent 28rem), #090d15; color: #f8fbff; }
+        main { width: min(100% - 2rem, 36rem); padding: clamp(1.5rem, 5vw, 2.5rem); border: 1px solid rgba(169, 190, 216, .2); border-radius: 20px; background: linear-gradient(145deg, rgba(29, 39, 56, .96), rgba(16, 23, 35, .98)); box-shadow: 0 24px 64px rgba(0, 0, 0, .28); }
+        h1 { margin: 0 0 .75rem; letter-spacing: -.035em; }
+        p { line-height: 1.65; color: #b4c0d1; }
+        a { display: inline-flex; margin-top: .75rem; padding: .7rem 1rem; border-radius: 10px; background: #54c9f2; color: #04131c; font-weight: 800; text-decoration: none; }
+        a:focus-visible { outline: 3px solid #82d5f5; outline-offset: 3px; }
     </style>
 </head>
 <body>
