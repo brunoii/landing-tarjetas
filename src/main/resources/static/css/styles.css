@@ -192,7 +192,6 @@ h3 {
 .notice,
 .panel,
 .metric-card,
-.primary-tabs button,
 .month-tabs button,
 .card-detail,
 .category-row {
@@ -277,32 +276,57 @@ h3 {
     padding-bottom: 0.15rem;
 }
 
-.primary-tabs {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.65rem;
-    max-width: 100%;
-    min-width: 0;
-    overflow-x: auto;
-    padding: 0.25rem 0 0.35rem;
-    -webkit-overflow-scrolling: touch;
-    overscroll-behavior-inline: contain;
-    scrollbar-width: thin;
-    scroll-snap-type: inline proximity;
+.app-shell-nav {
+    display: grid;
+    gap: 0.75rem;
 }
 
-.primary-tabs button {
-    flex: 0 0 auto;
+.app-shell-drawer[hidden] {
+    display: none;
+}
+
+.app-shell-menu-button {
+    width: max-content;
+}
+
+.app-shell-drawer {
+    display: grid;
+    gap: 1rem;
+    padding: 1rem;
+    border: 1px solid var(--border);
+    border-radius: 24px;
+    background: var(--surface-raised);
+    box-shadow: var(--shadow-soft);
+}
+
+.app-shell-drawer-header,
+.app-shell-drawer-group {
+    display: grid;
+    gap: 0.75rem;
+}
+
+.app-shell-drawer-header {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: start;
+}
+
+.app-shell-drawer-label {
+    margin-bottom: 0;
+    color: var(--muted);
+    font-size: 0.82rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.app-shell-drawer a {
     color: var(--text);
-    background: rgba(255, 255, 255, 0.075);
-    scroll-snap-align: start;
-    white-space: nowrap;
+    text-decoration: none;
 }
 
-.primary-tabs button.active {
-    border-color: rgba(125, 211, 252, 0.72);
-    background: linear-gradient(145deg, rgba(14, 165, 233, 0.32), rgba(17, 24, 39, 0.88));
-    color: #e0f2fe;
+.app-shell-drawer a[aria-current="page"] {
+    color: var(--accent);
+    font-weight: 800;
 }
 
 .tab-section[hidden] {
@@ -1534,9 +1558,6 @@ td {
         scroll-snap-type: inline proximity;
     }
 
-    .primary-tabs {
-        flex-wrap: nowrap;
-    }
 }
 
 @media (max-width: 680px) {
@@ -1570,13 +1591,11 @@ td {
         font-size: 0.95rem;
     }
 
-    .primary-tabs,
     .month-tabs {
         gap: 0.5rem;
         padding-bottom: 0.45rem;
     }
 
-    .primary-tabs button,
     .month-tabs button {
         min-height: var(--tap-target-min);
         padding: 0.7rem 0.85rem;
@@ -1860,7 +1879,6 @@ td {
         font-size: clamp(2rem, 16vw, 3.2rem);
     }
 
-    .primary-tabs,
     .month-tabs {
         width: 100%;
         max-width: 100%;

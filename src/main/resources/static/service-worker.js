@@ -1,4 +1,4 @@
-const SHELL_CACHE_NAME = "privacy-safe-shell-v1";
+const SHELL_CACHE_NAME = "privacy-safe-shell-v2";
 const OFFLINE_DOCUMENT_URL = "/offline.html";
 const CACHEABLE_SHELL_URLS = new Set([
     "/",
@@ -7,18 +7,18 @@ const CACHEABLE_SHELL_URLS = new Set([
     "/manifest.webmanifest",
     "/icons/icon-192.svg",
     "/icons/icon-512.svg",
-    "/css/styles.css?v=20260727-mobile-scanner-ocr-pwa-foundation-ui",
-    "/js/app.js?v=20260727-mobile-scanner-ocr-pwa-foundation-ui",
+    "/css/styles.css?v=20260730-app-shell-domain-navigation-ui",
+    "/js/app.js?v=20260730-app-shell-domain-navigation-ui",
     "/js/api.js?v=20260727-mobile-scanner-ocr-pwa-foundation-api",
     "/js/api.js?v=20260713-pending-main",
     "/js/categories.js",
     "/js/dashboard.js?v=20260713-pending-main",
     "/js/incomes.js?v=20260713-pending-main",
     "/js/manual-expenses.js?v=20260713-pending-main",
-    "/js/navigation.js?v=20260713-pending-main",
+    "/js/navigation.js?v=20260730-app-shell-domain-navigation-ui",
     "/js/simulator.js?v=20260713-pending-main",
     "/js/statements.js?v=20260713-pending-main",
-    "/js/supermarket.js?v=20260727-mobile-scanner-ocr-pwa-foundation-ui",
+    "/js/supermarket.js?v=20260730-app-shell-domain-navigation-ui",
     "/js/transactions.js?v=20260713-pending-main",
     "/js/utils.js"
 ]);

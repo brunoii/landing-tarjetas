@@ -21,6 +21,7 @@ const stage15ApiToken = "20260725-super-inventory-stage15-ticket-ocr-ui-api";
 const stage15UiToken = "20260725-super-inventory-stage15-ticket-ocr-ui";
 const foundationApiToken = "20260727-mobile-scanner-ocr-pwa-foundation-api";
 const foundationUiToken = "20260727-mobile-scanner-ocr-pwa-foundation-ui";
+const appShellUiToken = "20260730-app-shell-domain-navigation-ui";
 const staleApiToken = "20260712-security-hardening";
 
 await rm(moduleRoot, { force: true, recursive: true });
@@ -66,11 +67,12 @@ try {
         validateSimulationPayload
     } = await import(pathToFileURL(path.join(moduleRoot, "simulator.js")));
     const {
+        DEFAULT_ROUTE_HASH,
         DEFAULT_PRIMARY_TAB_ID,
         DEFAULT_SUPERMARKET_TAB_ID,
-        primaryTabs,
-        primaryTabViewState,
+        parseHash,
         setupPrimaryTabs,
+        syncPrimaryRouteFromLocation,
         setupTabs
     } = await import(pathToFileURL(path.join(moduleRoot, "navigation.js")));
     const {
@@ -278,8 +280,8 @@ try {
         }
     });
     assert.match(await fallbackResponse.text(), /Sin conexión/);
-    assert.ok(indexHtml.includes(`/css/styles.css?v=${foundationUiToken}`));
-    assert.ok(indexHtml.includes(`/js/app.js?v=${foundationUiToken}`));
+    assert.ok(indexHtml.includes(`/css/styles.css?v=${appShellUiToken}`));
+    assert.ok(indexHtml.includes(`/js/app.js?v=${appShellUiToken}`));
     assert.ok(loginHtml.includes(`/css/styles.css?v=${freshStaticToken}`));
     assert.ok(loginHtml.includes(`/js/login.js?v=${freshStaticToken}`));
     assert.doesNotMatch(indexHtml, /\/css\/styles\.css\?v=20260711-security-login|\/js\/app\.js\?v=20260711-security-login/);
@@ -313,10 +315,18 @@ try {
     assert.equal(apiImportCount, expectedApiImports.size);
     assert.deepEqual(apiImportOffenders, []);
     assert.deepEqual(apiImportOffenders.filter((offender) => offender.includes(staleApiToken)), []);
-    for (const moduleName of ["dashboard", "incomes", "manual-expenses", "navigation", "simulator", "statements", "transactions"]) {
+    for (const moduleName of ["dashboard", "incomes", "manual-expenses", "simulator", "statements", "transactions"]) {
         assert.ok(appSource.includes(`./${moduleName}.js?v=${freshStaticToken}`), `${moduleName}.js should preserve origin/main cache token`);
     }
-    assert.ok(appSource.includes(`./supermarket.js?v=${foundationUiToken}`));
+    assert.ok(appSource.includes(`./navigation.js?v=${appShellUiToken}`));
+    assert.ok(appSource.includes(`./supermarket.js?v=${appShellUiToken}`));
+    assert.match(serviceWorkerSource, /privacy-safe-shell-v2/);
+    assert.match(serviceWorkerSource, new RegExp(`/css/styles\\.css\\?v=${appShellUiToken}`));
+    assert.match(serviceWorkerSource, new RegExp(`/js/app\\.js\\?v=${appShellUiToken}`));
+    assert.match(serviceWorkerSource, new RegExp(`/js/navigation\\.js\\?v=${appShellUiToken}`));
+    assert.match(serviceWorkerSource, new RegExp(`/js/supermarket\\.js\\?v=${appShellUiToken}`));
+    assert.doesNotMatch(serviceWorkerSource, new RegExp(`/js/navigation\\.js\\?v=${foundationUiToken}`));
+    assert.doesNotMatch(serviceWorkerSource, new RegExp(`/js/supermarket\\.js\\?v=${foundationUiToken}`));
     assert.match(indexHtml, /id="super-session-panel"/);
     assert.match(indexHtml, /id="super-session-title"/);
     assert.match(indexHtml, /Revisar sesión antes de confirmar/);
@@ -357,19 +367,27 @@ try {
     assert.match(supermarketSource, /confirmSuperScanSession/);
     assert.doesNotMatch(appSource, /20260709-stage-7-polish|20260710-mobile-slice-2|20260711-mobile-simulator|20260711-mobile-draft-responsive|20260711-mobile-supermarket/);
     assert.doesNotMatch(appSource, /from "\.\/statements\.js";/);
-    const primaryTabButtons = extractPrimaryTabButtons(indexHtml);
-    assert.deepEqual(primaryTabButtons.map(({ id, label }) => ({ id, label })), primaryTabs);
-    assert.deepEqual(primaryTabButtons.map(({ buttonId, controls, selected }) => ({ buttonId, controls, selected })), primaryTabs.map((tab) => ({
-        buttonId: `primary-tab-${tab.id}`,
-        controls: `tab-${tab.id}`,
-        selected: tab.id === DEFAULT_PRIMARY_TAB_ID ? "true" : "false"
-    })));
+    assert.match(indexHtml, /id="app-shell-menu-button"[^>]+aria-expanded="false"[^>]+aria-controls="app-shell-drawer"/);
+    assert.match(indexHtml, /id="app-shell-drawer"[^>]+hidden/);
+    assert.match(indexHtml, /id="summary-home-title"[^>]+tabindex="-1"/);
+    assert.match(indexHtml, /id="income-table-title"[^>]+tabindex="-1"/);
+    assert.match(indexHtml, /id="income-upload-title"[^>]+tabindex="-1"/);
+    assert.match(indexHtml, /id="simulator-title"[^>]+tabindex="-1"/);
+    assert.match(indexHtml, /id="supermarket-title"[^>]+tabindex="-1"/);
+    assert.match(indexHtml, /id="super-barcode-title"[^>]+tabindex="-1"/);
+    assert.match(indexHtml, /id="super-ticket-ocr-title"[^>]+tabindex="-1"/);
+    assert.match(indexHtml, /id="super-category-title"[^>]+tabindex="-1"/);
+    assert.match(indexHtml, /href="#monthly\/summary"[^>]+data-shell-route="#monthly\/summary">Home</);
+    assert.match(indexHtml, /href="#stock\/list"[^>]+data-shell-route="#stock\/list">List</);
+    assert.doesNotMatch(indexHtml, /id="primary-tab-summary"|id="primary-tab-supermarket"/);
+    assert.match(appSource, /syncPrimaryRouteFromLocation\(\{ replace: true \}\)/);
+    assert.match(appSource, /addEventListener\?\.\("hashchange"/);
     assertCssRuleHasDeclarations(stylesCss, ":root", { "--tap-target-min": "44px" });
-    assertCssRuleHasDeclarations(stylesCss, ".primary-tabs", { "max-width": "100%", "min-width": "0" });
+    assertCssRuleHasDeclarations(stylesCss, ".app-shell-drawer[hidden]", { display: "none" });
+    assert.doesNotMatch(stylesCss, /\.primary-tabs/);
     assertCssRuleHasDeclarations(stylesCss, ".month-tabs", { "max-width": "100%", "min-width": "0" });
-    assertCssRuleHasDeclarations(stylesCss, ".primary-tabs", { "width": "100%", "margin-inline": "0", "padding-inline": "0" });
     assertCssRuleHasDeclarations(stylesCss, ".month-tabs", { "width": "100%", "margin-inline": "0", "padding-inline": "0" });
-    assertNoCssDeclaration(stylesCss, [".primary-tabs", ".month-tabs"], "margin-inline", "-0.5rem");
+    assertNoCssDeclaration(stylesCss, [".month-tabs"], "margin-inline", "-0.5rem");
     assertNoPageOverflowMask(stylesCss);
     assertCssRuleHasDeclarations(stylesCss, ".metric-card strong", {
         overflow: "visible",
@@ -1197,11 +1215,6 @@ try {
         assert.equal(supermarketDom.elements.get("#super-ticket-ocr-confirm-feedback").textContent, "Observación creada y precio sincronizado.");
         const preservedTicketSummary = supermarketDom.elements.get("#super-ticket-ocr-summary").textContent;
         const preservedTicketSelectedLine = supermarketDom.elements.get("#super-ticket-ocr-selected-line").value;
-
-        const primaryTabReturnCallStart = supermarketDom.api.calls.length;
-        await supermarketDom.elements.get("#primary-tab-supermarket").click();
-        assertTabState(supermarketDom.supermarketTabs, "list", { focusedTabId: "list" });
-        assert.equal(supermarketDom.api.calls.length, primaryTabReturnCallStart);
 
         supermarketDom.supermarketTabs.buttonsById.get("barcode").click();
         assertTabState(supermarketDom.supermarketTabs, "barcode");
@@ -2256,44 +2269,11 @@ try {
     }
 
     assert.equal(DEFAULT_PRIMARY_TAB_ID, "summary");
-    assert.deepEqual(primaryTabs.map((tab) => tab.label), [
-        "Resumen",
-        "Cargar Gastos",
-        "Tabla Gastos",
-        "Tabla Ingresos",
-        "Cargar Ingresos",
-        "Simulador",
-        "Categorías",
-        "Lista del super"
-    ]);
-    assert.deepEqual(primaryTabViewState().map(({ id, selected, panelHidden }) => ({ id, selected, panelHidden })), [
-        { id: "summary", selected: true, panelHidden: false },
-        { id: "expenses-upload", selected: false, panelHidden: true },
-        { id: "expenses-table", selected: false, panelHidden: true },
-        { id: "income-table", selected: false, panelHidden: true },
-        { id: "income-upload", selected: false, panelHidden: true },
-        { id: "simulator", selected: false, panelHidden: true },
-        { id: "categories", selected: false, panelHidden: true },
-        { id: "supermarket", selected: false, panelHidden: true }
-    ]);
-    assert.equal(primaryTabViewState("expenses-table").find((tab) => tab.id === "expenses-table").selected, true);
-
-    const primaryTabDom = fakePrimaryTabDom(primaryTabs.slice(0, 3).map((tab) => tab.id));
-    const previousTabDocument = globalThis.document;
-    globalThis.document = primaryTabDom.document;
-    try {
-        setupPrimaryTabs();
-        assertPrimaryTabState(primaryTabDom, "summary");
-
-        primaryTabDom.buttonsById.get("expenses-table").click();
-        assertPrimaryTabState(primaryTabDom, "expenses-table");
-    } finally {
-        if (previousTabDocument === undefined) {
-            delete globalThis.document;
-        } else {
-            globalThis.document = previousTabDocument;
-        }
-    }
+    assert.equal(DEFAULT_ROUTE_HASH, "#monthly/summary");
+    assert.deepEqual(parseHash(""), { domain: "monthly", section: "summary", hash: "#monthly/summary", primaryPanel: "summary", focusSelector: "#summary-home-title" });
+    assert.deepEqual(parseHash("#stock"), { domain: "stock", section: "list", hash: "#stock/list", primaryPanel: "supermarket", supermarketTab: "list", focusSelector: "#supermarket-title" });
+    assert.deepEqual(parseHash("#invalid/route"), { domain: "monthly", section: "summary", hash: "#monthly/summary", primaryPanel: "summary", focusSelector: "#summary-home-title" });
+    assert.deepEqual(parseHash("#supermarket"), { domain: "monthly", section: "summary", hash: "#monthly/summary", primaryPanel: "summary", focusSelector: "#summary-home-title" });
 
     const supermarketTabDom = fakeGenericTabDom(["list", "barcode", "tickets", "categories"], {
         buttonSelector: "[data-super-tab-target]",
@@ -2301,6 +2281,7 @@ try {
         targetDatasetKey: "superTabTarget",
         panelDatasetKey: "superTabPanel"
     });
+    const previousTabDocument = globalThis.document;
     globalThis.document = supermarketTabDom.document;
     try {
         setupTabs({
@@ -2328,6 +2309,84 @@ try {
             delete globalThis.document;
         } else {
             globalThis.document = previousTabDocument;
+        }
+    }
+
+    const shellNavigationDom = fakeShellNavigationDom();
+    const previousShellDocument = globalThis.document;
+    const previousShellLocation = globalThis.location;
+    const previousShellHistory = globalThis.history;
+    globalThis.document = shellNavigationDom.document;
+    globalThis.location = shellNavigationDom.location;
+    globalThis.history = shellNavigationDom.history;
+    try {
+        setupPrimaryTabs();
+        let route = syncPrimaryRouteFromLocation({ replace: true });
+        assert.deepEqual(route, { domain: "monthly", section: "summary", hash: "#monthly/summary", primaryPanel: "summary", focusSelector: "#summary-home-title" });
+        assert.equal(shellNavigationDom.history.calls.at(-1).hash, "#monthly/summary");
+        assert.equal(shellNavigationDom.primaryPanels.get("summary").hidden, false);
+        assert.equal(shellNavigationDom.primaryPanels.get("supermarket").hidden, true);
+
+        await shellNavigationDom.trigger.click();
+        assert.equal(shellNavigationDom.drawer.hidden, false);
+        assert.equal(shellNavigationDom.trigger.attributes.get("aria-expanded"), "true");
+        assert.equal(shellNavigationDom.routeLinks[0].focused, true);
+
+        shellNavigationDom.document.dispatchEvent({ type: "keydown", key: "Escape" });
+        assert.equal(shellNavigationDom.drawer.hidden, true);
+        assert.equal(shellNavigationDom.trigger.focused, true);
+
+        await shellNavigationDom.trigger.click();
+        await shellNavigationDom.linkByHash.get("#stock/barcode").click();
+        assert.equal(shellNavigationDom.location.hash, "#stock/barcode");
+        assert.equal(shellNavigationDom.primaryPanels.get("supermarket").hidden, false);
+        assertTabState(shellNavigationDom.supermarketTabs, "barcode");
+        assert.equal(shellNavigationDom.routeHeadings.get("#super-barcode-title").focused, true);
+        assert.equal(shellNavigationDom.drawer.hidden, true);
+
+        shellNavigationDom.barcodeInput.value = "0075012345678";
+        shellNavigationDom.routeHeadings.get("#summary-home-title").focus();
+        shellNavigationDom.location.hash = "#monthly/summary";
+        route = syncPrimaryRouteFromLocation();
+        assert.equal(route.hash, "#monthly/summary");
+        assert.equal(shellNavigationDom.routeHeadings.get("#summary-home-title").focused, true);
+
+        shellNavigationDom.location.hash = "#stock/barcode";
+        route = syncPrimaryRouteFromLocation();
+        assert.equal(route.hash, "#stock/barcode");
+        assertTabState(shellNavigationDom.supermarketTabs, "barcode");
+        assert.equal(shellNavigationDom.barcodeInput.value, "0075012345678");
+        assert.equal(shellNavigationDom.routeHeadings.get("#summary-home-title").focused, true);
+
+        shellNavigationDom.supermarketTabs.buttonsById.get("tickets").click();
+        assert.equal(shellNavigationDom.location.hash, "#stock/tickets");
+        assertTabState(shellNavigationDom.supermarketTabs, "tickets");
+
+        shellNavigationDom.location.hash = "#stock";
+        route = syncPrimaryRouteFromLocation();
+        assert.equal(route.hash, "#stock/list");
+        assert.equal(shellNavigationDom.location.hash, "#stock/list");
+        assertTabState(shellNavigationDom.supermarketTabs, "list");
+
+        shellNavigationDom.location.hash = "#supermarket";
+        route = syncPrimaryRouteFromLocation();
+        assert.equal(route.hash, "#monthly/summary");
+        assert.equal(shellNavigationDom.location.hash, "#monthly/summary");
+    } finally {
+        if (previousShellDocument === undefined) {
+            delete globalThis.document;
+        } else {
+            globalThis.document = previousShellDocument;
+        }
+        if (previousShellLocation === undefined) {
+            delete globalThis.location;
+        } else {
+            globalThis.location = previousShellLocation;
+        }
+        if (previousShellHistory === undefined) {
+            delete globalThis.history;
+        } else {
+            globalThis.history = previousShellHistory;
         }
     }
 
@@ -2692,7 +2751,11 @@ function fakeButton(textContent) {
         attributes,
         dataset: {},
         disabled: false,
+        focused: false,
         textContent,
+        focus() {
+            this.focused = true;
+        },
         removeAttribute(name) {
             attributes.delete(name);
         },
@@ -2754,6 +2817,160 @@ function fakeGenericTabDom(tabIds, {
         },
         sectionsById: new Map(sections.map((section) => [section.dataset[panelDatasetKey], section]))
     };
+}
+
+function fakeShellNavigationDom() {
+    const documentState = { activeElement: null };
+    const listeners = new Map();
+    const routeHeadings = new Map([
+        ["#summary-home-title", fakeFocusableElement(documentState)],
+        ["#upload-title", fakeFocusableElement(documentState)],
+        ["#transactions-title", fakeFocusableElement(documentState)],
+        ["#income-table-title", fakeFocusableElement(documentState)],
+        ["#income-upload-title", fakeFocusableElement(documentState)],
+        ["#simulator-title", fakeFocusableElement(documentState)],
+        ["#categories-title", fakeFocusableElement(documentState)],
+        ["#supermarket-title", fakeFocusableElement(documentState)],
+        ["#super-barcode-title", fakeFocusableElement(documentState)],
+        ["#super-ticket-ocr-title", fakeFocusableElement(documentState)],
+        ["#super-category-title", fakeFocusableElement(documentState)]
+    ]);
+    const primaryPanels = new Map([
+        ["summary", fakeTabSection("summary")],
+        ["expenses-upload", fakeTabSection("expenses-upload")],
+        ["expenses-table", fakeTabSection("expenses-table")],
+        ["income-table", fakeTabSection("income-table")],
+        ["income-upload", fakeTabSection("income-upload")],
+        ["simulator", fakeTabSection("simulator")],
+        ["categories", fakeTabSection("categories")],
+        ["supermarket", fakeTabSection("supermarket")]
+    ]);
+    const supermarketTabs = fakeGenericTabDom(["list", "barcode", "tickets", "categories"], {
+        buttonSelector: "[data-super-tab-target]",
+        panelSelector: "[data-super-tab-panel]",
+        targetDatasetKey: "superTabTarget",
+        panelDatasetKey: "superTabPanel"
+    });
+    const trigger = fakeClickableButton("☰ Menú");
+    const drawer = fakeFocusableElement(documentState);
+    drawer.hidden = true;
+    const closeButton = fakeClickableButton("×");
+    const barcodeInput = fakeFocusableElement(documentState);
+    const routeHashes = [
+        "#monthly/summary",
+        "#monthly/expenses-upload",
+        "#monthly/expenses-table",
+        "#monthly/income-table",
+        "#monthly/income-upload",
+        "#monthly/simulator",
+        "#monthly/categories",
+        "#stock/list",
+        "#stock/barcode",
+        "#stock/tickets",
+        "#stock/categories"
+    ];
+    const routeLinks = routeHashes.map((hash) => fakeRouteLink(hash, documentState));
+    const linkByHash = new Map(routeLinks.map((link) => [link.dataset.shellRoute, link]));
+    const history = {
+        calls: [],
+        replaceState(_state, _title, hash) {
+            this.calls.push({ type: "replace", hash });
+        }
+    };
+    const location = { hash: "" };
+
+    for (const button of supermarketTabs.buttonsById.values()) {
+        button.peerButtons = [...supermarketTabs.buttonsById.values()];
+    }
+
+    const document = {
+        activeElement: null,
+        addEventListener(type, listener) {
+            listeners.set(type, listener);
+        },
+        dispatchEvent(event) {
+            listeners.get(event.type)?.(event);
+        },
+        querySelector(selector) {
+            if (selector === "#app-shell-menu-button") {
+                return trigger;
+            }
+            if (selector === "#app-shell-drawer") {
+                return drawer;
+            }
+            if (selector === "#app-shell-drawer-close") {
+                return closeButton;
+            }
+            if (selector === "#super-barcode-code") {
+                return barcodeInput;
+            }
+            if (selector === "#tab-supermarket") {
+                return primaryPanels.get("supermarket");
+            }
+            if (routeHeadings.has(selector)) {
+                return routeHeadings.get(selector);
+            }
+            if (selector.startsWith("#super-tab-")) {
+                return supermarketTabs.buttonsById.get(selector.replace("#super-tab-", "")) || null;
+            }
+            return null;
+        },
+        querySelectorAll(selector) {
+            if (selector === "[data-tab-panel]") {
+                return [...primaryPanels.values()];
+            }
+            if (selector === "[data-super-tab-target]") {
+                return [...supermarketTabs.buttonsById.values()];
+            }
+            if (selector === "[data-super-tab-panel]") {
+                return [...supermarketTabs.sectionsById.values()];
+            }
+            if (selector === "[data-shell-route]") {
+                return routeLinks;
+            }
+            return [];
+        }
+    };
+
+    return {
+        barcodeInput,
+        document,
+        drawer,
+        history,
+        linkByHash,
+        location,
+        primaryPanels,
+        routeHeadings,
+        routeLinks,
+        supermarketTabs,
+        trigger
+    };
+}
+
+function fakeRouteLink(hash, documentState) {
+    const link = fakeFocusableElement(documentState);
+    const listeners = new Map();
+    link.dataset.shellRoute = hash;
+    link.addEventListener = (type, listener) => {
+        listeners.set(type, listener);
+    };
+    link.click = async () => {
+        await listeners.get("click")?.({ currentTarget: link, preventDefault() {} });
+    };
+    return link;
+}
+
+function fakeFocusableElement(documentState) {
+    const element = fakeAppElement();
+    element.focused = false;
+    element.focus = () => {
+        if (documentState.activeElement && documentState.activeElement !== element) {
+            documentState.activeElement.focused = false;
+        }
+        element.focused = true;
+        documentState.activeElement = element;
+    };
+    return element;
 }
 
 function fakeTabButton(tabId, targetDatasetKey = "tabTarget") {
@@ -3070,6 +3287,9 @@ function fakeAppDom() {
         "#super-ticket-ocr-selected-warnings",
         "#super-ticket-ocr-confirm-feedback",
         "#super-ticket-ocr-discard",
+        "#app-shell-menu-button",
+        "#app-shell-drawer",
+        "#app-shell-drawer-close",
         "#primary-tab-supermarket",
         "#super-tab-list",
         "#super-tab-barcode",
@@ -3122,7 +3342,7 @@ function fakeAppDom() {
                     domContentLoadedListeners.push(listener);
                     return;
                 }
-                if (type === "visibilitychange") {
+                if (type === "visibilitychange" || type === "keydown") {
                     return;
                 }
                 throw new Error(`Unexpected app document listener: ${type}`);
@@ -3149,6 +3369,9 @@ function fakeAppDom() {
                     return tabSections;
                 }
                 if (selector === "[data-super-tab-target]" || selector === "[data-super-tab-panel]") {
+                    return [];
+                }
+                if (selector === "[data-shell-route]") {
                     return [];
                 }
                 if (selector === "[data-super-limit]") {

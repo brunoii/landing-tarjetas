@@ -3,10 +3,10 @@ import { categoryFormPayload, renderCategories, resetCategoryForm, showCategoryF
 import { renderDashboard } from "./dashboard.js?v=20260713-pending-main";
 import { loadIncomes, setupIncomes } from "./incomes.js?v=20260713-pending-main";
 import { renderManualExpenses, setManualExpenseApi, setManualExpenseCategories, setupManualExpenses } from "./manual-expenses.js?v=20260713-pending-main";
-import { setupPrimaryTabs } from "./navigation.js?v=20260713-pending-main";
+import { setupPrimaryTabs, syncPrimaryRouteFromLocation } from "./navigation.js?v=20260730-app-shell-domain-navigation-ui";
 import { setSimulatorApi, setSimulatorCategories, setupSimulator } from "./simulator.js?v=20260713-pending-main";
 import { renderDraftStatementList, setStatementCategories, setupStatementUpload } from "./statements.js?v=20260713-pending-main";
-import { setupSupermarket } from "./supermarket.js?v=20260727-mobile-scanner-ocr-pwa-foundation-ui";
+import { setupSupermarket } from "./supermarket.js?v=20260730-app-shell-domain-navigation-ui";
 import { renderTransactions, rerenderTransactionsAfterSearch, resetTransactionFilters, setTransactionCategories, syncTransactionMonth, transactionFilters } from "./transactions.js?v=20260713-pending-main";
 import { currentYearMonth, setButtonBusy } from "./utils.js";
 
@@ -18,6 +18,8 @@ const state = {
 document.addEventListener("DOMContentLoaded", () => {
     appendCsrfField(document.querySelector("#logout-form"));
     setupPrimaryTabs();
+    syncPrimaryRouteFromLocation({ replace: true });
+    globalThis.addEventListener?.("hashchange", () => syncPrimaryRouteFromLocation());
     setManualExpenseApi(api);
     setSimulatorApi(api);
     setupManualExpenses({ onChanged: loadDashboard });

@@ -6,10 +6,10 @@
     <meta name="theme-color" content="#070b16">
     <title>Panel de tarjetas</title>
     <link rel="manifest" href="/manifest.webmanifest">
-    <link rel="stylesheet" href="/css/styles.css?v=20260727-mobile-scanner-ocr-pwa-foundation-ui">
+    <link rel="stylesheet" href="/css/styles.css?v=20260730-app-shell-domain-navigation-ui">
 </head>
 <body>
-<header class="topbar tab-section" id="tab-summary" data-tab-panel="summary" role="tabpanel" aria-labelledby="primary-tab-summary">
+<header class="topbar">
     <div>
         <p class="eyebrow">Panel local de resúmenes</p>
         <h1>Resúmenes de tarjetas de crédito</h1>
@@ -29,16 +29,32 @@
 <main class="app-shell">
     <section class="notice" role="status" aria-live="polite" id="app-status">Cargando datos locales del panel...</section>
 
-    <nav class="primary-tabs" aria-label="Secciones principales" role="tablist">
-        <button type="button" id="primary-tab-summary" role="tab" aria-controls="tab-summary" aria-selected="true" data-tab-target="summary" class="active">Resumen</button>
-        <button type="button" id="primary-tab-expenses-upload" role="tab" aria-controls="tab-expenses-upload" aria-selected="false" data-tab-target="expenses-upload">Cargar Gastos</button>
-        <button type="button" id="primary-tab-expenses-table" role="tab" aria-controls="tab-expenses-table" aria-selected="false" data-tab-target="expenses-table">Tabla Gastos</button>
-        <button type="button" id="primary-tab-income-table" role="tab" aria-controls="tab-income-table" aria-selected="false" data-tab-target="income-table">Tabla Ingresos</button>
-        <button type="button" id="primary-tab-income-upload" role="tab" aria-controls="tab-income-upload" aria-selected="false" data-tab-target="income-upload">Cargar Ingresos</button>
-        <button type="button" id="primary-tab-simulator" role="tab" aria-controls="tab-simulator" aria-selected="false" data-tab-target="simulator">Simulador</button>
-        <button type="button" id="primary-tab-categories" role="tab" aria-controls="tab-categories" aria-selected="false" data-tab-target="categories">Categorías</button>
-        <button type="button" id="primary-tab-supermarket" role="tab" aria-controls="tab-supermarket" aria-selected="false" data-tab-target="supermarket">Lista del super</button>
-    </nav>
+    <section class="app-shell-nav" aria-label="Navegación principal">
+        <button type="button" class="secondary-button app-shell-menu-button" id="app-shell-menu-button" aria-expanded="false" aria-controls="app-shell-drawer">☰ Menú</button>
+        <nav class="app-shell-drawer" id="app-shell-drawer" aria-label="App sections" hidden>
+            <div class="app-shell-drawer-header">
+                <p class="eyebrow">Navigation</p>
+                <button type="button" class="secondary-button icon-button" id="app-shell-drawer-close" aria-label="Cerrar navegación">×</button>
+            </div>
+            <div class="app-shell-drawer-group">
+                <p class="app-shell-drawer-label">Monthly summary</p>
+                <a href="#monthly/summary" data-shell-route="#monthly/summary">Home</a>
+                <a href="#monthly/expenses-upload" data-shell-route="#monthly/expenses-upload">Expenses upload</a>
+                <a href="#monthly/expenses-table" data-shell-route="#monthly/expenses-table">Expenses table</a>
+                <a href="#monthly/income-table" data-shell-route="#monthly/income-table">Income table</a>
+                <a href="#monthly/income-upload" data-shell-route="#monthly/income-upload">Income upload</a>
+                <a href="#monthly/simulator" data-shell-route="#monthly/simulator">Simulator</a>
+                <a href="#monthly/categories" data-shell-route="#monthly/categories">Categories</a>
+            </div>
+            <div class="app-shell-drawer-group">
+                <p class="app-shell-drawer-label">Stock</p>
+                <a href="#stock/list" data-shell-route="#stock/list">List</a>
+                <a href="#stock/barcode" data-shell-route="#stock/barcode">Barcode</a>
+                <a href="#stock/tickets" data-shell-route="#stock/tickets">Tickets</a>
+                <a href="#stock/categories" data-shell-route="#stock/categories">Stock categories</a>
+            </div>
+        </nav>
+    </section>
 
     <nav class="month-tabs tab-section" aria-label="Meses disponibles" id="month-tabs" data-tab-panel="summary"></nav>
 
@@ -46,7 +62,7 @@
         <div class="section-heading">
             <div>
                 <p class="eyebrow">Carga</p>
-                <h2 id="upload-title">Cargar PDFs de resúmenes</h2>
+                <h2 id="upload-title" tabindex="-1">Cargar PDFs de resúmenes</h2>
             </div>
             <p class="section-note">Flujo solo local: no suba PDFs reales al repositorio; los PDFs originales se procesan en memoria y sus bytes no se persisten.</p>
         </div>
@@ -289,7 +305,7 @@
         <div class="summary-block summary-block-result">
             <div class="summary-block-heading">
                 <p class="eyebrow">Resultado del mes</p>
-                <h2>Balance mensual</h2>
+                <h2 id="summary-home-title" tabindex="-1">Balance mensual</h2>
             </div>
             <article class="metric-card featured balance-card">
                 <span class="metric-label">Saldo resultante <span class="summary-estimated-label" id="summary-estimated-label" hidden>Estimado</span></span>
@@ -378,11 +394,11 @@
         <div class="card-detail-grid" id="card-detail-grid"></div>
     </section>
 
-    <section class="panel tab-section" id="tab-expenses-table" data-tab-panel="expenses-table" role="tabpanel" aria-labelledby="primary-tab-expenses-table" hidden>
+    <section class="panel tab-section" id="tab-expenses-table" data-tab-panel="expenses-table" hidden>
         <div class="section-heading">
             <div>
                 <p class="eyebrow">Gastos</p>
-                <h2 id="transactions-title">Tabla de gastos reales y proyectados</h2>
+                <h2 id="transactions-title" tabindex="-1">Tabla de gastos reales y proyectados</h2>
             </div>
             <p class="section-note">Detalle unificado de gastos reales y proyecciones que impactan el mes seleccionado. No incluye filas temporales del simulador.</p>
         </div>
@@ -472,11 +488,11 @@
         <p class="empty-state" id="transactions-empty" hidden>No hay gastos reales ni proyectados para este mes.</p>
     </section>
 
-    <section class="panel tab-section" id="tab-income-table" data-tab-panel="income-table" role="tabpanel" aria-labelledby="primary-tab-income-table" hidden>
+    <section class="panel tab-section" id="tab-income-table" data-tab-panel="income-table" hidden>
         <div class="section-heading">
             <div>
                 <p class="eyebrow">Ingresos</p>
-                <h2>Tabla de ingresos</h2>
+                <h2 id="income-table-title" tabindex="-1">Tabla de ingresos</h2>
             </div>
             <p class="section-note">Administre ingresos reales y proyecciones recurrentes que alimentan el resumen del panel.</p>
         </div>
@@ -573,11 +589,11 @@
         </div>
     </section>
 
-    <section class="panel tab-section" id="tab-income-upload" data-tab-panel="income-upload" role="tabpanel" aria-labelledby="primary-tab-income-upload" hidden>
+    <section class="panel tab-section" id="tab-income-upload" data-tab-panel="income-upload" hidden>
         <div class="section-heading">
             <div>
                 <p class="eyebrow">Ingresos</p>
-                <h2>Cargar ingresos</h2>
+                <h2 id="income-upload-title" tabindex="-1">Cargar ingresos</h2>
             </div>
             <p class="section-note">Cargue ingresos manuales en pesos para calcular el saldo mensual del resumen.</p>
         </div>
@@ -620,11 +636,11 @@
         <p class="form-feedback" id="income-feedback" role="status" aria-live="polite"></p>
     </section>
 
-    <section class="panel tab-section" id="tab-simulator" data-tab-panel="simulator" role="tabpanel" aria-labelledby="primary-tab-simulator" hidden>
+    <section class="panel tab-section" id="tab-simulator" data-tab-panel="simulator" hidden>
         <div class="section-heading">
             <div>
                 <p class="eyebrow">Simulación</p>
-                <h2>Simulador</h2>
+                <h2 id="simulator-title" tabindex="-1">Simulador</h2>
             </div>
             <p class="section-note">Simule una compra futura en cuotas sin guardar datos en la base. Usa los ingresos y gastos actuales del panel para cada mes afectado.</p>
         </div>
@@ -682,11 +698,11 @@
         <p class="empty-state" id="simulation-empty">Complete los campos obligatorios y ejecute una simulación para ver los meses afectados.</p>
     </section>
 
-    <section class="panel tab-section" id="tab-categories" data-tab-panel="categories" role="tabpanel" aria-labelledby="primary-tab-categories" hidden>
+    <section class="panel tab-section" id="tab-categories" data-tab-panel="categories" hidden>
         <div class="section-heading">
             <div>
                 <p class="eyebrow">Administración</p>
-                <h2 id="categories-title">Categorías</h2>
+                <h2 id="categories-title" tabindex="-1">Categorías</h2>
             </div>
             <p class="section-note">Las categorías se guardan localmente y solo se muestran cuando están activas.</p>
         </div>
@@ -706,11 +722,11 @@
         <div class="category-list" id="category-list"></div>
     </section>
 
-    <section class="panel tab-section" id="tab-supermarket" data-tab-panel="supermarket" role="tabpanel" aria-labelledby="primary-tab-supermarket" hidden>
+    <section class="panel tab-section" id="tab-supermarket" data-tab-panel="supermarket" hidden>
         <div class="section-heading">
             <div>
                 <p class="eyebrow">Lista del super</p>
-                <h2>Productos habituales</h2>
+                <h2 id="supermarket-title" tabindex="-1">Productos habituales</h2>
             </div>
             <p class="section-note">Guarde productos habituales, marque los pendientes de compra y genere una lista para copiar, descargar o compartir.</p>
         </div>
@@ -910,7 +926,7 @@
             <div class="section-heading">
                 <div>
                     <p class="eyebrow">Barcode local</p>
-                    <h3 id="super-barcode-title">Buscar o asociar código</h3>
+                    <h3 id="super-barcode-title" tabindex="-1">Buscar o asociar código</h3>
                 </div>
                 <p class="section-note">Ingresá o pegá un código local. Si ya existe, abre el producto; si no, podés asociarlo a un producto existente. La cámara es opcional. Si no está disponible, ingresá el código manualmente.</p>
             </div>
@@ -1021,7 +1037,7 @@
             <div class="section-heading">
                 <div>
                     <p class="eyebrow">OCR</p>
-                    <h3 id="super-ticket-ocr-title">OCR de ticket</h3>
+                    <h3 id="super-ticket-ocr-title" tabindex="-1">OCR de ticket</h3>
                 </div>
                 <p class="section-note">Subí una imagen PNG o JPEG para revisar candidatos transitorios. Nada se guarda hasta confirmar una fila.</p>
             </div>
@@ -1180,7 +1196,7 @@
         <section class="supermarket-card super-category-management" aria-labelledby="super-category-title">
             <div class="super-category-heading">
                 <div>
-                    <h3 id="super-category-title">Categorías</h3>
+                    <h3 id="super-category-title" tabindex="-1">Categorías</h3>
                     <p class="section-note">Administrá las categorías del super solo cuando necesitás organizar productos.</p>
                 </div>
                 <button type="button" class="secondary-button" id="super-category-toggle" aria-expanded="false" aria-controls="super-category-table-wrap">Mostrar categorías</button>
@@ -1209,7 +1225,7 @@
     </section>
 </main>
 
-<script type="module" src="/js/app.js?v=20260727-mobile-scanner-ocr-pwa-foundation-ui"></script>
+<script type="module" src="/js/app.js?v=20260730-app-shell-domain-navigation-ui"></script>
 <script>
     if (window.isSecureContext && "serviceWorker" in navigator) {
         window.addEventListener("load", () => {

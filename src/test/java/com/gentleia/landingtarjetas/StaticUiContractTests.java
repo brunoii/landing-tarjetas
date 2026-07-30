@@ -34,6 +34,7 @@ class StaticUiContractTests {
     private static final String STAGE15_UI_TOKEN = "20260725-super-inventory-stage15-ticket-ocr-ui";
     private static final String FOUNDATION_API_TOKEN = "20260727-mobile-scanner-ocr-pwa-foundation-api";
     private static final String FOUNDATION_UI_TOKEN = "20260727-mobile-scanner-ocr-pwa-foundation-ui";
+    private static final String APP_SHELL_UI_TOKEN = "20260730-app-shell-domain-navigation-ui";
     private static final String STALE_API_TOKEN = "20260712-security-hardening";
 
     @Test
@@ -42,15 +43,15 @@ class StaticUiContractTests {
         String login = readStatic("login.html");
         String app = readStatic("js/app.js");
 
-        assertThat(index).contains("<link rel=\"stylesheet\" href=\"/css/styles.css?v=" + FOUNDATION_UI_TOKEN + "\">");
+        assertThat(index).contains("<link rel=\"stylesheet\" href=\"/css/styles.css?v=" + APP_SHELL_UI_TOKEN + "\">");
         assertThat(index).doesNotContain("<link rel=\"stylesheet\" href=\"/css/styles.css\">");
-        assertThat(index).contains("<script type=\"module\" src=\"/js/app.js?v=" + FOUNDATION_UI_TOKEN + "\"></script>");
+        assertThat(index).contains("<script type=\"module\" src=\"/js/app.js?v=" + APP_SHELL_UI_TOKEN + "\"></script>");
         assertThat(index).doesNotContain("/css/styles.css?v=20260711-security-login", "/js/app.js?v=20260711-security-login");
         assertThat(login).contains("<link rel=\"stylesheet\" href=\"/css/styles.css?v=" + FRESH_STATIC_TOKEN + "\">")
                 .contains("/js/login.js?v=" + FRESH_STATIC_TOKEN)
                 .doesNotContain("/css/styles.css?v=20260711-security-login", "/js/login.js?v=20260711-security-login");
         assertThat(app)
-                .contains("./api.js?v=" + FOUNDATION_API_TOKEN, "./categories.js", "./dashboard.js?v=" + FRESH_STATIC_TOKEN, "./incomes.js?v=" + FRESH_STATIC_TOKEN, "./manual-expenses.js?v=" + FRESH_STATIC_TOKEN, "./navigation.js?v=" + FRESH_STATIC_TOKEN, "./simulator.js?v=" + FRESH_STATIC_TOKEN, "./statements.js?v=" + FRESH_STATIC_TOKEN, "./supermarket.js?v=" + FOUNDATION_UI_TOKEN, "./transactions.js?v=" + FRESH_STATIC_TOKEN, "./utils.js")
+                .contains("./api.js?v=" + FOUNDATION_API_TOKEN, "./categories.js", "./dashboard.js?v=" + FRESH_STATIC_TOKEN, "./incomes.js?v=" + FRESH_STATIC_TOKEN, "./manual-expenses.js?v=" + FRESH_STATIC_TOKEN, "./navigation.js?v=" + APP_SHELL_UI_TOKEN, "./simulator.js?v=" + FRESH_STATIC_TOKEN, "./statements.js?v=" + FRESH_STATIC_TOKEN, "./supermarket.js?v=" + APP_SHELL_UI_TOKEN, "./transactions.js?v=" + FRESH_STATIC_TOKEN, "./utils.js")
                 .doesNotContain("super-inventory-stage17-session-shell")
                 .doesNotContain("./api.js\";")
                 .doesNotContain("./statements.js\";", "20260709-stage-7-polish", "20260710-mobile-slice-2", "20260711-mobile-simulator", "20260711-mobile-draft-responsive", "20260711-mobile-supermarket");
@@ -127,51 +128,34 @@ class StaticUiContractTests {
     }
 
     @Test
-    void stageOneTabsRedistributeExistingFrontendSectionsOnly() throws IOException {
+    void appShellDrawerDefinesRouteBackedHomeAndStockFoundation() throws IOException {
         String index = readStatic("index.html");
-        String styles = readStatic("css/styles.css");
         String app = readStatic("js/app.js");
         String navigation = readStatic("js/navigation.js");
 
-        assertThat(index).containsSubsequence(
-                "role=\"tablist\"",
-                "Resumen",
-                "Cargar Gastos",
-                "Tabla Gastos",
-                "Tabla Ingresos",
-                "Cargar Ingresos",
-                "Simulador",
-                "Categorías",
-                "Lista del super"
-        );
         assertThat(index).contains(
-                "id=\"primary-tab-summary\" role=\"tab\"",
-                "aria-selected=\"true\" data-tab-target=\"summary\" class=\"active\"",
-                "data-tab-panel=\"summary\"",
-                "id=\"tab-expenses-upload\" data-tab-panel=\"expenses-upload\"",
-                "id=\"tab-expenses-table\" data-tab-panel=\"expenses-table\"",
-                "id=\"tab-income-table\" data-tab-panel=\"income-table\"",
-                "id=\"tab-income-upload\" data-tab-panel=\"income-upload\"",
-                "id=\"tab-simulator\" data-tab-panel=\"simulator\"",
-                "id=\"tab-categories\" data-tab-panel=\"categories\"",
-                "id=\"tab-supermarket\" data-tab-panel=\"supermarket\""
+                "id=\"app-shell-menu-button\"",
+                "aria-controls=\"app-shell-drawer\"",
+                "aria-expanded=\"false\"",
+                "id=\"app-shell-drawer\"",
+                "id=\"summary-home-title\" tabindex=\"-1\"",
+                "id=\"supermarket-title\" tabindex=\"-1\"",
+                "href=\"#monthly/summary\"",
+                "href=\"#stock/list\"",
+                "href=\"#stock/barcode\"",
+                "href=\"#stock/tickets\"",
+                "href=\"#stock/categories\""
         );
-        assertThat(index).doesNotContain("/api/simulator", "/api/simulador");
-        assertThat(styles).contains(".primary-tabs", ".tab-section[hidden]", "overflow-x: auto");
-        assertThat(app).contains("setupPrimaryTabs()");
+        assertThat(index).doesNotContain("id=\"primary-tab-summary\"", "id=\"primary-tab-supermarket\"");
+        assertThat(app).contains("setupPrimaryTabs()", "syncPrimaryRouteFromLocation({ replace: true })", "addEventListener?.(\"hashchange\"");
         assertThat(navigation).contains(
+                "DEFAULT_ROUTE_HASH = \"#monthly/summary\"",
+                "function parseHash(hash = \"\")",
+                "domain === \"stock\"",
+                "replaceState?.(null, \"\", route.hash)",
                 "DEFAULT_PRIMARY_TAB_ID = \"summary\"",
-                "label: \"Resumen\"",
-                "label: \"Cargar Gastos\"",
-                "label: \"Tabla Gastos\"",
-                "label: \"Tabla Ingresos\"",
-                "label: \"Cargar Ingresos\"",
-                "label: \"Simulador\"",
-                "label: \"Categorías\"",
-                "label: \"Lista del super\""
+                "DEFAULT_SUPERMARKET_TAB_ID = \"list\""
         );
-        assertThat(extractPrimaryTabTargets(index)).containsExactlyElementsOf(extractNavigationTabIds(navigation));
-        assertThat(extractPrimaryTabLabels(index)).containsExactlyElementsOf(extractNavigationTabLabels(navigation));
     }
 
     @Test
@@ -914,7 +898,7 @@ class StaticUiContractTests {
                 "aria-labelledby=\"super-tab-tickets\"",
                 "aria-labelledby=\"super-tab-categories\""
         );
-        assertThat(countMatches(index, "aria-selected=\"true\"")).isGreaterThanOrEqualTo(2);
+        assertThat(countMatches(index, "aria-selected=\"true\"")).isEqualTo(1);
         assertThat(countMatches(index, "id=\"super-tab-")).isEqualTo(4);
         assertThat(countMatches(index, "data-super-tab-panel=")).isEqualTo(4);
         assertThat(index).doesNotContain("supermarket-subtabs-contract", "super-mobile-shell-nav", "super-mobile-shell-link");
@@ -1103,7 +1087,7 @@ class StaticUiContractTests {
         assertThat(manifest).doesNotContain("ticket", "ocr", "api", "auth", "archivosJPG");
 
         assertThat(worker).contains(
-                "const SHELL_CACHE_NAME = \"privacy-safe-shell-v1\";",
+                "const SHELL_CACHE_NAME = \"privacy-safe-shell-v2\";",
                 "const OFFLINE_DOCUMENT_URL = \"/offline.html\";",
                 "const CACHEABLE_SHELL_URLS = new Set([",
                 "const NETWORK_ONLY_PATTERNS = [",
@@ -1115,6 +1099,10 @@ class StaticUiContractTests {
                 "pathname.includes(\"upload\")",
                 "pathname.includes(\"private\")",
                 "pathname.endsWith(\".pdf\")",
+                "/css/styles.css?v=" + APP_SHELL_UI_TOKEN,
+                "/js/app.js?v=" + APP_SHELL_UI_TOKEN,
+                "/js/navigation.js?v=" + APP_SHELL_UI_TOKEN,
+                "/js/supermarket.js?v=" + APP_SHELL_UI_TOKEN,
                 "cache.put(cacheKey, networkResponse.clone())"
         );
         assertThat(worker).doesNotContain("localStorage", "sessionStorage", "indexedDB", "archivosJPG");
@@ -1251,11 +1239,10 @@ class StaticUiContractTests {
         String supermarket = readStatic("js/supermarket.js");
 
         assertCssRuleHasDeclarations(styles, ":root", Map.of("--tap-target-min", "44px"));
-        assertCssRuleHasDeclarations(styles, ".primary-tabs", Map.of("max-width", "100%", "min-width", "0"));
         assertCssRuleHasDeclarations(styles, ".month-tabs", Map.of("max-width", "100%", "min-width", "0"));
-        assertCssRuleHasDeclarations(styles, ".primary-tabs", Map.of("width", "100%", "margin-inline", "0", "padding-inline", "0"));
         assertCssRuleHasDeclarations(styles, ".month-tabs", Map.of("width", "100%", "margin-inline", "0", "padding-inline", "0"));
-        assertNoCssDeclaration(styles, List.of(".primary-tabs", ".month-tabs"), "margin-inline", "-0.5rem");
+        assertThat(styles).doesNotContain(".primary-tabs");
+        assertNoCssDeclaration(styles, List.of(".month-tabs"), "margin-inline", "-0.5rem");
         assertNoPageOverflowMask(styles);
         assertCssRuleHasDeclarations(styles, ".metric-card strong", Map.of(
                 "overflow", "visible",
