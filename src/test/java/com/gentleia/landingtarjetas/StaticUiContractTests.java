@@ -138,13 +138,22 @@ class StaticUiContractTests {
                 "aria-controls=\"app-shell-drawer\"",
                 "aria-expanded=\"false\"",
                 "id=\"app-shell-drawer\"",
+                "aria-label=\"Secciones de la aplicación\"",
+                "id=\"app-shell-drawer-close\"",
+                "aria-label=\"Cerrar navegación\"",
                 "id=\"summary-home-title\" tabindex=\"-1\"",
                 "id=\"supermarket-title\" tabindex=\"-1\"",
-                "href=\"#monthly/summary\"",
-                "href=\"#stock/list\"",
-                "href=\"#stock/barcode\"",
-                "href=\"#stock/tickets\"",
-                "href=\"#stock/categories\""
+                "href=\"#monthly/summary\" data-shell-route=\"#monthly/summary\">Inicio</a>",
+                "href=\"#monthly/expenses-upload\" data-shell-route=\"#monthly/expenses-upload\">Cargar gastos</a>",
+                "href=\"#monthly/expenses-table\" data-shell-route=\"#monthly/expenses-table\">Tabla de gastos</a>",
+                "href=\"#monthly/income-upload\" data-shell-route=\"#monthly/income-upload\">Cargar ingresos</a>",
+                "href=\"#monthly/income-table\" data-shell-route=\"#monthly/income-table\">Tabla de ingresos</a>",
+                "href=\"#monthly/simulator\" data-shell-route=\"#monthly/simulator\">Simulador</a>",
+                "href=\"#monthly/categories\" data-shell-route=\"#monthly/categories\">Categorías financieras</a>",
+                "href=\"#stock/list\" data-shell-route=\"#stock/list\">Lista</a>",
+                "href=\"#stock/barcode\" data-shell-route=\"#stock/barcode\">Códigos de barra</a>",
+                "href=\"#stock/tickets\" data-shell-route=\"#stock/tickets\">Tickets</a>",
+                "href=\"#stock/categories\" data-shell-route=\"#stock/categories\">Categorías de stock</a>"
         );
         assertThat(index).doesNotContain("id=\"primary-tab-summary\"", "id=\"primary-tab-supermarket\"");
         assertThat(app).contains("setupPrimaryTabs()", "syncPrimaryRouteFromLocation({ replace: true })", "addEventListener?.(\"hashchange\"");
