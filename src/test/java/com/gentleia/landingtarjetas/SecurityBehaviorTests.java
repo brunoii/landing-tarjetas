@@ -132,7 +132,8 @@ class SecurityBehaviorTests {
 
         mockMvc.perform(get("/index.html").session(session))
                 .andExpect(status().isOk())
-                .andExpect(content().string(containsString("id=\"primary-tab-summary\"")));
+                .andExpect(content().string(containsString("id=\"app-shell-menu-button\"")))
+                .andExpect(content().string(containsString("data-shell-route=\"#monthly/summary\"")));
 
         mockMvc.perform(post("/logout")
                         .session(session)
