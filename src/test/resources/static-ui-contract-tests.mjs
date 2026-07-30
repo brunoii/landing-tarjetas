@@ -342,6 +342,7 @@ try {
     assert.match(stylesCss, /\.super-session-panel/);
     assert.match(stylesCss, /\.super-session-summary/);
     assert.match(stylesCss, /\.supermarket-subtab-panel/);
+    assertCssRuleHasDeclarations(stylesCss, ".supermarket-subtab-panel[hidden]", { display: "none" });
     assert.match(stylesCss, /\.super-session-table-wrap table/);
     assert.match(stylesCss, /\.super-session-draft-form/);
     assert.match(stylesCss, /\.super-session-actions/);

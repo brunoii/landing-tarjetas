@@ -942,6 +942,7 @@ class StaticUiContractTests {
         ));
         assertNoCssDeclaration(styles, List.of(".supermarket-subtabs"), "overflow-x", "auto");
         assertNoCssDeclaration(styles, List.of(".supermarket-subtabs"), "overflow", "hidden");
+        assertCssRuleHasDeclarations(styles, ".supermarket-subtab-panel[hidden]", Map.of("display", "none"));
         assertThat(styles).contains(".supermarket-subtab-panel").doesNotContain(".super-mobile-shell-nav", ".super-mobile-shell-link");
     }
 

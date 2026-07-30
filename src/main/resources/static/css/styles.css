@@ -1192,6 +1192,10 @@ td {
     gap: 1rem;
 }
 
+.supermarket-subtab-panel[hidden] {
+    display: none;
+}
+
 .super-items-table-wrap table {
     min-width: var(--supermarket-table-min-width);
 }
