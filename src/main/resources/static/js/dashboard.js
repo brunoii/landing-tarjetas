@@ -157,14 +157,17 @@ export function renderCardDetails(statements, selectedMonth, monthDetail) {
         article.className = "card-detail";
         article.innerHTML = `
             <header>
-                <div>
+                <div class="card-detail-title">
                     <h3>${escapeHtml(target.title)}</h3>
                     <p class="muted">${escapeHtml(isLoaded ? (primary.cardAlias || cardLabel(primary.cardBrand)) : missingMessage)}</p>
                 </div>
                 <span class="status-chip ${isLoaded ? "loaded" : "empty"}">${isLoaded ? "Cargado" : "Faltante"}</span>
             </header>
-            <dl>
-                <div><dt>Total</dt><dd>${formatMoneyPair(totals)}</dd></div>
+            <div class="card-total">
+                <span class="card-total-label">Importe total</span>
+                <strong class="card-total-value">${formatMoneyPair(totals)}</strong>
+            </div>
+            <dl class="card-detail-meta">
                 <div><dt>Estado</dt><dd>${escapeHtml(statusText)}</dd></div>
                 <div><dt>Vencimiento</dt><dd>${formatDate(matches[0]?.dueDate)}</dd></div>
                 <div><dt>Transacciones</dt><dd>${transactionCount}</dd></div>

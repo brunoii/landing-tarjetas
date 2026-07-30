@@ -391,7 +391,52 @@
             </div>
             <p class="section-note">Cargado significa que existe un resumen confirmado para el mes seleccionado.</p>
         </div>
-        <div class="card-detail-grid" id="card-detail-grid"></div>
+        <div class="card-detail-grid is-loading" id="card-detail-grid" aria-busy="true">
+            <article class="card-detail card-detail-skeleton" aria-hidden="true">
+                <div class="skeleton-line skeleton-title"></div>
+                <div class="skeleton-line skeleton-subtitle"></div>
+                <div class="skeleton-line skeleton-amount"></div>
+                <div class="skeleton-line skeleton-metadata"></div>
+                <div class="skeleton-line skeleton-metadata"></div>
+            </article>
+            <article class="card-detail card-detail-skeleton" aria-hidden="true">
+                <div class="skeleton-line skeleton-title"></div>
+                <div class="skeleton-line skeleton-subtitle"></div>
+                <div class="skeleton-line skeleton-amount"></div>
+                <div class="skeleton-line skeleton-metadata"></div>
+                <div class="skeleton-line skeleton-metadata"></div>
+            </article>
+            <article class="card-detail card-detail-skeleton" aria-hidden="true">
+                <div class="skeleton-line skeleton-title"></div>
+                <div class="skeleton-line skeleton-subtitle"></div>
+                <div class="skeleton-line skeleton-amount"></div>
+                <div class="skeleton-line skeleton-metadata"></div>
+                <div class="skeleton-line skeleton-metadata"></div>
+            </article>
+        </div>
+        <template id="card-detail-skeleton-template">
+            <article class="card-detail card-detail-skeleton" aria-hidden="true">
+                <div class="skeleton-line skeleton-title"></div>
+                <div class="skeleton-line skeleton-subtitle"></div>
+                <div class="skeleton-line skeleton-amount"></div>
+                <div class="skeleton-line skeleton-metadata"></div>
+                <div class="skeleton-line skeleton-metadata"></div>
+            </article>
+            <article class="card-detail card-detail-skeleton" aria-hidden="true">
+                <div class="skeleton-line skeleton-title"></div>
+                <div class="skeleton-line skeleton-subtitle"></div>
+                <div class="skeleton-line skeleton-amount"></div>
+                <div class="skeleton-line skeleton-metadata"></div>
+                <div class="skeleton-line skeleton-metadata"></div>
+            </article>
+            <article class="card-detail card-detail-skeleton" aria-hidden="true">
+                <div class="skeleton-line skeleton-title"></div>
+                <div class="skeleton-line skeleton-subtitle"></div>
+                <div class="skeleton-line skeleton-amount"></div>
+                <div class="skeleton-line skeleton-metadata"></div>
+                <div class="skeleton-line skeleton-metadata"></div>
+            </article>
+        </template>
     </section>
 
     <section class="panel tab-section" id="tab-expenses-table" data-tab-panel="expenses-table" hidden>

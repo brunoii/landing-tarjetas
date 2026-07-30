@@ -74,6 +74,7 @@ async function loadAll() {
 async function loadDashboard() {
     try {
         setStatus("Cargando datos del panel...", false, true);
+        setDashboardLoading(true);
         const [summary, statements, allStatements, months, monthDetail, manualExpenses] = await Promise.all([
             api.summary(state.month),
             api.statements({ month: state.month }),
@@ -105,6 +106,8 @@ async function loadDashboard() {
                 : "Todavía no hay resúmenes ni transacciones cargadas para este mes.");
     } catch (error) {
         setStatus(`No se pudieron cargar los datos del panel: ${error.message}`, true);
+    } finally {
+        setDashboardLoading(false);
     }
 }
 
@@ -179,4 +182,17 @@ function setStatus(message, isError = false, isLoading = false) {
     status.textContent = message;
     status.classList.toggle("error", isError);
     status.classList.toggle("loading", isLoading && !isError);
+}
+
+function setDashboardLoading(isLoading) {
+    const grid = document.querySelector("#card-detail-grid");
+    grid.classList.toggle("is-loading", isLoading);
+    grid.setAttribute("aria-busy", String(isLoading));
+    if (isLoading) {
+        grid.innerHTML = document.querySelector("#card-detail-skeleton-template").innerHTML;
+        return;
+    }
+    if (grid.innerHTML.includes("card-detail-skeleton")) {
+        grid.innerHTML = "";
+    }
 }

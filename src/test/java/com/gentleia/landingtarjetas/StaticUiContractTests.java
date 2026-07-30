@@ -403,6 +403,45 @@ class StaticUiContractTests {
     }
 
     @Test
+    void dashboardCardLoadingAndHierarchyPreserveExistingContracts() throws IOException {
+        String index = readStatic("index.html");
+        String app = readStatic("js/app.js");
+        String dashboard = readStatic("js/dashboard.js");
+        String styles = readStatic("css/styles.css");
+
+        assertThat(index).contains(
+                "id=\"card-detail-grid\"",
+                "id=\"card-detail-skeleton-template\"",
+                "class=\"card-detail card-detail-skeleton\"",
+                "id=\"app-status\"",
+                "aria-live=\"polite\""
+        );
+        assertThat(app).contains(
+                "setDashboardLoading(true)",
+                "setDashboardLoading(false)",
+                "#card-detail-skeleton-template",
+                "#card-detail-grid",
+                "aria-busy"
+        );
+        assertThat(dashboard).contains(
+                "class=\"card-detail-title\"",
+                "class=\"card-total\"",
+                "class=\"card-total-value\"",
+                "class=\"card-detail-meta\"",
+                "status-chip ${isLoaded ? \"loaded\" : \"empty\"}"
+        );
+        assertThat(styles).contains(
+                "--surface-card",
+                "--text-strong",
+                ".card-detail-skeleton",
+                ".card-total-value",
+                ".card-detail-meta",
+                "@media (max-width: 960px)",
+                "@media (max-width: 680px)"
+        );
+    }
+
+    @Test
     void manualExpensesUiUsesStageFiveApiHelpersAndSpanishContracts() throws IOException {
         String index = readStatic("index.html");
         String api = readStatic("js/api.js");

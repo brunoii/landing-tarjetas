@@ -2525,7 +2525,9 @@ try {
     assert.match(elements.get("#record-counts").innerHTML, /<strong>2<\/strong><small>Ingresos<\/small>/);
     const santanderVisaCard = cardGrid.children[0].innerHTML;
     assert.match(santanderVisaCard, /<h3>Santander VISA<\/h3>/);
-    assert.match(santanderVisaCard, /<dt>Total<\/dt><dd>[\s\S]*2,012,382\.98[\s\S]*25\.50[\s\S]*<\/dd>/);
+    assert.match(santanderVisaCard, /class="card-total-label">Importe total<\/span>/);
+    assert.match(santanderVisaCard, /class="card-total-value">[\s\S]*2,012,382\.98[\s\S]*25\.50[\s\S]*<\/strong>/);
+    assert.match(santanderVisaCard, /class="card-detail-meta"/);
     assert.match(santanderVisaCard, /<dt>Vencimiento<\/dt><dd>10 de jul de 2026<\/dd>/);
     assert.doesNotMatch(santanderVisaCard, /2,012\.38|2012\.38/);
     assert.match(santanderVisaCard, /<dt>Transacciones<\/dt><dd>54<\/dd>/);
@@ -3312,10 +3314,12 @@ function fakeAppDom() {
         "#super-panel-tickets",
         "#super-panel-categories",
         "#logout-form",
-        "#app-status"
+        "#app-status",
+        "#card-detail-skeleton-template"
     ]) {
         elements.set(selector, fakeAppElement());
     }
+    elements.get("#card-detail-skeleton-template").innerHTML = '<article class="card-detail card-detail-skeleton"></article>';
     elements.set("#filter-month", fakeInput());
     elements.set("#filter-card", fakeInput());
     elements.set("#filter-category", fakeSelect());
