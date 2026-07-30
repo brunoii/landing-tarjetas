@@ -23,6 +23,7 @@ const OCR_EMPTY_EXTRACTION_OUTCOME = "EMPTY_EXTRACTION";
 
 const SUPER_RECENT_HISTORY_LIMIT = 50;
 const SUPER_BARCODE_SCAN_DEBOUNCE_MS = 2000;
+const DEFAULT_SUPERMARKET_TAB_ID = "list";
 
 export const SUPER_FIELD_LIMITS = Object.freeze({
     categoryName: 80,
@@ -50,6 +51,9 @@ export function setupSupermarket({ apiClient = api } = {}) {
     superBarcodeScannerState = createSuperBarcodeScannerState();
 
     applySupermarketFieldLimits();
+    document.querySelector("#primary-tab-supermarket")?.addEventListener("click", () => {
+        handoffSupermarketPrimaryEntry();
+    });
 
     document.querySelector("#super-category-form")?.addEventListener("submit", async (event) => {
         event.preventDefault();
@@ -140,6 +144,21 @@ export function setupSupermarket({ apiClient = api } = {}) {
     });
 
     loadSupermarket();
+}
+
+function handoffSupermarketPrimaryEntry() {
+    activateSupermarketTab(DEFAULT_SUPERMARKET_TAB_ID, { focus: true });
+}
+
+function activateSupermarketTab(tabId, { focus = false } = {}) {
+    const button = document.querySelector(`#super-tab-${tabId}`);
+    if (!button) {
+        return;
+    }
+    button.click?.();
+    if (focus) {
+        button.focus?.();
+    }
 }
 
 function applySupermarketFieldLimits() {

@@ -856,7 +856,7 @@ class StaticUiContractTests {
                 "id=\"super-session-confirm\""
         );
         assertThat(index).contains("La sesión revisa borradores no mutantes. El modal directo sigue disponible solo desde la tabla de productos.");
-        assertThat(index.indexOf("id=\"super-session-panel\"")).isLessThan(index.indexOf("id=\"super-items-table\""));
+        assertThat(index.indexOf("id=\"super-items-table\"")).isLessThan(index.indexOf("id=\"super-session-panel\""));
         assertThat(api).contains(
                 "activeSuperScanSession()",
                 "createActiveSuperScanSession()",
@@ -886,6 +886,94 @@ class StaticUiContractTests {
                 "#super-session-confirm"
         );
         assertThat(styles).contains(".super-session-panel", ".super-session-summary", ".super-session-table-wrap table", ".super-session-draft-form", ".super-session-actions");
+    }
+
+    @Test
+    void supermarketSubtabsLiveMarkupDefinesSingleActiveAriaTabPanelSet() throws IOException {
+        String index = readStatic("index.html");
+
+        assertThat(index).contains(
+                "role=\"tablist\"",
+                "aria-label=\"Supermarket sections\"",
+                "id=\"super-tablist\"",
+                "id=\"super-tab-list\"",
+                "id=\"super-tab-barcode\"",
+                "id=\"super-tab-tickets\"",
+                "id=\"super-tab-categories\"",
+                "aria-controls=\"super-panel-list\"",
+                "aria-controls=\"super-panel-barcode\"",
+                "aria-controls=\"super-panel-tickets\"",
+                "aria-controls=\"super-panel-categories\"",
+                "data-super-tab-target=\"list\"",
+                "data-super-tab-target=\"barcode\"",
+                "data-super-tab-target=\"tickets\"",
+                "data-super-tab-target=\"categories\"",
+                "role=\"tabpanel\"",
+                "aria-labelledby=\"super-tab-list\"",
+                "aria-labelledby=\"super-tab-barcode\"",
+                "aria-labelledby=\"super-tab-tickets\"",
+                "aria-labelledby=\"super-tab-categories\""
+        );
+        assertThat(countMatches(index, "aria-selected=\"true\"")).isGreaterThanOrEqualTo(2);
+        assertThat(countMatches(index, "id=\"super-tab-")).isEqualTo(4);
+        assertThat(countMatches(index, "data-super-tab-panel=")).isEqualTo(4);
+        assertThat(index).doesNotContain("supermarket-subtabs-contract", "super-mobile-shell-nav", "super-mobile-shell-link");
+    }
+
+    @Test
+    void supermarketSubtabsLiveStylesKeepMobileTabsDirectlyReachableWithoutOverflowOnlyAccess() throws IOException {
+        String styles = readStatic("css/styles.css");
+
+        assertCssRuleHasDeclarations(styles, ".supermarket-subtabs", Map.of(
+                "display", "flex",
+                "flex-wrap", "wrap",
+                "width", "100%",
+                "max-width", "100%",
+                "min-width", "0",
+                "padding", "0.25rem 0 0.35rem"
+        ));
+        assertCssRuleHasDeclarations(styles, ".supermarket-subtabs [role=\"tab\"]", Map.of(
+                "min-height", "var(--tap-target-min)",
+                "white-space", "normal",
+                "flex", "1 1 10rem"
+        ));
+        assertCssMediaRuleHasDeclarations(styles, "@media (max-width: 680px)", ".supermarket-subtabs [role=\"tab\"]", Map.of(
+                "flex", "1 1 calc(50% - 0.5rem)"
+        ));
+        assertNoCssDeclaration(styles, List.of(".supermarket-subtabs"), "overflow-x", "auto");
+        assertNoCssDeclaration(styles, List.of(".supermarket-subtabs"), "overflow", "hidden");
+        assertThat(styles).contains(".supermarket-subtab-panel").doesNotContain(".super-mobile-shell-nav", ".super-mobile-shell-link");
+    }
+
+    @Test
+    void supermarketSubtabsLivePanelsKeepStableControlsGroupedBySection() throws IOException {
+        String index = readStatic("index.html");
+        assertThat(index).contains(
+                "id=\"super-panel-list\"",
+                "id=\"super-panel-barcode\"",
+                "id=\"super-panel-tickets\"",
+                "id=\"super-panel-categories\"",
+                "id=\"super-generate-list\"",
+                "id=\"super-uncheck-all\"",
+                "id=\"super-items-table\"",
+                "id=\"super-generated-list\"",
+                "id=\"super-barcode-form\"",
+                "id=\"super-barcode-actions\"",
+                "id=\"super-session-panel\"",
+                "id=\"super-ticket-ocr-form\"",
+                "id=\"super-ticket-ocr-review-panel\"",
+                "id=\"super-item-form\"",
+                "id=\"super-category-form\"",
+                "id=\"super-category-table-wrap\""
+        );
+        assertThat(index.indexOf("id=\"super-panel-list\"")).isLessThan(index.indexOf("id=\"super-generate-list\""));
+        assertThat(index.indexOf("id=\"super-generate-list\"")).isLessThan(index.indexOf("id=\"super-panel-barcode\""));
+        assertThat(index.indexOf("id=\"super-panel-barcode\"")).isLessThan(index.indexOf("id=\"super-barcode-form\""));
+        assertThat(index.indexOf("id=\"super-session-panel\"")).isLessThan(index.indexOf("id=\"super-panel-tickets\""));
+        assertThat(index.indexOf("id=\"super-panel-tickets\"")).isLessThan(index.indexOf("id=\"super-ticket-ocr-form\""));
+        assertThat(index.indexOf("id=\"super-ticket-ocr-review-panel\"")).isLessThan(index.indexOf("id=\"super-panel-categories\""));
+        assertThat(index.indexOf("id=\"super-panel-categories\"")).isLessThan(index.indexOf("id=\"super-item-form\""));
+        assertThat(index.indexOf("id=\"super-item-form\"")).isLessThan(index.indexOf("id=\"super-category-form\""));
     }
 
     @Test
@@ -1354,6 +1442,10 @@ class StaticUiContractTests {
                     })
                     .collect(Collectors.joining("\n"));
         }
+    }
+
+    private static int countMatches(String source, String needle) {
+        return source.split(Pattern.quote(needle), -1).length - 1;
     }
 
     private static String htmlSection(String html, String startId, String endMarker) {

@@ -65,7 +65,14 @@ try {
         simulationPayloadFromValues,
         validateSimulationPayload
     } = await import(pathToFileURL(path.join(moduleRoot, "simulator.js")));
-    const { DEFAULT_PRIMARY_TAB_ID, primaryTabs, primaryTabViewState, setupPrimaryTabs } = await import(pathToFileURL(path.join(moduleRoot, "navigation.js")));
+    const {
+        DEFAULT_PRIMARY_TAB_ID,
+        DEFAULT_SUPERMARKET_TAB_ID,
+        primaryTabs,
+        primaryTabViewState,
+        setupPrimaryTabs,
+        setupTabs
+    } = await import(pathToFileURL(path.join(moduleRoot, "navigation.js")));
     const {
         SUPER_FIELD_LIMITS,
         generatedSuperListText,
@@ -177,13 +184,16 @@ try {
     assert.match(indexHtml, /id="super-barcode-actions"[^>]+hidden/);
     assert.match(indexHtml, /id="super-barcode-purchase"[^>]+data-super-barcode-stock-action="purchase"[^>]+aria-controls="super-session-panel"[^>]+disabled/);
     assert.match(indexHtml, /id="super-barcode-consume"[^>]+data-super-barcode-stock-action="consume"[^>]+aria-controls="super-session-panel"[^>]+disabled/);
-    assert.match(indexHtml, /id="super-mobile-shell-nav"/);
-    assert.match(indexHtml, /Atajos móviles/);
-    assert.match(indexHtml, /Barcode manual y revisión OCR siguen disponibles aunque la cámara falle/);
-    assert.match(indexHtml, /href="#super-barcode-title"/);
-    assert.match(indexHtml, /href="#super-session-title"/);
-    assert.match(indexHtml, /href="#super-ticket-ocr-title"/);
-    assert.match(indexHtml, /href="#super-product-title"/);
+    assert.match(indexHtml, /class="supermarket-subtabs"[^>]+role="tablist"/);
+    assert.match(indexHtml, /id="super-tab-list"[^>]+aria-controls="super-panel-list"[^>]+aria-selected="true"[^>]+data-super-tab-target="list"/);
+    assert.match(indexHtml, /id="super-tab-barcode"[^>]+aria-controls="super-panel-barcode"[^>]+aria-selected="false"[^>]+data-super-tab-target="barcode"/);
+    assert.match(indexHtml, /id="super-tab-tickets"[^>]+aria-controls="super-panel-tickets"[^>]+aria-selected="false"[^>]+data-super-tab-target="tickets"/);
+    assert.match(indexHtml, /id="super-tab-categories"[^>]+aria-controls="super-panel-categories"[^>]+aria-selected="false"[^>]+data-super-tab-target="categories"/);
+    assert.match(indexHtml, /id="super-panel-list"[^>]+role="tabpanel"[^>]+aria-labelledby="super-tab-list"[^>]+data-super-tab-panel="list"/);
+    assert.match(indexHtml, /id="super-panel-barcode"[^>]+role="tabpanel"[^>]+aria-labelledby="super-tab-barcode"[^>]+data-super-tab-panel="barcode"[^>]+hidden/);
+    assert.match(indexHtml, /id="super-panel-tickets"[^>]+role="tabpanel"[^>]+aria-labelledby="super-tab-tickets"[^>]+data-super-tab-panel="tickets"[^>]+hidden/);
+    assert.match(indexHtml, /id="super-panel-categories"[^>]+role="tabpanel"[^>]+aria-labelledby="super-tab-categories"[^>]+data-super-tab-panel="categories"[^>]+hidden/);
+    assert.doesNotMatch(indexHtml, /super-mobile-shell-nav|super-mobile-shell-link|supermarket-subtabs-contract/);
     assert.match(indexHtml, /Buscar código local/);
     assert.match(indexHtml, /Escanear código/);
     assert.match(indexHtml, /Detener escaneo/);
@@ -328,11 +338,10 @@ try {
     assert.match(indexHtml, /La sesión reúne borradores vinculados desde barcode para revisarlos antes de confirmar stock\./);
     assert.match(indexHtml, /No hay una sesión activa vinculada desde barcode local\./);
     assert.doesNotMatch(indexHtml, /próximo slice|todavía/);
-    assert.ok(indexHtml.indexOf('id="super-session-panel"') < indexHtml.indexOf('id="super-items-table"'));
+    assert.ok(indexHtml.indexOf('id="super-items-table"') < indexHtml.indexOf('id="super-session-panel"'));
     assert.match(stylesCss, /\.super-session-panel/);
     assert.match(stylesCss, /\.super-session-summary/);
-    assert.match(stylesCss, /\.super-mobile-shell-nav/);
-    assert.match(stylesCss, /\.super-mobile-shell-link/);
+    assert.match(stylesCss, /\.supermarket-subtab-panel/);
     assert.match(stylesCss, /\.super-session-table-wrap table/);
     assert.match(stylesCss, /\.super-session-draft-form/);
     assert.match(stylesCss, /\.super-session-actions/);
@@ -1028,6 +1037,15 @@ try {
         supermarketDom.openedUrl = url;
     };
     try {
+        setupTabs({
+            buttons: [...supermarketDom.supermarketTabs.buttonsById.values()],
+            panels: [...supermarketDom.supermarketTabs.sectionsById.values()],
+            defaultTabId: DEFAULT_SUPERMARKET_TAB_ID,
+            targetDatasetKey: "superTabTarget",
+            panelDatasetKey: "superTabPanel"
+        });
+        assertTabState(supermarketDom.supermarketTabs, "list");
+
         setupSupermarket({ apiClient: supermarketDom.api });
         await flushAsyncWork();
         assert.deepEqual(supermarketDom.api.calls.slice(0, 6), [{ method: "superCategories" }, { method: "superItems" }, { method: "superSuggestedList" }, { method: "superPriceSources" }, { method: "activeSuperScanSession" }, { method: "superPriceObservations", filters: { limit: 50 } }]);
@@ -1134,6 +1152,9 @@ try {
         assert.equal(supermarketDom.elements.get("#super-ticket-ocr-date").value, "2026-07-18");
         assert.equal(supermarketDom.elements.get("#super-ticket-ocr-source-label").value, "Ticket proveedor");
 
+        supermarketDom.supermarketTabs.buttonsById.get("tickets").click();
+        assertTabState(supermarketDom.supermarketTabs, "tickets");
+
         await supermarketDom.elements.get("#super-ticket-ocr-table").clickTarget(fakeSuperTicketOcrActionButton("select", "1"));
         assert.equal(supermarketDom.elements.get("#super-ticket-ocr-line-index").value, "1");
         assert.equal(supermarketDom.elements.get("#super-ticket-ocr-selected-line").value, "BANANA ???");
@@ -1173,6 +1194,24 @@ try {
             "superStockMovements"
         ]);
         assert.equal(supermarketDom.elements.get("#super-ticket-ocr-confirm-feedback").textContent, "Observación creada y precio sincronizado.");
+        const preservedTicketSummary = supermarketDom.elements.get("#super-ticket-ocr-summary").textContent;
+        const preservedTicketSelectedLine = supermarketDom.elements.get("#super-ticket-ocr-selected-line").value;
+
+        const primaryTabReturnCallStart = supermarketDom.api.calls.length;
+        await supermarketDom.elements.get("#primary-tab-supermarket").click();
+        assertTabState(supermarketDom.supermarketTabs, "list", { focusedTabId: "list" });
+        assert.equal(supermarketDom.api.calls.length, primaryTabReturnCallStart);
+
+        supermarketDom.supermarketTabs.buttonsById.get("barcode").click();
+        assertTabState(supermarketDom.supermarketTabs, "barcode");
+        assert.equal(supermarketDom.elements.get("#super-session-lines").children.length, 1);
+        assert.match(supermarketDom.elements.get("#super-session-summary").textContent, /1 borrador/);
+
+        supermarketDom.supermarketTabs.buttonsById.get("tickets").click();
+        assertTabState(supermarketDom.supermarketTabs, "tickets");
+        assert.equal(supermarketDom.elements.get("#super-ticket-ocr-review-panel").hidden, false);
+        assert.equal(supermarketDom.elements.get("#super-ticket-ocr-summary").textContent, preservedTicketSummary);
+        assert.equal(supermarketDom.elements.get("#super-ticket-ocr-selected-line").value, preservedTicketSelectedLine);
 
         await supermarketDom.elements.get("#super-ticket-ocr-discard").click();
         assert.equal(supermarketDom.elements.get("#super-ticket-ocr-review-panel").hidden, true);
@@ -2255,6 +2294,42 @@ try {
         }
     }
 
+    const supermarketTabDom = fakeGenericTabDom(["list", "barcode", "tickets", "categories"], {
+        buttonSelector: "[data-super-tab-target]",
+        panelSelector: "[data-super-tab-panel]",
+        targetDatasetKey: "superTabTarget",
+        panelDatasetKey: "superTabPanel"
+    });
+    globalThis.document = supermarketTabDom.document;
+    try {
+        setupTabs({
+            buttons: [...supermarketTabDom.buttonsById.values()],
+            panels: [...supermarketTabDom.sectionsById.values()],
+            defaultTabId: DEFAULT_SUPERMARKET_TAB_ID,
+            targetDatasetKey: "superTabTarget",
+            panelDatasetKey: "superTabPanel"
+        });
+        assertTabState(supermarketTabDom, "list");
+
+        supermarketTabDom.buttonsById.get("list").keydown("End");
+        assertTabState(supermarketTabDom, "categories", { focusedTabId: "categories" });
+
+        supermarketTabDom.buttonsById.get("categories").keydown("ArrowLeft");
+        assertTabState(supermarketTabDom, "tickets", { focusedTabId: "tickets" });
+
+        supermarketTabDom.buttonsById.get("tickets").keydown("Home");
+        assertTabState(supermarketTabDom, "list", { focusedTabId: "list" });
+
+        supermarketTabDom.buttonsById.get("barcode").click();
+        assertTabState(supermarketTabDom, "barcode");
+    } finally {
+        if (previousTabDocument === undefined) {
+            delete globalThis.document;
+        } else {
+            globalThis.document = previousTabDocument;
+        }
+    }
+
     const months = Array.from({ length: 10 }, (_, index) => ({
         yearMonth: `2026-${String(index + 1).padStart(2, "0")}`,
         currentReal: true,
@@ -2628,6 +2703,9 @@ function fakeButton(textContent) {
 
 function fakePrimaryTabDom(tabIds) {
     const buttons = tabIds.map((tabId) => fakeTabButton(tabId));
+    buttons.forEach((button) => {
+        button.peerButtons = buttons;
+    });
     const sections = tabIds.map((tabId) => fakeTabSection(tabId));
     return {
         buttonsById: new Map(buttons.map((button) => [button.dataset.tabTarget, button])),
@@ -2639,6 +2717,9 @@ function fakePrimaryTabDom(tabIds) {
                 if (selector === "[data-tab-panel]") {
                     return sections;
                 }
+                if (selector === "[data-super-tab-target]" || selector === "[data-super-tab-panel]") {
+                    return [];
+                }
                 throw new Error(`Unexpected tab selector: ${selector}`);
             }
         },
@@ -2646,13 +2727,41 @@ function fakePrimaryTabDom(tabIds) {
     };
 }
 
-function fakeTabButton(tabId) {
+function fakeGenericTabDom(tabIds, {
+    buttonSelector,
+    panelSelector,
+    targetDatasetKey,
+    panelDatasetKey
+}) {
+    const buttons = tabIds.map((tabId) => fakeTabButton(tabId, targetDatasetKey));
+    buttons.forEach((button) => {
+        button.peerButtons = buttons;
+    });
+    const sections = tabIds.map((tabId) => fakeTabSection(tabId, panelDatasetKey));
+    return {
+        buttonsById: new Map(buttons.map((button) => [button.dataset[targetDatasetKey], button])),
+        document: {
+            querySelectorAll(selector) {
+                if (selector === buttonSelector) {
+                    return buttons;
+                }
+                if (selector === panelSelector) {
+                    return sections;
+                }
+                throw new Error(`Unexpected tab selector: ${selector}`);
+            }
+        },
+        sectionsById: new Map(sections.map((section) => [section.dataset[panelDatasetKey], section]))
+    };
+}
+
+function fakeTabButton(tabId, targetDatasetKey = "tabTarget") {
     const classes = new Set();
     const attributes = new Map();
     const listeners = new Map();
     return {
         attributes,
-        dataset: { tabTarget: tabId },
+        dataset: { [targetDatasetKey]: tabId },
         focused: false,
         tabIndex: 0,
         addEventListener(type, listener) {
@@ -2675,7 +2784,20 @@ function fakeTabButton(tabId) {
         click() {
             listeners.get("click")?.({ type: "click" });
         },
+        keydown(key) {
+            let prevented = false;
+            listeners.get("keydown")?.({
+                key,
+                preventDefault() {
+                    prevented = true;
+                }
+            });
+            return prevented;
+        },
         focus() {
+            this.peerButtons?.forEach((button) => {
+                button.focused = false;
+            });
             this.focused = true;
         },
         setAttribute(name, value) {
@@ -2684,20 +2806,27 @@ function fakeTabButton(tabId) {
     };
 }
 
-function fakeTabSection(tabId) {
+function fakeTabSection(tabId, panelDatasetKey = "tabPanel") {
     return {
-        dataset: { tabPanel: tabId },
+        dataset: { [panelDatasetKey]: tabId },
         hidden: false
     };
 }
 
 function assertPrimaryTabState(primaryTabDom, activeTabId) {
-    for (const [tabId, button] of primaryTabDom.buttonsById) {
+    assertTabState(primaryTabDom, activeTabId);
+}
+
+function assertTabState(tabDom, activeTabId, { focusedTabId = "" } = {}) {
+    for (const [tabId, button] of tabDom.buttonsById) {
         const selected = tabId === activeTabId;
         assert.equal(button.attributes.get("aria-selected"), String(selected), `${tabId} aria-selected`);
         assert.equal(button.classList.contains("active"), selected, `${tabId} active class`);
         assert.equal(button.tabIndex, selected ? 0 : -1, `${tabId} tabindex`);
-        assert.equal(primaryTabDom.sectionsById.get(tabId).hidden, !selected, `${tabId} panel hidden`);
+        assert.equal(tabDom.sectionsById.get(tabId).hidden, !selected, `${tabId} panel hidden`);
+        if (focusedTabId) {
+            assert.equal(button.focused, tabId === focusedTabId, `${tabId} focused`);
+        }
     }
 }
 
@@ -2940,6 +3069,15 @@ function fakeAppDom() {
         "#super-ticket-ocr-selected-warnings",
         "#super-ticket-ocr-confirm-feedback",
         "#super-ticket-ocr-discard",
+        "#primary-tab-supermarket",
+        "#super-tab-list",
+        "#super-tab-barcode",
+        "#super-tab-tickets",
+        "#super-tab-categories",
+        "#super-panel-list",
+        "#super-panel-barcode",
+        "#super-panel-tickets",
+        "#super-panel-categories",
         "#logout-form",
         "#app-status"
     ]) {
@@ -3008,6 +3146,9 @@ function fakeAppDom() {
                 }
                 if (selector === "[data-tab-panel]") {
                     return tabSections;
+                }
+                if (selector === "[data-super-tab-target]" || selector === "[data-super-tab-panel]") {
+                    return [];
                 }
                 if (selector === "[data-super-limit]") {
                     return supermarketLimitFields(elements);
@@ -3611,6 +3752,20 @@ function fakeSupermarketDom() {
     const table = fakeIncomeTable();
     const superItemForm = fakeSuperItemForm(elements);
     const superCategoryForm = fakeSuperCategoryForm(elements);
+    const supermarketTabButtons = ["list", "barcode", "tickets", "categories"].map((tabId) => fakeTabButton(tabId, "superTabTarget"));
+    supermarketTabButtons.forEach((button) => {
+        button.peerButtons = supermarketTabButtons;
+    });
+    const supermarketTabPanels = ["list", "barcode", "tickets", "categories"].map((tabId) => fakeTabSection(tabId, "superTabPanel"));
+    elements.set("#primary-tab-supermarket", fakeClickableButton("Lista del super"));
+    elements.set("#super-tab-list", supermarketTabButtons[0]);
+    elements.set("#super-tab-barcode", supermarketTabButtons[1]);
+    elements.set("#super-tab-tickets", supermarketTabButtons[2]);
+    elements.set("#super-tab-categories", supermarketTabButtons[3]);
+    elements.set("#super-panel-list", supermarketTabPanels[0]);
+    elements.set("#super-panel-barcode", supermarketTabPanels[1]);
+    elements.set("#super-panel-tickets", supermarketTabPanels[2]);
+    elements.set("#super-panel-categories", supermarketTabPanels[3]);
 
     for (const selector of [
         "#super-category-name",
@@ -4024,13 +4179,23 @@ function fakeSupermarketDom() {
                 if (selector === "[data-super-limit]") {
                     return supermarketLimitFields(elements);
                 }
+                if (selector === "[data-super-tab-target]") {
+                    return supermarketTabButtons;
+                }
+                if (selector === "[data-super-tab-panel]") {
+                    return supermarketTabPanels;
+                }
                 throw new Error(`Unexpected supermarket selectorAll: ${selector}`);
             },
             dispatchEvent(event) {
                 documentListeners.get(event.type)?.(event);
             }
         },
-        elements
+        elements,
+        supermarketTabs: {
+            buttonsById: new Map(supermarketTabButtons.map((button) => [button.dataset.superTabTarget, button])),
+            sectionsById: new Map(supermarketTabPanels.map((panel) => [panel.dataset.superTabPanel, panel]))
+        }
     };
 }
 

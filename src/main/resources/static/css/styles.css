@@ -1163,37 +1163,33 @@ td {
     align-items: center;
 }
 
-.super-mobile-shell-nav {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    gap: 0.85rem 1rem;
-    align-items: center;
-    margin-top: 1rem;
-    padding: 1rem;
-    border: 1px solid rgba(125, 211, 252, 0.24);
-    border-radius: 22px;
-    background: rgba(125, 211, 252, 0.06);
-}
-
-.super-mobile-shell-links {
+.supermarket-subtabs {
     display: flex;
     flex-wrap: wrap;
-    justify-content: flex-end;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
     gap: 0.65rem;
+    padding: 0.25rem 0 0.35rem;
 }
 
-.super-mobile-shell-link {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
+.supermarket-subtabs [role="tab"] {
+    flex: 1 1 10rem;
     min-height: var(--tap-target-min);
-    padding: 0.7rem 0.95rem;
-    border: 1px solid rgba(125, 211, 252, 0.3);
-    border-radius: 999px;
-    background: rgba(125, 211, 252, 0.14);
+    color: var(--text);
+    background: rgba(255, 255, 255, 0.075);
+    white-space: normal;
+}
+
+.supermarket-subtabs [role="tab"].active {
+    border-color: rgba(125, 211, 252, 0.72);
+    background: linear-gradient(145deg, rgba(14, 165, 233, 0.32), rgba(17, 24, 39, 0.88));
     color: #e0f2fe;
-    font-weight: 800;
-    text-decoration: none;
+}
+
+.supermarket-subtab-panel {
+    display: grid;
+    gap: 1rem;
 }
 
 .super-items-table-wrap table {
@@ -1483,7 +1479,6 @@ td {
     }
 
     .card-detail-grid,
-    .super-mobile-shell-nav,
     .category-form,
     .super-barcode-form,
     .super-barcode-action-group,
@@ -1659,10 +1654,13 @@ td {
 
     .super-barcode-scan-controls,
     .super-barcode-action-buttons,
-    .super-session-actions,
-    .super-mobile-shell-links {
+    .super-session-actions {
         display: grid;
         grid-template-columns: 1fr;
+    }
+
+    .supermarket-subtabs [role="tab"] {
+        flex: 1 1 calc(50% - 0.5rem);
     }
 
     .income-actions {

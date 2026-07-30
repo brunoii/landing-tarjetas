@@ -1,4 +1,5 @@
 export const DEFAULT_PRIMARY_TAB_ID = "summary";
+export const DEFAULT_SUPERMARKET_TAB_ID = "list";
 
 export const primaryTabs = [
     { id: "summary", label: "Resumen" },
@@ -21,50 +22,63 @@ export function primaryTabViewState(activeTabId = DEFAULT_PRIMARY_TAB_ID) {
     }));
 }
 
-export function setupPrimaryTabs() {
-    const tabButtons = [...document.querySelectorAll("[data-tab-target]")];
-    const tabSections = [...document.querySelectorAll("[data-tab-panel]")];
-
-    if (tabButtons.length === 0 || tabSections.length === 0) {
+export function setupTabs({ buttons = [], panels = [], defaultTabId = "", targetDatasetKey = "tabTarget", panelDatasetKey = "tabPanel" } = {}) {
+    if (buttons.length === 0 || panels.length === 0) {
         return;
     }
 
-    const activateTab = (tabId, shouldFocus = false) => {
-        const viewState = primaryTabViewState(tabId);
+    const tabIds = buttons
+        .map((button) => button?.dataset?.[targetDatasetKey])
+        .filter(Boolean);
+    const fallbackTabId = tabIds.includes(defaultTabId) ? defaultTabId : tabIds[0];
 
-        viewState.forEach((state) => {
-            tabButtons
-                .filter((button) => button.dataset.tabTarget === state.id)
-                .forEach((button) => {
-                    button.classList.toggle("active", state.selected);
-                    button.setAttribute("aria-selected", String(state.selected));
-                    button.tabIndex = state.selected ? 0 : -1;
-                    if (state.selected && shouldFocus) {
-                        button.focus();
-                    }
-                });
+    const activateTab = (requestedTabId, shouldFocus = false) => {
+        const activeTabId = tabIds.includes(requestedTabId) ? requestedTabId : fallbackTabId;
 
-            tabSections
-                .filter((section) => section.dataset.tabPanel === state.id)
-                .forEach((section) => {
-                    section.hidden = state.panelHidden;
-                });
+        buttons.forEach((button) => {
+            const selected = button.dataset[targetDatasetKey] === activeTabId;
+            button.classList.toggle("active", selected);
+            button.setAttribute("aria-selected", String(selected));
+            button.tabIndex = selected ? 0 : -1;
+            if (selected && shouldFocus) {
+                button.focus();
+            }
+        });
+
+        panels.forEach((panel) => {
+            panel.hidden = panel.dataset[panelDatasetKey] !== activeTabId;
         });
     };
 
-    tabButtons.forEach((button, index) => {
-        button.addEventListener("click", () => activateTab(button.dataset.tabTarget));
+    buttons.forEach((button, index) => {
+        button.addEventListener("click", () => activateTab(button.dataset[targetDatasetKey]));
         button.addEventListener("keydown", (event) => {
-            const nextIndex = keyboardTabIndex(event.key, index, tabButtons.length);
+            const nextIndex = keyboardTabIndex(event.key, index, buttons.length);
             if (nextIndex === index) {
                 return;
             }
             event.preventDefault();
-            activateTab(tabButtons[nextIndex].dataset.tabTarget, true);
+            activateTab(buttons[nextIndex].dataset[targetDatasetKey], true);
         });
     });
 
-    activateTab(DEFAULT_PRIMARY_TAB_ID);
+    activateTab(fallbackTabId);
+}
+
+export function setupPrimaryTabs() {
+    setupTabs({
+        buttons: [...document.querySelectorAll("[data-tab-target]")],
+        panels: [...document.querySelectorAll("[data-tab-panel]")],
+        defaultTabId: DEFAULT_PRIMARY_TAB_ID
+    });
+
+    setupTabs({
+        buttons: [...document.querySelectorAll("[data-super-tab-target]")],
+        panels: [...document.querySelectorAll("[data-super-tab-panel]")],
+        defaultTabId: DEFAULT_SUPERMARKET_TAB_ID,
+        targetDatasetKey: "superTabTarget",
+        panelDatasetKey: "superTabPanel"
+    });
 }
 
 function keyboardTabIndex(key, currentIndex, tabCount) {

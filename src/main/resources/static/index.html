@@ -715,22 +715,197 @@
             <p class="section-note">Guarde productos habituales, marque los pendientes de compra y genere una lista para copiar, descargar o compartir.</p>
         </div>
 
-        <div class="supermarket-list-actions">
-            <button type="button" id="super-generate-list">Generar lista</button>
-            <button type="button" class="secondary-button" id="super-uncheck-all">Desmarcar todos</button>
-        </div>
-        <nav class="super-mobile-shell-nav" id="super-mobile-shell-nav" aria-label="Atajos móviles del super">
-            <div>
-                <p class="eyebrow">Atajos móviles</p>
-                <p class="section-note">Barcode manual y revisión OCR siguen disponibles aunque la cámara falle.</p>
-            </div>
-            <div class="super-mobile-shell-links">
-                <a class="super-mobile-shell-link" href="#super-barcode-title">Barcode</a>
-                <a class="super-mobile-shell-link" href="#super-session-title">Sesión</a>
-                <a class="super-mobile-shell-link" href="#super-ticket-ocr-title">OCR</a>
-                <a class="super-mobile-shell-link" href="#super-product-title">Productos</a>
-            </div>
+        <nav class="supermarket-subtabs" id="super-tablist" aria-label="Supermarket sections" role="tablist">
+            <button type="button" id="super-tab-list" role="tab" aria-controls="super-panel-list" aria-selected="true" tabindex="0" data-super-tab-target="list" class="active">List</button>
+            <button type="button" id="super-tab-barcode" role="tab" aria-controls="super-panel-barcode" aria-selected="false" tabindex="-1" data-super-tab-target="barcode">Barcode</button>
+            <button type="button" id="super-tab-tickets" role="tab" aria-controls="super-panel-tickets" aria-selected="false" tabindex="-1" data-super-tab-target="tickets">Tickets</button>
+            <button type="button" id="super-tab-categories" role="tab" aria-controls="super-panel-categories" aria-selected="false" tabindex="-1" data-super-tab-target="categories">Categories</button>
         </nav>
+
+        <section class="supermarket-subtab-panel" id="super-panel-list" role="tabpanel" aria-labelledby="super-tab-list" data-super-tab-panel="list">
+            <div class="supermarket-list-actions">
+                <button type="button" id="super-generate-list">Generar lista</button>
+                <button type="button" class="secondary-button" id="super-uncheck-all">Desmarcar todos</button>
+            </div>
+            <p class="filter-summary" id="super-items-summary" aria-live="polite">No hay productos cargados.</p>
+            <div class="table-wrap super-items-table-wrap responsive-card-table">
+                <table>
+                    <thead>
+                    <tr>
+                        <th>Comprar</th>
+                        <th>Producto</th>
+                        <th>Categoría</th>
+                        <th>Configuración</th>
+                        <th>Presentación</th>
+                        <th>Precio ref.</th>
+                        <th>Stock</th>
+                        <th>Cantidad rápida</th>
+                        <th>Notas</th>
+                        <th>Acciones</th>
+                    </tr>
+                    </thead>
+                    <tbody id="super-items-table"></tbody>
+                </table>
+            </div>
+            <p class="empty-state" id="super-items-empty" hidden>Todavía no hay productos cargados en la lista del super.</p>
+
+            <div class="modal-overlay" id="super-movement-modal" hidden>
+                <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="super-movement-title">
+                    <div class="modal-header">
+                        <div>
+                            <p class="eyebrow">Inventario</p>
+                            <h3 id="super-movement-title">Registrar movimiento</h3>
+                            <p class="section-note" id="super-movement-item-name"></p>
+                        </div>
+                        <button type="button" class="secondary-button icon-button" id="super-movement-close" aria-label="Cerrar movimiento">×</button>
+                    </div>
+                    <form class="super-movement-form" id="super-movement-form" aria-describedby="super-movement-feedback super-movement-conflict">
+                        <input id="super-movement-item-id" type="hidden">
+                        <input id="super-movement-type" type="hidden">
+                        <label>
+                            Cantidad
+                            <input id="super-movement-quantity" type="number" min="0.001" step="0.001" inputmode="decimal" required placeholder="Ejemplo: 1">
+                        </label>
+                        <label>
+                            Notas
+                            <input id="super-movement-notes" type="text" maxlength="500" placeholder="Nota opcional">
+                        </label>
+                        <label class="super-movement-negative-field">
+                            <span>Confirmar stock negativo</span>
+                            <input id="super-movement-allow-negative" type="checkbox">
+                        </label>
+                        <p class="form-feedback super-movement-conflict" id="super-movement-conflict" role="alert" hidden></p>
+                        <p class="form-feedback" id="super-movement-feedback" role="status" aria-live="polite"></p>
+                        <div class="modal-actions">
+                            <button type="button" class="secondary-button" id="super-movement-cancel">Cancelar</button>
+                            <button type="submit" id="super-movement-submit">Registrar movimiento</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <section class="supermarket-card super-movement-history" id="super-movement-history" aria-labelledby="super-movement-history-title">
+                <div class="section-heading">
+                    <div>
+                        <p class="eyebrow">Movimientos</p>
+                        <h3 id="super-movement-history-title">Historial reciente</h3>
+                    </div>
+                    <p class="section-note">Compras, consumos y ajustes recientes del inventario.</p>
+                </div>
+                <div class="table-wrap super-movement-history-wrap responsive-card-table">
+                    <table>
+                        <thead>
+                        <tr>
+                            <th>Fecha</th>
+                            <th>Producto</th>
+                            <th>Tipo</th>
+                            <th>Cantidad</th>
+                            <th>Stock</th>
+                            <th>Notas</th>
+                        </tr>
+                        </thead>
+                        <tbody id="super-movement-history-table"></tbody>
+                    </table>
+                </div>
+                <p class="empty-state" id="super-movement-history-empty">Todavía no hay movimientos recientes.</p>
+            </section>
+
+            <section class="supermarket-card super-price-observation-card" aria-labelledby="super-price-observation-title">
+                <div class="section-heading">
+                    <div>
+                        <p class="eyebrow">Precios</p>
+                        <h3 id="super-price-observation-title">Observaciones de precio</h3>
+                    </div>
+                    <div>
+                        <p class="section-note" id="super-price-observation-context-summary">Historial reciente global de observaciones de precio.</p>
+                        <button type="button" class="secondary-button" id="super-price-observation-global-reset" hidden>Ver historial global</button>
+                    </div>
+                </div>
+                <form class="super-price-observation-form" id="super-price-observation-form" aria-describedby="super-price-observation-feedback">
+                    <label>
+                        Producto
+                        <select id="super-price-observation-item" required><option value="">Seleccionar producto</option></select>
+                    </label>
+                    <label>
+                        Precio observado
+                        <input id="super-price-observation-price-pesos" type="number" min="0.01" step="0.01" inputmode="decimal" required placeholder="Ejemplo: 1250.50">
+                    </label>
+                    <label>
+                        Fuente reutilizable opcional
+                        <select id="super-price-observation-price-source"><option value="">Sin fuente reutilizable</option></select>
+                    </label>
+                    <label>
+                        Fuente libre opcional
+                        <input id="super-price-observation-source-label" type="text" data-super-limit="priceSourceLabel" placeholder="Ejemplo: Ticket proveedor">
+                    </label>
+                    <label>
+                        Fecha observada opcional
+                        <input id="super-price-observation-observed-date" type="date">
+                    </label>
+                    <label>
+                        <span>Sincronizar como precio actual/de referencia</span>
+                        <input id="super-price-observation-sync-current-reference-price" type="checkbox">
+                        <span class="form-help">Opcional: también actualiza el precio de referencia del producto con esta observación. Si no se marca, solo se guarda historial.</span>
+                    </label>
+                    <button type="submit">Registrar observación de precio</button>
+                </form>
+                <p class="form-feedback" id="super-price-observation-feedback" role="status" aria-live="polite"></p>
+                <form class="super-price-source-form" id="super-price-source-form" aria-describedby="super-price-source-feedback">
+                    <label>
+                        Crear fuente de precio
+                        <input id="super-price-source-name" type="text" data-super-limit="priceSourceLabel" placeholder="Ejemplo: Ticket proveedor">
+                    </label>
+                    <button type="submit" class="secondary-button">Crear fuente</button>
+                </form>
+                <p class="form-feedback" id="super-price-source-feedback" role="status" aria-live="polite"></p>
+                <div class="table-wrap super-price-observation-wrap responsive-card-table">
+                    <table>
+                        <thead>
+                        <tr>
+                            <th>Creada</th>
+                            <th>Producto</th>
+                            <th>Presentación</th>
+                            <th>Precio</th>
+                            <th>Fuente</th>
+                            <th>Observada</th>
+                        </tr>
+                        </thead>
+                        <tbody id="super-price-observation-table"></tbody>
+                    </table>
+                </div>
+                <p class="empty-state" id="super-price-observation-empty">Todavía no hay observaciones de precio recientes.</p>
+            </section>
+
+            <section class="supermarket-card super-suggested-card" aria-labelledby="super-suggested-title">
+                <div class="section-heading">
+                    <div>
+                        <p class="eyebrow">Sugerencias</p>
+                        <h3 id="super-suggested-title">Lista sugerida</h3>
+                    </div>
+                    <p class="section-note">Sugerencias calculadas con el stock actual. No modifican la lista manual.</p>
+                </div>
+                <p class="filter-summary" id="super-suggested-summary" aria-live="polite">Cargando sugerencias...</p>
+                <div class="super-suggested-list" id="super-suggested-list" aria-live="polite"></div>
+                <p class="empty-state" id="super-suggested-empty">Todavía no hay sugerencias de compra.</p>
+            </section>
+
+            <section class="super-generated-card" aria-labelledby="super-generated-title">
+                <div class="section-heading">
+                    <div>
+                        <p class="eyebrow">Lista final</p>
+                        <h3 id="super-generated-title">Productos marcados</h3>
+                    </div>
+                    <div class="super-generated-actions">
+                        <button type="button" class="secondary-button" id="super-copy-list" disabled>Copiar</button>
+                        <button type="button" class="secondary-button" id="super-download-list" disabled>Descargar TXT</button>
+                        <button type="button" class="secondary-button" id="super-whatsapp-list" disabled>Compartir por WhatsApp</button>
+                    </div>
+                </div>
+                <pre id="super-generated-list" class="super-generated-list">No hay productos marcados para comprar.</pre>
+            </section>
+        </section>
+
+        <section class="supermarket-subtab-panel" id="super-panel-barcode" role="tabpanel" aria-labelledby="super-tab-barcode" data-super-tab-panel="barcode" hidden>
         <section class="supermarket-card super-barcode-card" aria-labelledby="super-barcode-title">
             <div class="section-heading">
                 <div>
@@ -839,155 +1014,9 @@
                 <button type="button" id="super-session-confirm" aria-controls="super-session-lines" disabled>Confirmar sesión</button>
             </div>
         </section>
-        <p class="filter-summary" id="super-items-summary" aria-live="polite">No hay productos cargados.</p>
-        <div class="table-wrap super-items-table-wrap responsive-card-table">
-            <table>
-                <thead>
-                <tr>
-                    <th>Comprar</th>
-                    <th>Producto</th>
-                    <th>Categoría</th>
-                    <th>Configuración</th>
-                    <th>Presentación</th>
-                    <th>Precio ref.</th>
-                    <th>Stock</th>
-                    <th>Cantidad rápida</th>
-                    <th>Notas</th>
-                    <th>Acciones</th>
-                </tr>
-                </thead>
-                <tbody id="super-items-table"></tbody>
-            </table>
-        </div>
-        <p class="empty-state" id="super-items-empty" hidden>Todavía no hay productos cargados en la lista del super.</p>
-
-        <div class="modal-overlay" id="super-movement-modal" hidden>
-            <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="super-movement-title">
-                <div class="modal-header">
-                    <div>
-                        <p class="eyebrow">Inventario</p>
-                        <h3 id="super-movement-title">Registrar movimiento</h3>
-                        <p class="section-note" id="super-movement-item-name"></p>
-                    </div>
-                    <button type="button" class="secondary-button icon-button" id="super-movement-close" aria-label="Cerrar movimiento">×</button>
-                </div>
-                <form class="super-movement-form" id="super-movement-form" aria-describedby="super-movement-feedback super-movement-conflict">
-                    <input id="super-movement-item-id" type="hidden">
-                    <input id="super-movement-type" type="hidden">
-                    <label>
-                        Cantidad
-                        <input id="super-movement-quantity" type="number" min="0.001" step="0.001" inputmode="decimal" required placeholder="Ejemplo: 1">
-                    </label>
-                    <label>
-                        Notas
-                        <input id="super-movement-notes" type="text" maxlength="500" placeholder="Nota opcional">
-                    </label>
-                    <label class="super-movement-negative-field">
-                        <span>Confirmar stock negativo</span>
-                        <input id="super-movement-allow-negative" type="checkbox">
-                    </label>
-                    <p class="form-feedback super-movement-conflict" id="super-movement-conflict" role="alert" hidden></p>
-                    <p class="form-feedback" id="super-movement-feedback" role="status" aria-live="polite"></p>
-                    <div class="modal-actions">
-                        <button type="button" class="secondary-button" id="super-movement-cancel">Cancelar</button>
-                        <button type="submit" id="super-movement-submit">Registrar movimiento</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-
-        <section class="supermarket-card super-movement-history" id="super-movement-history" aria-labelledby="super-movement-history-title">
-            <div class="section-heading">
-                <div>
-                    <p class="eyebrow">Movimientos</p>
-                    <h3 id="super-movement-history-title">Historial reciente</h3>
-                </div>
-                <p class="section-note">Compras, consumos y ajustes recientes del inventario.</p>
-            </div>
-            <div class="table-wrap super-movement-history-wrap responsive-card-table">
-                <table>
-                    <thead>
-                    <tr>
-                        <th>Fecha</th>
-                        <th>Producto</th>
-                        <th>Tipo</th>
-                        <th>Cantidad</th>
-                        <th>Stock</th>
-                        <th>Notas</th>
-                    </tr>
-                    </thead>
-                    <tbody id="super-movement-history-table"></tbody>
-                </table>
-            </div>
-            <p class="empty-state" id="super-movement-history-empty">Todavía no hay movimientos recientes.</p>
         </section>
 
-        <section class="supermarket-card super-price-observation-card" aria-labelledby="super-price-observation-title">
-            <div class="section-heading">
-                <div>
-                    <p class="eyebrow">Precios</p>
-                    <h3 id="super-price-observation-title">Observaciones de precio</h3>
-                </div>
-                <div>
-                    <p class="section-note" id="super-price-observation-context-summary">Historial reciente global de observaciones de precio.</p>
-                    <button type="button" class="secondary-button" id="super-price-observation-global-reset" hidden>Ver historial global</button>
-                </div>
-            </div>
-            <form class="super-price-observation-form" id="super-price-observation-form" aria-describedby="super-price-observation-feedback">
-                <label>
-                    Producto
-                    <select id="super-price-observation-item" required><option value="">Seleccionar producto</option></select>
-                </label>
-                <label>
-                    Precio observado
-                    <input id="super-price-observation-price-pesos" type="number" min="0.01" step="0.01" inputmode="decimal" required placeholder="Ejemplo: 1250.50">
-                </label>
-                <label>
-                    Fuente reutilizable opcional
-                    <select id="super-price-observation-price-source"><option value="">Sin fuente reutilizable</option></select>
-                </label>
-                <label>
-                    Fuente libre opcional
-                    <input id="super-price-observation-source-label" type="text" data-super-limit="priceSourceLabel" placeholder="Ejemplo: Ticket proveedor">
-                </label>
-                <label>
-                    Fecha observada opcional
-                    <input id="super-price-observation-observed-date" type="date">
-                </label>
-                <label>
-                    <span>Sincronizar como precio actual/de referencia</span>
-                    <input id="super-price-observation-sync-current-reference-price" type="checkbox">
-                    <span class="form-help">Opcional: también actualiza el precio de referencia del producto con esta observación. Si no se marca, solo se guarda historial.</span>
-                </label>
-                <button type="submit">Registrar observación de precio</button>
-            </form>
-            <p class="form-feedback" id="super-price-observation-feedback" role="status" aria-live="polite"></p>
-            <form class="super-price-source-form" id="super-price-source-form" aria-describedby="super-price-source-feedback">
-                <label>
-                    Crear fuente de precio
-                    <input id="super-price-source-name" type="text" data-super-limit="priceSourceLabel" placeholder="Ejemplo: Ticket proveedor">
-                </label>
-                <button type="submit" class="secondary-button">Crear fuente</button>
-            </form>
-            <p class="form-feedback" id="super-price-source-feedback" role="status" aria-live="polite"></p>
-            <div class="table-wrap super-price-observation-wrap responsive-card-table">
-                <table>
-                    <thead>
-                    <tr>
-                        <th>Creada</th>
-                        <th>Producto</th>
-                        <th>Presentación</th>
-                        <th>Precio</th>
-                        <th>Fuente</th>
-                        <th>Observada</th>
-                    </tr>
-                    </thead>
-                    <tbody id="super-price-observation-table"></tbody>
-                </table>
-            </div>
-            <p class="empty-state" id="super-price-observation-empty">Todavía no hay observaciones de precio recientes.</p>
-        </section>
-
+        <section class="supermarket-subtab-panel" id="super-panel-tickets" role="tabpanel" aria-labelledby="super-tab-tickets" data-super-tab-panel="tickets" hidden>
         <section class="supermarket-card super-ticket-ocr-card" aria-labelledby="super-ticket-ocr-title">
             <div class="section-heading">
                 <div>
@@ -1074,35 +1103,9 @@
                 <p class="form-feedback" id="super-ticket-ocr-confirm-feedback" role="status" aria-live="polite"></p>
             </div>
         </section>
-
-        <section class="supermarket-card super-suggested-card" aria-labelledby="super-suggested-title">
-            <div class="section-heading">
-                <div>
-                    <p class="eyebrow">Sugerencias</p>
-                    <h3 id="super-suggested-title">Lista sugerida</h3>
-                </div>
-                <p class="section-note">Sugerencias calculadas con el stock actual. No modifican la lista manual.</p>
-            </div>
-            <p class="filter-summary" id="super-suggested-summary" aria-live="polite">Cargando sugerencias...</p>
-            <div class="super-suggested-list" id="super-suggested-list" aria-live="polite"></div>
-            <p class="empty-state" id="super-suggested-empty">Todavía no hay sugerencias de compra.</p>
         </section>
 
-        <section class="super-generated-card" aria-labelledby="super-generated-title">
-            <div class="section-heading">
-                <div>
-                    <p class="eyebrow">Lista final</p>
-                    <h3 id="super-generated-title">Productos marcados</h3>
-                </div>
-                <div class="super-generated-actions">
-                    <button type="button" class="secondary-button" id="super-copy-list" disabled>Copiar</button>
-                    <button type="button" class="secondary-button" id="super-download-list" disabled>Descargar TXT</button>
-                    <button type="button" class="secondary-button" id="super-whatsapp-list" disabled>Compartir por WhatsApp</button>
-                </div>
-            </div>
-            <pre id="super-generated-list" class="super-generated-list">No hay productos marcados para comprar.</pre>
-        </section>
-
+        <section class="supermarket-subtab-panel" id="super-panel-categories" role="tabpanel" aria-labelledby="super-tab-categories" data-super-tab-panel="categories" hidden>
         <div class="supermarket-layout">
             <section class="supermarket-card" aria-labelledby="super-product-title">
                 <h3 id="super-product-title">Administrar productos</h3>
@@ -1201,6 +1204,7 @@
                     <tbody id="super-category-list"></tbody>
                 </table>
             </div>
+        </section>
         </section>
     </section>
 </main>
