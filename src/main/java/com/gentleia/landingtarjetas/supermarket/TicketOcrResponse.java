@@ -13,6 +13,23 @@ public record TicketOcrResponse(
         List<TicketOcrDateCandidateResponse> dateCandidates,
         List<TicketOcrSourceCandidateResponse> sourceCandidates,
         List<TicketOcrLineCandidateResponse> lineCandidates,
+        List<TicketOcrDebugLineResponse> debugLines,
         List<String> warnings
 ) {
+
+    public TicketOcrResponse(
+            TicketOcrOutcome outcome,
+            String checksumSha256,
+            String originalFilename,
+            String contentType,
+            long sizeBytes,
+            BigDecimal ocrConfidence,
+            List<TicketOcrDateCandidateResponse> dateCandidates,
+            List<TicketOcrSourceCandidateResponse> sourceCandidates,
+            List<TicketOcrLineCandidateResponse> lineCandidates,
+            List<String> warnings
+    ) {
+        this(outcome, checksumSha256, originalFilename, contentType, sizeBytes, ocrConfidence, dateCandidates,
+                sourceCandidates, lineCandidates, List.of(), warnings);
+    }
 }

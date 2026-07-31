@@ -48,6 +48,7 @@ import com.gentleia.landingtarjetas.supermarket.SuperPriceSource;
 import com.gentleia.landingtarjetas.supermarket.SuperPriceSourceRepository;
 import com.gentleia.landingtarjetas.supermarket.SupermarketLimits;
 import com.gentleia.landingtarjetas.supermarket.TicketOcrDateCandidateResponse;
+import com.gentleia.landingtarjetas.supermarket.TicketOcrDebugLineResponse;
 import com.gentleia.landingtarjetas.supermarket.TicketOcrEngine;
 import com.gentleia.landingtarjetas.supermarket.TicketOcrEngineResult;
 import com.gentleia.landingtarjetas.supermarket.TicketOcrLineCandidateResponse;
@@ -135,13 +136,19 @@ class SupermarketControllerTests {
                 List.of(new TicketOcrDateCandidateResponse(LocalDate.of(2026, 7, 21), new BigDecimal("0.91"), List.of())),
                 List.of(new TicketOcrSourceCandidateResponse("Supermercado Central", new BigDecimal("0.84"), List.of())),
                 List.of(new TicketOcrLineCandidateResponse(
-                        "YERBA 1KG 2500.50",
+                        "7791234567890 YERBA 1KG\n2 x 1250.25 2500.50\nIVA 0,00",
                         "YERBA 1KG",
                         new BigDecimal("2500.50"),
                         new BigDecimal("0.86"),
                         List.of("Review product before confirming"),
+                        "7791234567890",
+                        new BigDecimal("2"),
+                        new BigDecimal("1250.25"),
+                        new BigDecimal("2500.50"),
+                        new BigDecimal("0.00"),
                         null,
                         null)),
+                List.of(new TicketOcrDebugLineResponse("TOTAL 2500.50", "noise", "Ignored non-product OCR line")),
                 List.of("Review OCR output before saving")));
         MockMultipartFile ticket = new MockMultipartFile("file", "ticket.png", "image/png", tinyPngBytes());
 
@@ -154,10 +161,17 @@ class SupermarketControllerTests {
                 .andExpect(jsonPath("$.ocrConfidence").value(0.87))
                 .andExpect(jsonPath("$.dateCandidates[0].value").value("2026-07-21"))
                 .andExpect(jsonPath("$.sourceCandidates[0].label").value("Supermercado Central"))
-                .andExpect(jsonPath("$.lineCandidates[0].rawText").value("YERBA 1KG 2500.50"))
+                .andExpect(jsonPath("$.lineCandidates[0].rawText").value("7791234567890 YERBA 1KG\n2 x 1250.25 2500.50\nIVA 0,00"))
                 .andExpect(jsonPath("$.lineCandidates[0].descriptionCandidate").value("YERBA 1KG"))
                 .andExpect(jsonPath("$.lineCandidates[0].pricePesos").value(2500.5))
+                .andExpect(jsonPath("$.lineCandidates[0].barcodeOrStoreCode").value("7791234567890"))
+                .andExpect(jsonPath("$.lineCandidates[0].quantity").value(2))
+                .andExpect(jsonPath("$.lineCandidates[0].unitPricePesos").value(1250.25))
+                .andExpect(jsonPath("$.lineCandidates[0].lineTotalPesos").value(2500.5))
+                .andExpect(jsonPath("$.lineCandidates[0].taxPesos").value(0))
                 .andExpect(jsonPath("$.lineCandidates[0].productCandidateId").doesNotExist())
+                .andExpect(jsonPath("$.debugLines[0].normalizedText").value("TOTAL 2500.50"))
+                .andExpect(jsonPath("$.debugLines[0].classification").value("noise"))
                 .andExpect(jsonPath("$.warnings[0]").value("Review OCR output before saving"));
 
         assertSuperInventoryRepositoriesRemainEmpty();

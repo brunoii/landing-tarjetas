@@ -8,6 +8,17 @@ public record TicketOcrEngineResult(
         List<TicketOcrDateCandidateResponse> dateCandidates,
         List<TicketOcrSourceCandidateResponse> sourceCandidates,
         List<TicketOcrLineCandidateResponse> lineCandidates,
+        List<TicketOcrDebugLineResponse> debugLines,
         List<String> warnings
 ) {
+
+    public TicketOcrEngineResult(
+            BigDecimal ocrConfidence,
+            List<TicketOcrDateCandidateResponse> dateCandidates,
+            List<TicketOcrSourceCandidateResponse> sourceCandidates,
+            List<TicketOcrLineCandidateResponse> lineCandidates,
+            List<String> warnings
+    ) {
+        this(ocrConfidence, dateCandidates, sourceCandidates, lineCandidates, List.of(), warnings);
+    }
 }

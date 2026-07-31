@@ -1061,6 +1061,9 @@ class StaticUiContractTests {
                 "OCR de ticket",
                 "id=\"super-ticket-ocr-summary\"",
                 "id=\"super-ticket-ocr-warning-list\"",
+                "id=\"super-ticket-ocr-debug-details\"",
+                "id=\"super-ticket-ocr-debug-summary\"",
+                "id=\"super-ticket-ocr-debug-list\"",
                 "id=\"super-ticket-ocr-table\"",
                 "id=\"super-ticket-ocr-empty\"",
                 "id=\"super-ticket-ocr-confirm-form\"",
@@ -1076,9 +1079,15 @@ class StaticUiContractTests {
                 "id=\"super-ticket-ocr-sync-current-reference-price\" type=\"checkbox\"",
                 "id=\"super-ticket-ocr-confirm-feedback\"",
                 "id=\"super-ticket-ocr-discard\"",
+                "Código",
+                "Cantidad",
+                "Precio unitario",
+                "Total línea",
+                "IVA",
                 "Extraer candidatos",
                 "Confirmar observación",
                 "Descartar revisión",
+                "Detalle OCR y ruido oculto",
                 "Los candidatos se descartan al refrescar o descartar esta revisión.",
                 "Nada se guarda hasta confirmar una fila.",
                 "Usá JPG locales autorizados solo para verificación manual. No los copies, persistas ni los compartas."
@@ -1093,12 +1102,18 @@ class StaticUiContractTests {
                 "submitSuperTicketOcrUploadForm",
                 "submitSuperTicketOcrConfirmForm",
                 "renderSuperTicketOcrReview",
+                "renderSuperTicketOcrDebugLines",
                 "createSuperItemPriceObservation",
                 "data-super-ticket-ocr-action=\"select\"",
                 "RUNTIME_UNAVAILABLE",
                 "EMPTY_EXTRACTION",
                 "INVALID_FILE",
-                "DECODE_FAILED"
+                "DECODE_FAILED",
+                "debugLines",
+                "barcodeOrStoreCode",
+                "unitPricePesos",
+                "lineTotalPesos",
+                "taxPesos"
         ).doesNotContain("localStorage", "sessionStorage");
         assertThat(styles).contains(
                 ".super-ticket-ocr-card",
@@ -1106,8 +1121,11 @@ class StaticUiContractTests {
                 ".super-ticket-ocr-review-grid",
                 ".super-ticket-ocr-warning-list",
                 ".super-ticket-ocr-selected-warnings",
-                ".super-ticket-ocr-table-wrap table"
+                ".super-ticket-ocr-table-wrap table",
+                ".super-ticket-ocr-debug-details",
+                ".super-ticket-ocr-debug-list"
         );
+        assertThat(index).doesNotContain("id=\"super-ticket-ocr-debug-details\" open");
     }
 
     @Test

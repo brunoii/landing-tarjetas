@@ -50,6 +50,7 @@ public class TicketOcrService {
                 safeList(result.dateCandidates()),
                 safeList(result.sourceCandidates()),
                 safeList(result.lineCandidates()),
+                safeList(result.debugLines()),
                 safeList(result.warnings())
         );
     }

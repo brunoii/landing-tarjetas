@@ -12,7 +12,25 @@ public record TicketOcrLineCandidateResponse(
         BigDecimal pricePesos,
         BigDecimal confidence,
         List<String> warnings,
+        String barcodeOrStoreCode,
+        BigDecimal quantity,
+        BigDecimal unitPricePesos,
+        BigDecimal lineTotalPesos,
+        BigDecimal taxPesos,
         Long productCandidateId,
         String productCandidateName
 ) {
+
+    public TicketOcrLineCandidateResponse(
+            String rawText,
+            String descriptionCandidate,
+            BigDecimal pricePesos,
+            BigDecimal confidence,
+            List<String> warnings,
+            Long productCandidateId,
+            String productCandidateName
+    ) {
+        this(rawText, descriptionCandidate, pricePesos, confidence, warnings, null, null, null, null, null,
+                productCandidateId, productCandidateName);
+    }
 }

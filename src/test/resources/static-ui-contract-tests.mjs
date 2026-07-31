@@ -1182,10 +1182,14 @@ try {
         assert.equal(supermarketDom.elements.get("#super-ticket-ocr-review-panel").hidden, false);
         assert.match(supermarketDom.elements.get("#super-ticket-ocr-summary").textContent, /ticket\.png/);
         assert.match(supermarketDom.elements.get("#super-ticket-ocr-warning-list").innerHTML, /Review OCR output before saving/);
+        assert.equal(supermarketDom.elements.get("#super-ticket-ocr-debug-details").hidden, false);
+        assert.match(supermarketDom.elements.get("#super-ticket-ocr-debug-summary").textContent, /Detalle OCR y ruido oculto/);
+        assert.match(supermarketDom.elements.get("#super-ticket-ocr-debug-list").innerHTML, /TOTAL 2150,50/);
         assert.equal(supermarketDom.elements.get("#super-ticket-ocr-table").children.length, 2);
-        assert.match(supermarketDom.elements.get("#super-ticket-ocr-table").children[0].innerHTML, /ARROZ 1250,50/);
+        assert.match(supermarketDom.elements.get("#super-ticket-ocr-table").children[0].innerHTML, /7791234567890/);
+        assert.match(supermarketDom.elements.get("#super-ticket-ocr-table").children[0].innerHTML, /ARS\s1,250\.50/);
         assert.match(supermarketDom.elements.get("#super-ticket-ocr-table").children[1].innerHTML, /Low OCR confidence; review this line manually/);
-        assert.equal(supermarketDom.elements.get("#super-ticket-ocr-selected-line").value, "ARROZ 1250,50");
+        assert.equal(supermarketDom.elements.get("#super-ticket-ocr-selected-line").value, "7791234567890 ARROZ\n1 x 1250,50 1250,50");
         assert.equal(supermarketDom.elements.get("#super-ticket-ocr-price-pesos").value, "1250.50");
         assert.equal(supermarketDom.elements.get("#super-ticket-ocr-date").value, "2026-07-18");
         assert.equal(supermarketDom.elements.get("#super-ticket-ocr-source-label").value, "Ticket proveedor");
@@ -1195,7 +1199,7 @@ try {
 
         await supermarketDom.elements.get("#super-ticket-ocr-table").clickTarget(fakeSuperTicketOcrActionButton("select", "1"));
         assert.equal(supermarketDom.elements.get("#super-ticket-ocr-line-index").value, "1");
-        assert.equal(supermarketDom.elements.get("#super-ticket-ocr-selected-line").value, "BANANA ???");
+        assert.equal(supermarketDom.elements.get("#super-ticket-ocr-selected-line").value, "12345 BANANA ???\n1 x 900,00 900,00");
         assert.match(supermarketDom.elements.get("#super-ticket-ocr-selected-warnings").innerHTML, /Low OCR confidence/);
         supermarketDom.elements.get("#super-ticket-ocr-product").value = "11";
         supermarketDom.elements.get("#super-ticket-ocr-description").value = "Banana madura";
@@ -1248,6 +1252,7 @@ try {
 
         await supermarketDom.elements.get("#super-ticket-ocr-discard").click();
         assert.equal(supermarketDom.elements.get("#super-ticket-ocr-review-panel").hidden, true);
+        assert.equal(supermarketDom.elements.get("#super-ticket-ocr-debug-details").hidden, true);
         assert.equal(supermarketDom.elements.get("#super-ticket-ocr-summary").textContent, "No hay candidatos OCR cargados.");
 
         supermarketDom.elements.get("#super-price-observation-item").value = "10";
@@ -3294,6 +3299,9 @@ function fakeAppDom() {
         "#super-ticket-ocr-summary",
         "#super-ticket-ocr-meta",
         "#super-ticket-ocr-warning-list",
+        "#super-ticket-ocr-debug-details",
+        "#super-ticket-ocr-debug-summary",
+        "#super-ticket-ocr-debug-list",
         "#super-ticket-ocr-review-panel",
         "#super-ticket-ocr-table",
         "#super-ticket-ocr-empty",
@@ -4074,6 +4082,9 @@ function fakeSupermarketDom() {
     elements.set("#super-ticket-ocr-summary", fakeElement());
     elements.set("#super-ticket-ocr-meta", fakeElement());
     elements.set("#super-ticket-ocr-warning-list", fakeElement());
+    elements.set("#super-ticket-ocr-debug-details", fakeElement());
+    elements.set("#super-ticket-ocr-debug-summary", fakeElement());
+    elements.set("#super-ticket-ocr-debug-list", fakeElement());
     elements.set("#super-ticket-ocr-review-panel", fakeElement());
     elements.set("#super-ticket-ocr-table", fakeIncomeTable());
     elements.set("#super-ticket-ocr-empty", fakeElement());
@@ -4207,9 +4218,10 @@ function fakeSupermarketDom() {
         dateCandidates: [{ value: "2026-07-18", confidence: "0.80", warnings: [] }],
         sourceCandidates: [{ label: "Ticket proveedor", confidence: "0.75", warnings: [] }],
         lineCandidates: [
-            { rawText: "ARROZ 1250,50", descriptionCandidate: "Arroz", pricePesos: "1250.50", confidence: "0.87", warnings: [] },
-            { rawText: "BANANA ???", descriptionCandidate: "Banana", pricePesos: "900.00", confidence: "0.42", warnings: ["Low OCR confidence; review this line manually"] }
+            { rawText: "7791234567890 ARROZ\n1 x 1250,50 1250,50", descriptionCandidate: "Arroz", pricePesos: "1250.50", barcodeOrStoreCode: "7791234567890", quantity: "1", unitPricePesos: "1250.50", lineTotalPesos: "1250.50", taxPesos: "0.00", confidence: "0.87", warnings: [] },
+            { rawText: "12345 BANANA ???\n1 x 900,00 900,00", descriptionCandidate: "Banana", pricePesos: "900.00", barcodeOrStoreCode: "12345", quantity: "1", unitPricePesos: "900.00", lineTotalPesos: "900.00", taxPesos: "0.00", confidence: "0.42", warnings: ["Low OCR confidence; review this line manually"] }
         ],
+        debugLines: [{ normalizedText: "TOTAL 2150,50", classification: "noise", warning: "Ignored non-product OCR line" }],
         warnings: ["Review OCR output before saving"]
     };
     let activeSession = { id: 12, state: "ACTIVE", expiresAt: "2026-07-27T23:00:00Z", resolvedItems: [], drafts: [] };

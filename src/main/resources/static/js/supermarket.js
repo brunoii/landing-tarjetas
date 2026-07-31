@@ -100,6 +100,7 @@ export function setupSupermarket({ apiClient = api } = {}) {
 
     syncSuperBarcodeScannerUi();
     syncSuperBarcodeResolvedActions();
+    renderSuperTicketOcrReview();
 
     document.querySelector("#super-items-table")?.addEventListener("change", async (event) => {
         const checkbox = event.target.closest("input[data-super-action='checked']");
@@ -1962,12 +1963,22 @@ function buildSuperTicketOcrReviewState(response) {
         sourceCandidates,
         selectedDate: firstDate,
         selectedSource: firstSource,
+        debugLines: (Array.isArray(response?.debugLines) ? response.debugLines : []).map((debugLine) => ({
+            normalizedText: String(debugLine?.normalizedText || ""),
+            classification: String(debugLine?.classification || "noise"),
+            warning: String(debugLine?.warning || "")
+        })),
         selectedLineIndex: Array.isArray(response?.lineCandidates) && response.lineCandidates.length > 0 ? 0 : -1,
         lines: (Array.isArray(response?.lineCandidates) ? response.lineCandidates : []).map((lineCandidate, index) => ({
             index,
             rawText: String(lineCandidate?.rawText || ""),
             descriptionCandidate: String(lineCandidate?.descriptionCandidate || ""),
             pricePesos: lineCandidate?.pricePesos === null || lineCandidate?.pricePesos === undefined ? "" : String(lineCandidate.pricePesos),
+            barcodeOrStoreCode: String(lineCandidate?.barcodeOrStoreCode || ""),
+            quantity: lineCandidate?.quantity === null || lineCandidate?.quantity === undefined ? "" : String(lineCandidate.quantity),
+            unitPricePesos: lineCandidate?.unitPricePesos === null || lineCandidate?.unitPricePesos === undefined ? "" : String(lineCandidate.unitPricePesos),
+            lineTotalPesos: lineCandidate?.lineTotalPesos === null || lineCandidate?.lineTotalPesos === undefined ? "" : String(lineCandidate.lineTotalPesos),
+            taxPesos: lineCandidate?.taxPesos === null || lineCandidate?.taxPesos === undefined ? "" : String(lineCandidate.taxPesos),
             confidence: lineCandidate?.confidence === null || lineCandidate?.confidence === undefined ? "" : String(lineCandidate.confidence),
             warnings: Array.isArray(lineCandidate?.warnings) ? lineCandidate.warnings : [],
             selectedProductId: lineCandidate?.productCandidateId ? String(lineCandidate.productCandidateId) : "",
@@ -2006,6 +2017,9 @@ function renderSuperTicketOcrReview() {
     const table = document.querySelector("#super-ticket-ocr-table");
     const empty = document.querySelector("#super-ticket-ocr-empty");
     const warnings = document.querySelector("#super-ticket-ocr-warning-list");
+    const debugDetails = document.querySelector("#super-ticket-ocr-debug-details");
+    const debugSummary = document.querySelector("#super-ticket-ocr-debug-summary");
+    const debugList = document.querySelector("#super-ticket-ocr-debug-list");
     if (!currentTicketOcrReview) {
         if (summary) {
             summary.textContent = "No hay candidatos OCR cargados.";
@@ -2015,6 +2029,16 @@ function renderSuperTicketOcrReview() {
         }
         if (warnings) {
             warnings.innerHTML = "";
+        }
+        if (debugList) {
+            debugList.innerHTML = "";
+        }
+        if (debugDetails) {
+            debugDetails.hidden = true;
+            debugDetails.open = false;
+        }
+        if (debugSummary) {
+            debugSummary.textContent = "Detalle OCR y ruido oculto";
         }
         if (table) {
             table.innerHTML = "";
@@ -2031,6 +2055,7 @@ function renderSuperTicketOcrReview() {
     }
     renderSuperTicketOcrCandidateSelects();
     renderSuperTicketOcrProductOptions();
+    renderSuperTicketOcrDebugLines(debugDetails, debugSummary, debugList);
     const lineCount = currentTicketOcrReview.lines.length;
     if (summary) {
         summary.textContent = `${currentTicketOcrReview.originalFilename} · ${lineCount} ${lineCount === 1 ? "línea candidata" : "líneas candidatas"} para revisar.`;
@@ -2060,10 +2085,28 @@ function renderSuperTicketOcrReview() {
         empty.textContent = "No se detectaron líneas OCR revisables.";
     }
     if (reviewPanel) {
-        reviewPanel.hidden = false;
+        reviewPanel.hidden = lineCount === 0 && (currentTicketOcrReview.debugLines?.length || 0) === 0;
     }
     if (currentTicketOcrReview.selectedLineIndex >= 0) {
         populateSuperTicketOcrConfirmForm(currentTicketOcrReview.lines[currentTicketOcrReview.selectedLineIndex]);
+    }
+}
+
+function renderSuperTicketOcrDebugLines(details, summary, list) {
+    const debugLines = Array.isArray(currentTicketOcrReview?.debugLines) ? currentTicketOcrReview.debugLines : [];
+    if (summary) {
+        summary.textContent = debugLines.length > 0
+            ? `Detalle OCR y ruido oculto (${debugLines.length})`
+            : "Detalle OCR y ruido oculto";
+    }
+    if (details) {
+        details.hidden = false;
+        details.open = false;
+    }
+    if (list) {
+        list.innerHTML = (debugLines.length > 0 ? debugLines : [{ classification: "noise", normalizedText: "Sin ruido OCR adicional.", warning: "" }])
+            .map((debugLine) => `<li><strong>${escapeHtml(debugLine.classification || "noise")}</strong>: ${escapeHtml(debugLine.normalizedText || "—")}${debugLine.warning ? ` · ${escapeHtml(debugLine.warning)}` : ""}</li>`)
+            .join("");
     }
 }
 
@@ -2126,9 +2169,12 @@ function superTicketOcrLineRowHtml(line) {
     const statusClass = line.status === "confirmed" ? " confirmed" : "";
     return `
         <tr>
-            <td data-label="Línea">${escapeHtml(line.rawText || "—")}</td>
+            <td data-label="Código">${escapeHtml(line.barcodeOrStoreCode || "—")}</td>
             <td data-label="Descripción">${escapeHtml(line.descriptionCandidate || "—")}</td>
-            <td data-label="Precio">${escapeHtml(line.pricePesos ? formatPesos(line.pricePesos) : "—")}</td>
+            <td data-label="Cantidad">${escapeHtml(line.quantity || "—")}</td>
+            <td data-label="Precio unitario">${escapeHtml(line.unitPricePesos ? formatPesos(line.unitPricePesos) : "—")}</td>
+            <td data-label="Total línea">${escapeHtml(line.lineTotalPesos ? formatPesos(line.lineTotalPesos) : (line.pricePesos ? formatPesos(line.pricePesos) : "—"))}</td>
+            <td data-label="IVA">${escapeHtml(line.taxPesos ? formatPesos(line.taxPesos) : "—")}</td>
             <td data-label="Advertencias">${escapeHtml(warnings)}</td>
             <td data-label="Estado"><span class="super-ticket-ocr-status${statusClass}">${escapeHtml(line.statusMessage)}</span></td>
             <td data-label="Acción"><button type="button" class="secondary-button" data-super-ticket-ocr-action="select" data-super-ticket-ocr-line-index="${line.index}">Revisar</button></td>

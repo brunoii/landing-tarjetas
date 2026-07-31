@@ -1105,17 +1105,24 @@
                     <table>
                         <thead>
                         <tr>
-                            <th>Línea</th>
+                            <th>Código</th>
                             <th>Descripción</th>
-                            <th>Precio</th>
+                            <th>Cantidad</th>
+                            <th>Precio unitario</th>
+                            <th>Total línea</th>
+                            <th>IVA</th>
                             <th>Advertencias</th>
                             <th>Estado</th>
                             <th>Acción</th>
                         </tr>
                         </thead>
-                        <tbody id="super-ticket-ocr-table"></tbody>
+                    <tbody id="super-ticket-ocr-table"></tbody>
                     </table>
                 </div>
+                <details class="super-ticket-ocr-debug-details" id="super-ticket-ocr-debug-details" hidden>
+                    <summary id="super-ticket-ocr-debug-summary">Detalle OCR y ruido oculto</summary>
+                    <ul class="warning-list super-ticket-ocr-debug-list" id="super-ticket-ocr-debug-list"></ul>
+                </details>
                 <p class="empty-state" id="super-ticket-ocr-empty">Subí un ticket para revisar candidatos transitorios.</p>
                 <form class="super-ticket-ocr-confirm-form" id="super-ticket-ocr-confirm-form" aria-describedby="super-ticket-ocr-confirm-feedback super-ticket-ocr-selected-warnings">
                     <input id="super-ticket-ocr-line-index" type="hidden">

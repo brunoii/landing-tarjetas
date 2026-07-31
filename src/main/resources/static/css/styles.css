@@ -1198,7 +1198,8 @@ td {
 }
 
 .super-ticket-ocr-warning-list,
-.super-ticket-ocr-selected-warnings {
+.super-ticket-ocr-selected-warnings,
+.super-ticket-ocr-debug-list {
     display: grid;
     gap: 0.4rem;
     padding-left: 1.2rem;
@@ -1211,6 +1212,23 @@ td {
 .super-ticket-ocr-selected-warnings {
     grid-column: 1 / -1;
     margin: 0;
+}
+
+.super-ticket-ocr-debug-details {
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    padding: 0.85rem 1rem;
+    background: rgba(3, 7, 18, 0.32);
+}
+
+.super-ticket-ocr-debug-details summary {
+    cursor: pointer;
+    color: var(--muted);
+    font-weight: 700;
+}
+
+.super-ticket-ocr-debug-list {
+    margin: 0.85rem 0 0;
 }
 
 .super-ticket-ocr-table-wrap table {
