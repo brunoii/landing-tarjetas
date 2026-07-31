@@ -133,6 +133,7 @@ try {
     const supermarketSource = await readFile(path.resolve("src/main/resources/static/js/supermarket.js"), "utf8");
     const loginSource = await readFile(path.resolve("src/main/resources/static/js/login.js"), "utf8");
     const statementsSource = await readFile(path.resolve("src/main/resources/static/js/statements.js"), "utf8");
+    const transactionsSource = await readFile(path.resolve("src/main/resources/static/js/transactions.js"), "utf8");
     const supermarketLimitConstants = await readSupermarketLimitConstants();
     const expectedSuperFieldLimits = {
         categoryName: supermarketLimitConstants.CATEGORY_NAME_MAX_LENGTH,
@@ -409,6 +410,7 @@ try {
         "overflow-wrap": "anywhere"
     });
     assertResponsiveCardTableMobileCssContract(stylesCss);
+    assertResponsiveExpensesTableUsabilityContract(indexHtml, stylesCss, transactionsSource);
     assertCssRuleHasDeclarations(stylesCss, ".expenses-table-wrap.responsive-card-table", { "--responsive-card-label-width": "7.75rem" });
     assertCssRuleHasDeclarations(stylesCss, ".income-table-wrap.responsive-card-table", { "--responsive-card-label-width": "7.75rem" });
     assertCssRuleHasDeclarations(stylesCss, ".manual-expense-table-wrap.responsive-card-table", { "--responsive-card-label-width": "7.75rem" });
@@ -2598,7 +2600,8 @@ try {
         assert.deepEqual(result, { rowCount: 3, visibleCount: 3, month: "2026-08" });
         assert.equal(transactionDom.elements.get("#transactions-table").children.length, 3);
         assert.match(transactionDom.elements.get("#transactions-table").children[0].innerHTML, /Real/);
-        assertResponsiveCardLabels(transactionDom.elements.get("#transactions-table").children[0].innerHTML, ["Mes", "Fecha", "Origen", "Tarjeta / Medio", "Descripción", "Tipo", "Categoría", "Cuota", "Pesos", "USD", "Finalización", "Resumen origen", "Notas", "Acciones"]);
+        assertResponsiveCardLabels(transactionDom.elements.get("#transactions-table").children[0].innerHTML, ["Mes", "Fecha", "Origen", "Tarjeta / Medio", "Descripción", "Tipo", "Categoría", "Cuota", "Pesos", "USD", "Finalización", "Resumen origen", "Notas", "Acciones", "Monto"]);
+        assert.match(transactionDom.elements.get("#transactions-table").children[0].innerHTML, /transaction-action-menu/);
         assert.match(transactionDom.elements.get("#transactions-table").children[1].innerHTML, /Proyección/);
         assert.match(transactionDom.elements.get("#transactions-table").children[2].innerHTML, /Manual/);
         assert.equal(transactionDom.elements.get("#transactions-empty").hidden, true);
@@ -5062,6 +5065,21 @@ function assertResponsiveCardTableMobileCssContract(css) {
     });
     assert.match(mediaCss, /\.responsive-card-table::after\s*\{[^}]*content:\s*"Deslizá para ver más"/s);
     assert.doesNotMatch(mediaCss, /\.responsive-card-table td::before\s*\{[^}]*content:\s*attr\(data-label\)/s);
+}
+
+function assertResponsiveExpensesTableUsabilityContract(html, css, transactions) {
+    const mobileMedia = "@media (max-width: 680px)";
+    const desktopMedia = "@media (min-width: 681px)";
+    assert.match(html, /class="topbar-editorial"/);
+    assert.match(html, /<th class="mobile-amount-column">Monto<\/th>/);
+    assertCssMediaRuleHasDeclarations(css, mobileMedia, ".topbar-editorial", { display: "none" });
+    assertCssMediaRuleHasDeclarations(css, mobileMedia, ".topbar-actions", { "grid-template-columns": "repeat(2, minmax(0, 1fr))" });
+    assertCssMediaRuleHasDeclarations(css, desktopMedia, ".expenses-table-wrap", { "max-height": "min(42rem, calc(100vh - 12rem))", overflow: "auto" });
+    assertCssMediaRuleHasDeclarations(css, desktopMedia, ".expenses-table-wrap thead th", { position: "sticky", top: "0" });
+    assertCssMediaRuleHasDeclarations(css, mobileMedia, ".expenses-table-wrap .mobile-amount", { display: "table-cell" });
+    assertCssMediaRuleHasDeclarations(css, mobileMedia, ".expenses-table-wrap .transaction-action-menu", { display: "block" });
+    assert.match(transactions, /class="transaction-action-menu"/);
+    assert.match(transactions, /summary aria-label="Acciones para/);
 }
 
 function assertDesktopSidebarCssContract(css) {

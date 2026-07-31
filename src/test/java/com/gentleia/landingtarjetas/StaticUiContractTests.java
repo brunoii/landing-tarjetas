@@ -1300,6 +1300,7 @@ class StaticUiContractTests {
                 "overflow-wrap", "anywhere"
         ));
         assertResponsiveCardTableMobileCssContract(styles);
+        assertResponsiveExpensesTableUsabilityContract(index, styles, transactions);
         assertCssRuleHasDeclarations(styles, ".expenses-table-wrap.responsive-card-table", Map.of("--responsive-card-label-width", "7.75rem"));
         assertCssRuleHasDeclarations(styles, ".income-table-wrap.responsive-card-table", Map.of("--responsive-card-label-width", "7.75rem"));
         assertCssRuleHasDeclarations(styles, ".manual-expense-table-wrap.responsive-card-table", Map.of("--responsive-card-label-width", "7.75rem"));
@@ -1318,7 +1319,7 @@ class StaticUiContractTests {
                 "class=\"table-wrap super-category-table-wrap responsive-card-table\""
         );
         assertDraftEditTableMobileCssContract(styles);
-        assertDataLabels(transactions, List.of("Mes", "Fecha", "Origen", "Tarjeta / Medio", "Descripción", "Tipo", "Categoría", "Cuota", "Pesos", "USD", "Finalización", "Resumen origen", "Notas", "Acciones"));
+        assertDataLabels(transactions, List.of("Mes", "Fecha", "Origen", "Tarjeta / Medio", "Descripción", "Tipo", "Categoría", "Cuota", "Pesos", "USD", "Finalización", "Resumen origen", "Notas", "Acciones", "Monto"));
         assertDataLabels(incomes, List.of("Mes", "Descripción", "Tipo", "Monto", "Recurrente", "Aplica desde", "Aplica hasta", "Estado", "Notas", "Acciones"));
         assertDataLabels(manualExpenses, List.of("Mes", "Descripción", "Tipo", "Cuota", "Categoría", "Pesos", "USD", "Estado", "Notas", "Acciones"));
         assertDataLabels(statements, List.of("Fecha", "Descripción", "Tipo", "Categoría", "Cuota", "Total de cuotas", "Pesos", "USD", "Notas", "Acciones"));
@@ -1601,6 +1602,19 @@ class StaticUiContractTests {
 
     private static void assertNoResponsiveCardCellDeclarationOutsideMedia(String css, String mediaHeader, String property, String value) {
         assertNoTargetedCssDeclarationOutsideMedia(css, mediaHeader, StaticUiContractTests::selectorTargetsResponsiveCardCell, property, value);
+    }
+
+    private static void assertResponsiveExpensesTableUsabilityContract(String index, String styles, String transactions) {
+        String mobileMedia = "@media (max-width: 680px)";
+        String desktopMedia = "@media (min-width: 681px)";
+        assertThat(index).contains("class=\"topbar-editorial\"", "<th class=\"mobile-amount-column\">Monto</th>");
+        assertCssMediaRuleHasDeclarations(styles, mobileMedia, ".topbar-editorial", Map.of("display", "none"));
+        assertCssMediaRuleHasDeclarations(styles, mobileMedia, ".topbar-actions", Map.of("grid-template-columns", "repeat(2, minmax(0, 1fr))"));
+        assertCssMediaRuleHasDeclarations(styles, desktopMedia, ".expenses-table-wrap", Map.of("max-height", "min(42rem, calc(100vh - 12rem))", "overflow", "auto"));
+        assertCssMediaRuleHasDeclarations(styles, desktopMedia, ".expenses-table-wrap thead th", Map.of("position", "sticky", "top", "0"));
+        assertCssMediaRuleHasDeclarations(styles, mobileMedia, ".expenses-table-wrap .mobile-amount", Map.of("display", "table-cell"));
+        assertCssMediaRuleHasDeclarations(styles, mobileMedia, ".expenses-table-wrap .transaction-action-menu", Map.of("display", "block"));
+        assertThat(transactions).contains("class=\"transaction-action-menu\"", "summary aria-label=\"Acciones para");
     }
 
     private static void assertNoSupermarketGroupRowDeclarationOutsideMedia(String css, String mediaHeader, String property, String value) {

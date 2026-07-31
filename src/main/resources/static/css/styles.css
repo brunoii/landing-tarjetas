@@ -860,6 +860,25 @@ h3 {
     min-width: 0;
 }
 
+.mobile-amount-column,
+.mobile-amount,
+.transaction-action-menu {
+    display: none;
+}
+
+@media (min-width: 681px) {
+    .expenses-table-wrap {
+        max-height: min(42rem, calc(100vh - 12rem));
+        overflow: auto;
+    }
+
+    .expenses-table-wrap thead th {
+        position: sticky;
+        top: 0;
+        z-index: 2;
+    }
+}
+
 table {
     width: 100%;
     border-collapse: collapse;
@@ -2406,6 +2425,112 @@ tbody tr:hover {
 
     .topbar {
         padding-top: 1.5rem;
+    }
+
+    .topbar-editorial {
+        display: none;
+    }
+
+    .topbar-actions {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        align-items: stretch;
+    }
+
+    .month-picker,
+    .logout-form,
+    .logout-form .secondary-button {
+        min-width: 0;
+    }
+
+    .month-picker input,
+    .logout-form .secondary-button {
+        width: 100%;
+    }
+
+    .logout-form .secondary-button {
+        height: 100%;
+    }
+
+    .expenses-table-wrap th:nth-child(1),
+    .expenses-table-wrap td:nth-child(1),
+    .expenses-table-wrap th:nth-child(3),
+    .expenses-table-wrap td:nth-child(3),
+    .expenses-table-wrap th:nth-child(4),
+    .expenses-table-wrap td:nth-child(4),
+    .expenses-table-wrap th:nth-child(6),
+    .expenses-table-wrap td:nth-child(6),
+    .expenses-table-wrap th:nth-child(7),
+    .expenses-table-wrap td:nth-child(7),
+    .expenses-table-wrap th:nth-child(9),
+    .expenses-table-wrap td:nth-child(9),
+    .expenses-table-wrap th:nth-child(10),
+    .expenses-table-wrap td:nth-child(10),
+    .expenses-table-wrap th:nth-child(11),
+    .expenses-table-wrap td:nth-child(11),
+    .expenses-table-wrap th:nth-child(12),
+    .expenses-table-wrap td:nth-child(12),
+    .expenses-table-wrap th:nth-child(13),
+    .expenses-table-wrap td:nth-child(13) {
+        display: none;
+    }
+
+    .expenses-table-wrap .mobile-amount-column,
+    .expenses-table-wrap .mobile-amount {
+        display: table-cell;
+    }
+
+    .expenses-table-wrap .transaction-actions-desktop {
+        display: none;
+    }
+
+    .expenses-table-wrap .transaction-action-menu {
+        display: block;
+    }
+
+    .transaction-action-menu {
+        position: relative;
+    }
+
+    .transaction-action-menu summary {
+        display: grid;
+        place-items: center;
+        width: var(--tap-target-min);
+        min-width: var(--tap-target-min);
+        height: var(--tap-target-min);
+        cursor: pointer;
+        list-style: none;
+        border: 1px solid rgba(125, 211, 252, 0.32);
+        border-radius: 999px;
+        background: rgba(125, 211, 252, 0.14);
+        color: #e0f2fe;
+        font-size: 1.2rem;
+        line-height: 1;
+    }
+
+    .transaction-action-menu summary::-webkit-details-marker {
+        display: none;
+    }
+
+    .transaction-action-menu summary:focus-visible {
+        outline: 3px solid rgba(130, 213, 245, 0.82);
+        outline-offset: 3px;
+    }
+
+    .transaction-action-menu > div {
+        position: absolute;
+        right: 0;
+        z-index: 4;
+        min-width: max-content;
+        padding: 0.35rem;
+        border: 1px solid var(--border);
+        border-radius: 0.75rem;
+        background: var(--surface-strong);
+        box-shadow: var(--shadow);
+    }
+
+    .transaction-action-menu > div button {
+        width: 100%;
+        white-space: nowrap;
     }
 
     .topbar h1 {

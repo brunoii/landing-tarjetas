@@ -1,4 +1,4 @@
-import { cardLabel, escapeHtml, formatDate, formatMonth, formatPesos, formatUsd, toYearMonth, typeLabel } from "./utils.js";
+import { cardLabel, escapeHtml, formatDate, formatMoneyPair, formatMonth, formatPesos, formatUsd, toYearMonth, typeLabel } from "./utils.js";
 
 let categories = [];
 let lastRows = [];
@@ -67,6 +67,7 @@ export function renderTransactions(monthDetailOrRows, month = lastMonth) {
             <td data-label="Resumen origen">${sourceText(expense)}</td>
             <td data-label="Notas">${escapeHtml(expense.notes || "—")}</td>
             <td data-label="Acciones">${actionCell(expense)}</td>
+            <td class="mobile-amount amount" data-label="Monto">${formatMoneyPair({ pesos: expense.amountPesos, usd: expense.amountUsd })}</td>
         `;
         table.append(row);
     });
@@ -280,6 +281,17 @@ function sourceText(expense) {
 }
 
 function actionCell(expense) {
+    const action = actionButton(expense);
+    return `<div class="transaction-actions">
+        <div class="transaction-actions-desktop">${action}</div>
+        <details class="transaction-action-menu">
+            <summary aria-label="Acciones para ${escapeHtml(expense.description || "este gasto")}">...</summary>
+            <div>${action}</div>
+        </details>
+    </div>`;
+}
+
+function actionButton(expense) {
     if (expense.kind === "PROJECTION") {
         return '<button type="button" class="secondary-button" disabled title="Las proyecciones se editan desde su gasto o resumen de origen.">Editar origen</button>';
     }
