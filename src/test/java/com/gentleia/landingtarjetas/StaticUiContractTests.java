@@ -1607,8 +1607,10 @@ class StaticUiContractTests {
     private static void assertResponsiveExpensesTableUsabilityContract(String index, String styles, String transactions) {
         String mobileMedia = "@media (max-width: 680px)";
         String desktopMedia = "@media (min-width: 681px)";
-        assertThat(index).contains("class=\"topbar-editorial\"", "<th class=\"mobile-amount-column\">Monto</th>\n                    <th>Acciones</th>");
+        assertThat(index).contains("class=\"topbar mobile-control-bar\"", "class=\"app-shell-nav mobile-navigation-bar\"", "<th class=\"mobile-amount-column\">Monto</th>\n                    <th>Acciones</th>");
         assertCssMediaRuleHasDeclarations(styles, mobileMedia, ".topbar-editorial", Map.of("display", "none"));
+        assertCssMediaRuleHasDeclarations(styles, mobileMedia, ".topbar", Map.of("position", "sticky", "top", "calc(var(--tap-target-min) + env(safe-area-inset-top))"));
+        assertCssMediaRuleHasDeclarations(styles, mobileMedia, ".mobile-navigation-bar", Map.of("position", "fixed", "top", "env(safe-area-inset-top)", "z-index", "10"));
         assertCssMediaRuleHasDeclarations(styles, mobileMedia, ".topbar-actions", Map.of("grid-template-columns", "repeat(2, minmax(0, 1fr))"));
         assertCssMediaRuleHasDeclarations(styles, mobileMedia, ".topbar-actions > *", Map.of(
                 "width", "100%",
@@ -1621,18 +1623,20 @@ class StaticUiContractTests {
         assertCssMediaRuleHasDeclarations(styles, mobileMedia, ".expenses-table-wrap .mobile-amount", Map.of("display", "table-cell"));
         assertCssMediaRuleHasDeclarations(styles, mobileMedia, ".expenses-table-wrap .transaction-action-menu", Map.of("display", "block"));
         assertCssMediaRuleHasDeclarations(styles, mobileMedia, "#tab-expenses-table .expenses-table-wrap table", Map.of(
-                "min-width", "20.5rem",
+                "min-width", "29rem",
                 "table-layout", "fixed",
                 "border-collapse", "separate",
-                "border-spacing", "0.25rem 0"
-        ));
+                "border-spacing", "0.35rem 0"
+            ));
         assertCssMediaRuleHasDeclarations(styles, mobileMedia, ".expenses-table-wrap th", Map.of("padding", "0.4rem 0.3rem", "font-size", "0.75rem"));
-        assertCssMediaRuleHasDeclarations(styles, mobileMedia, ".expenses-table-wrap th:nth-child(2)", Map.of("width", "3.25rem", "white-space", "nowrap"));
+        assertCssMediaRuleHasDeclarations(styles, mobileMedia, ".expenses-table-wrap th:nth-child(2)", Map.of("width", "2.9rem", "white-space", "nowrap"));
         assertCssMediaRuleHasDeclarations(styles, mobileMedia, ".expenses-table-wrap th:nth-child(8)", Map.of("width", "2.25rem", "white-space", "nowrap"));
-        assertCssMediaRuleHasDeclarations(styles, mobileMedia, ".expenses-table-wrap th:nth-child(14)", Map.of("width", "4.5rem", "text-overflow", "ellipsis"));
+        assertCssMediaRuleHasDeclarations(styles, mobileMedia, ".expenses-table-wrap th:nth-child(14)", Map.of("width", "8rem", "text-overflow", "ellipsis"));
         assertCssMediaRuleHasDeclarations(styles, mobileMedia, ".expenses-table-wrap th:nth-child(15)", Map.of("width", "3.35rem"));
-        assertCssMediaRuleHasDeclarations(styles, mobileMedia, ".expenses-table-wrap th:nth-child(5)", Map.of("overflow", "hidden", "text-overflow", "ellipsis", "white-space", "nowrap"));
-        assertThat(transactions).contains("class=\"mobile-amount amount\" data-label=\"Monto\"", "class=\"transaction-action-menu\"", "summary aria-label=\"Acciones para");
+        assertCssMediaRuleHasDeclarations(styles, mobileMedia, ".expenses-table-wrap th:nth-child(5)", Map.of("width", "11rem", "overflow", "hidden", "text-overflow", "ellipsis", "white-space", "nowrap"));
+        assertCssMediaRuleHasDeclarations(styles, mobileMedia, ".transaction-date-mobile", Map.of("display", "inline"));
+        assertCssMediaRuleHasDeclarations(styles, mobileMedia, ".transaction-date-desktop", Map.of("display", "none"));
+        assertThat(transactions).contains("class=\"transaction-date-desktop\"", "class=\"transaction-date-mobile\"", "function compactDate(value)", "class=\"mobile-amount amount\" data-label=\"Monto\"", "class=\"transaction-action-menu\"", "summary aria-label=\"Acciones para");
     }
 
     private static void assertNoSupermarketGroupRowDeclarationOutsideMedia(String css, String mediaHeader, String property, String value) {

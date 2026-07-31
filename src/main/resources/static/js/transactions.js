@@ -54,7 +54,7 @@ export function renderTransactions(monthDetailOrRows, month = lastMonth) {
         row.className = expense.kind === "PROJECTION" ? "projection-row" : "actual-row";
         row.innerHTML = `
             <td data-label="Mes">${escapeHtml(formatMonth(expense.month || effectiveMonth))}</td>
-            <td data-label="Fecha">${formatDate(expense.transactionDate)}</td>
+            <td data-label="Fecha" aria-label="${escapeHtml(formatDate(expense.transactionDate))}"><span class="transaction-date-desktop">${formatDate(expense.transactionDate)}</span><span class="transaction-date-mobile" aria-hidden="true">${compactDate(expense.transactionDate)}</span></td>
             <td data-label="Origen"><div class="expense-badges">${originBadges(expense)}</div></td>
             <td data-label="Tarjeta / Medio">${escapeHtml(expenseMediumLabel(expense))}</td>
             <td data-label="Descripción">${escapeHtml(expense.description || "—")}</td>
@@ -289,6 +289,14 @@ function actionCell(expense) {
             <div>${action}</div>
         </details>
     </div>`;
+}
+
+function compactDate(value) {
+    if (!value) {
+        return "—";
+    }
+    const [year, month, day] = String(value).split("-");
+    return year && month && day ? `${day}/${month}` : formatDate(value);
 }
 
 function actionButton(expense) {
