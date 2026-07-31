@@ -1629,7 +1629,13 @@ class StaticUiContractTests {
         String desktopMedia = "@media (min-width: 681px)";
         assertThat(index).contains("class=\"topbar mobile-control-bar\"", "class=\"app-shell-nav mobile-navigation-bar\"", "<th class=\"mobile-amount-column\">Monto</th>\n                    <th>Acciones</th>");
         assertCssMediaRuleHasDeclarations(styles, mobileMedia, ".topbar-editorial", Map.of("display", "none"));
-        assertCssMediaRuleHasDeclarations(styles, mobileMedia, ".topbar", Map.of("position", "sticky", "top", "calc(var(--tap-target-min) + env(safe-area-inset-top))"));
+        assertCssMediaRuleHasDeclarations(styles, mobileMedia, ".topbar", Map.of(
+                "width", "100%",
+                "position", "sticky",
+                "top", "calc(var(--tap-target-min) + 0.5rem + env(safe-area-inset-top))",
+                "margin-top", "calc(var(--tap-target-min) + 0.5rem + env(safe-area-inset-top))",
+                "padding", "0.45rem max(0.45rem, env(safe-area-inset-right)) 0.45rem max(0.45rem, env(safe-area-inset-left))"
+        ));
         assertCssMediaRuleHasDeclarations(styles, mobileMedia, ".mobile-navigation-bar", Map.of("position", "fixed", "top", "env(safe-area-inset-top)", "z-index", "10"));
         assertCssMediaRuleHasDeclarations(styles, mobileMedia, ".topbar-actions", Map.of("grid-template-columns", "minmax(0, 3fr) minmax(0, 1fr)"));
         assertCssMediaRuleHasDeclarations(styles, mobileMedia, ".topbar-actions > *", Map.of(

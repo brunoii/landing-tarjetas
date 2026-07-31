@@ -5081,7 +5081,13 @@ function assertResponsiveExpensesTableUsabilityContract(html, css, transactions)
     assert.match(html, /class="app-shell-nav mobile-navigation-bar"/);
     assert.match(html, /<th class="mobile-amount-column">Monto<\/th>\s*<th>Acciones<\/th>/);
     assertCssMediaRuleHasDeclarations(css, mobileMedia, ".topbar-editorial", { display: "none" });
-    assertCssMediaRuleHasDeclarations(css, mobileMedia, ".topbar", { position: "sticky", top: "calc(var(--tap-target-min) + env(safe-area-inset-top))" });
+    assertCssMediaRuleHasDeclarations(css, mobileMedia, ".topbar", {
+        width: "100%",
+        position: "sticky",
+        top: "calc(var(--tap-target-min) + 0.5rem + env(safe-area-inset-top))",
+        "margin-top": "calc(var(--tap-target-min) + 0.5rem + env(safe-area-inset-top))",
+        padding: "0.45rem max(0.45rem, env(safe-area-inset-right)) 0.45rem max(0.45rem, env(safe-area-inset-left))"
+    });
     assertCssMediaRuleHasDeclarations(css, mobileMedia, ".mobile-navigation-bar", { position: "fixed", top: "env(safe-area-inset-top)", "z-index": "10" });
     assert.match(html, /aria-label="Cerrar sesión"/);
     assert.match(html, /class="logout-label-full">Cerrar sesión<\/span>/);

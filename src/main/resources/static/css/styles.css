@@ -2429,11 +2429,12 @@ tbody tr:hover {
     }
 
     .topbar {
+        width: 100%;
         position: sticky;
-        top: calc(var(--tap-target-min) + env(safe-area-inset-top));
+        top: calc(var(--tap-target-min) + 0.5rem + env(safe-area-inset-top));
         z-index: 9;
-        margin-top: calc(var(--tap-target-min) + env(safe-area-inset-top));
-        padding: 0.45rem;
+        margin-top: calc(var(--tap-target-min) + 0.5rem + env(safe-area-inset-top));
+        padding: 0.45rem max(0.45rem, env(safe-area-inset-right)) 0.45rem max(0.45rem, env(safe-area-inset-left));
         border: 1px solid var(--border-strong);
         border-radius: 0 0 14px 14px;
         background: rgba(16, 23, 34, 0.98);
