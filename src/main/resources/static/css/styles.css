@@ -2438,7 +2438,10 @@ tbody tr:hover {
     }
 
     .topbar-actions > * {
+        width: 100%;
+        max-width: 100%;
         min-width: 0;
+        min-inline-size: 0;
     }
 
     .month-picker,
@@ -2450,6 +2453,9 @@ tbody tr:hover {
     .month-picker input,
     .logout-form .secondary-button {
         width: 100%;
+        max-width: 100%;
+        min-width: 0;
+        min-inline-size: 0;
     }
 
     .logout-form .secondary-button {
@@ -2460,6 +2466,8 @@ tbody tr:hover {
         width: 100%;
         min-width: 20.5rem;
         table-layout: fixed;
+        border-collapse: separate;
+        border-spacing: 0.25rem 0;
     }
 
     .expenses-table-wrap th,
@@ -2476,7 +2484,6 @@ tbody tr:hover {
 
     .expenses-table-wrap th:nth-child(5),
     .expenses-table-wrap td:nth-child(5) {
-        width: min(38vw, 8rem);
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
@@ -2490,12 +2497,15 @@ tbody tr:hover {
 
     .expenses-table-wrap th:nth-child(14),
     .expenses-table-wrap td:nth-child(14) {
-        width: 4.25rem;
+        width: 4.5rem;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
     }
 
     .expenses-table-wrap th:nth-child(15),
     .expenses-table-wrap td:nth-child(15) {
-        width: 2.75rem;
+        width: 3.35rem;
     }
 
     .expenses-table-wrap th:nth-child(1),

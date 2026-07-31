@@ -5074,13 +5074,28 @@ function assertResponsiveExpensesTableUsabilityContract(html, css, transactions)
     assert.match(html, /<th class="mobile-amount-column">Monto<\/th>\s*<th>Acciones<\/th>/);
     assertCssMediaRuleHasDeclarations(css, mobileMedia, ".topbar-editorial", { display: "none" });
     assertCssMediaRuleHasDeclarations(css, mobileMedia, ".topbar-actions", { "grid-template-columns": "repeat(2, minmax(0, 1fr))" });
-    assertCssMediaRuleHasDeclarations(css, mobileMedia, ".topbar-actions > *", { "min-width": "0" });
+    assertCssMediaRuleHasDeclarations(css, mobileMedia, ".topbar-actions > *", {
+        width: "100%",
+        "max-width": "100%",
+        "min-width": "0",
+        "min-inline-size": "0"
+    });
     assertCssMediaRuleHasDeclarations(css, desktopMedia, ".expenses-table-wrap", { "max-height": "min(42rem, calc(100vh - 12rem))", overflow: "auto" });
     assertCssMediaRuleHasDeclarations(css, desktopMedia, ".expenses-table-wrap thead th", { position: "sticky", top: "0" });
     assertCssMediaRuleHasDeclarations(css, mobileMedia, ".expenses-table-wrap .mobile-amount", { display: "table-cell" });
     assertCssMediaRuleHasDeclarations(css, mobileMedia, ".expenses-table-wrap .transaction-action-menu", { display: "block" });
-    assertCssMediaRuleHasDeclarations(css, mobileMedia, "#tab-expenses-table .expenses-table-wrap table", { "min-width": "20.5rem", "table-layout": "fixed" });
+    assertCssMediaRuleHasDeclarations(css, mobileMedia, "#tab-expenses-table .expenses-table-wrap table", {
+        "min-width": "20.5rem",
+        "table-layout": "fixed",
+        "border-collapse": "separate",
+        "border-spacing": "0.25rem 0"
+    });
     assertCssMediaRuleHasDeclarations(css, mobileMedia, ".expenses-table-wrap th", { padding: "0.4rem 0.3rem", "font-size": "0.75rem" });
+    assertCssMediaRuleHasDeclarations(css, mobileMedia, ".expenses-table-wrap th:nth-child(2)", { width: "3.25rem", "white-space": "nowrap" });
+    assertCssMediaRuleHasDeclarations(css, mobileMedia, ".expenses-table-wrap th:nth-child(8)", { width: "2.25rem", "white-space": "nowrap" });
+    assertCssMediaRuleHasDeclarations(css, mobileMedia, ".expenses-table-wrap th:nth-child(14)", { width: "4.5rem", "text-overflow": "ellipsis" });
+    assertCssMediaRuleHasDeclarations(css, mobileMedia, ".expenses-table-wrap th:nth-child(15)", { width: "3.35rem" });
+    assertCssMediaRuleHasDeclarations(css, mobileMedia, ".expenses-table-wrap th:nth-child(5)", { overflow: "hidden", "text-overflow": "ellipsis", "white-space": "nowrap" });
     assert.match(transactions, /class="transaction-action-menu"/);
     assert.match(transactions, /summary aria-label="Acciones para/);
 }

@@ -1610,13 +1610,28 @@ class StaticUiContractTests {
         assertThat(index).contains("class=\"topbar-editorial\"", "<th class=\"mobile-amount-column\">Monto</th>\n                    <th>Acciones</th>");
         assertCssMediaRuleHasDeclarations(styles, mobileMedia, ".topbar-editorial", Map.of("display", "none"));
         assertCssMediaRuleHasDeclarations(styles, mobileMedia, ".topbar-actions", Map.of("grid-template-columns", "repeat(2, minmax(0, 1fr))"));
-        assertCssMediaRuleHasDeclarations(styles, mobileMedia, ".topbar-actions > *", Map.of("min-width", "0"));
+        assertCssMediaRuleHasDeclarations(styles, mobileMedia, ".topbar-actions > *", Map.of(
+                "width", "100%",
+                "max-width", "100%",
+                "min-width", "0",
+                "min-inline-size", "0"
+        ));
         assertCssMediaRuleHasDeclarations(styles, desktopMedia, ".expenses-table-wrap", Map.of("max-height", "min(42rem, calc(100vh - 12rem))", "overflow", "auto"));
         assertCssMediaRuleHasDeclarations(styles, desktopMedia, ".expenses-table-wrap thead th", Map.of("position", "sticky", "top", "0"));
         assertCssMediaRuleHasDeclarations(styles, mobileMedia, ".expenses-table-wrap .mobile-amount", Map.of("display", "table-cell"));
         assertCssMediaRuleHasDeclarations(styles, mobileMedia, ".expenses-table-wrap .transaction-action-menu", Map.of("display", "block"));
-        assertCssMediaRuleHasDeclarations(styles, mobileMedia, "#tab-expenses-table .expenses-table-wrap table", Map.of("min-width", "20.5rem", "table-layout", "fixed"));
+        assertCssMediaRuleHasDeclarations(styles, mobileMedia, "#tab-expenses-table .expenses-table-wrap table", Map.of(
+                "min-width", "20.5rem",
+                "table-layout", "fixed",
+                "border-collapse", "separate",
+                "border-spacing", "0.25rem 0"
+        ));
         assertCssMediaRuleHasDeclarations(styles, mobileMedia, ".expenses-table-wrap th", Map.of("padding", "0.4rem 0.3rem", "font-size", "0.75rem"));
+        assertCssMediaRuleHasDeclarations(styles, mobileMedia, ".expenses-table-wrap th:nth-child(2)", Map.of("width", "3.25rem", "white-space", "nowrap"));
+        assertCssMediaRuleHasDeclarations(styles, mobileMedia, ".expenses-table-wrap th:nth-child(8)", Map.of("width", "2.25rem", "white-space", "nowrap"));
+        assertCssMediaRuleHasDeclarations(styles, mobileMedia, ".expenses-table-wrap th:nth-child(14)", Map.of("width", "4.5rem", "text-overflow", "ellipsis"));
+        assertCssMediaRuleHasDeclarations(styles, mobileMedia, ".expenses-table-wrap th:nth-child(15)", Map.of("width", "3.35rem"));
+        assertCssMediaRuleHasDeclarations(styles, mobileMedia, ".expenses-table-wrap th:nth-child(5)", Map.of("overflow", "hidden", "text-overflow", "ellipsis", "white-space", "nowrap"));
         assertThat(transactions).contains("class=\"mobile-amount amount\" data-label=\"Monto\"", "class=\"transaction-action-menu\"", "summary aria-label=\"Acciones para");
     }
 
