@@ -220,6 +220,10 @@ h3 {
     width: 100%;
 }
 
+.logout-label-compact {
+    display: none;
+}
+
 .login-page {
     display: grid;
     place-items: center;
@@ -2441,7 +2445,7 @@ tbody tr:hover {
     }
 
     .topbar-actions {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
+        grid-template-columns: minmax(0, 3fr) minmax(0, 1fr);
         align-items: stretch;
         gap: 0.5rem;
     }
@@ -2488,6 +2492,16 @@ tbody tr:hover {
     .logout-form .secondary-button {
         height: 100%;
         min-height: 0;
+        padding: 0.5rem 0.25rem;
+        white-space: nowrap;
+    }
+
+    .logout-label-full {
+        display: none;
+    }
+
+    .logout-label-compact {
+        display: inline;
     }
 
     .mobile-navigation-bar {

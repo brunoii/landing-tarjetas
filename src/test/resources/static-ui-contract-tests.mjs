@@ -34,7 +34,7 @@ for (const fileName of staticModuleFileNames) {
 
 try {
     const { api } = await import(pathToFileURL(path.join(moduleRoot, "api.js")));
-    const { formatDate, formatMonth, setButtonBusy } = await import(pathToFileURL(path.join(moduleRoot, "utils.js")));
+    const { formatDate, formatMoneyPair, formatMonth, setButtonBusy } = await import(pathToFileURL(path.join(moduleRoot, "utils.js")));
     const { matchesTargetCard, monthTabLabel, renderDashboard, visibleMonthTabs } = await import(pathToFileURL(path.join(moduleRoot, "dashboard.js")));
     const {
         incomePayloadFromValues,
@@ -451,6 +451,11 @@ try {
     assert.equal(formatMonth("2026-07"), "jul 2026");
     assert.equal(formatMonth(""), "Sin mes");
     assert.equal(formatDate("2026-07-10"), "10 de jul de 2026");
+    assert.match(formatMoneyPair({ pesos: 1234.5, usd: 0 }), /1,234\.50/);
+    assert.doesNotMatch(formatMoneyPair({ pesos: 1234.5, usd: 0 }), /\//);
+    assert.match(formatMoneyPair({ pesos: 0, usd: 9.75 }), /9\.75/);
+    assert.match(formatMoneyPair({ pesos: 1234.5, usd: 9.75 }), /\//);
+    assert.equal(formatMoneyPair({ pesos: 0, usd: null }), "Sin importe");
 
     const previousLoginDocument = globalThis.document;
     const previousLoginWindow = globalThis.window;
@@ -5078,13 +5083,19 @@ function assertResponsiveExpensesTableUsabilityContract(html, css, transactions)
     assertCssMediaRuleHasDeclarations(css, mobileMedia, ".topbar-editorial", { display: "none" });
     assertCssMediaRuleHasDeclarations(css, mobileMedia, ".topbar", { position: "sticky", top: "calc(var(--tap-target-min) + env(safe-area-inset-top))" });
     assertCssMediaRuleHasDeclarations(css, mobileMedia, ".mobile-navigation-bar", { position: "fixed", top: "env(safe-area-inset-top)", "z-index": "10" });
-    assertCssMediaRuleHasDeclarations(css, mobileMedia, ".topbar-actions", { "grid-template-columns": "repeat(2, minmax(0, 1fr))" });
+    assert.match(html, /aria-label="Cerrar sesión"/);
+    assert.match(html, /class="logout-label-full">Cerrar sesión<\/span>/);
+    assert.match(html, /class="logout-label-compact" aria-hidden="true">Salir<\/span>/);
+    assertCssMediaRuleHasDeclarations(css, mobileMedia, ".topbar-actions", { "grid-template-columns": "minmax(0, 3fr) minmax(0, 1fr)" });
     assertCssMediaRuleHasDeclarations(css, mobileMedia, ".topbar-actions > *", {
         width: "100%",
         "max-width": "100%",
         "min-width": "0",
         "min-inline-size": "0"
     });
+    assertCssMediaRuleHasDeclarations(css, mobileMedia, ".logout-form .secondary-button", { "white-space": "nowrap" });
+    assertCssMediaRuleHasDeclarations(css, mobileMedia, ".logout-label-full", { display: "none" });
+    assertCssMediaRuleHasDeclarations(css, mobileMedia, ".logout-label-compact", { display: "inline" });
     assertCssMediaRuleHasDeclarations(css, desktopMedia, ".expenses-table-wrap", { "max-height": "min(42rem, calc(100vh - 12rem))", overflow: "auto" });
     assertCssMediaRuleHasDeclarations(css, desktopMedia, ".expenses-table-wrap thead th", { position: "sticky", top: "0" });
     assertCssMediaRuleHasDeclarations(css, mobileMedia, ".expenses-table-wrap .mobile-amount", { display: "table-cell" });

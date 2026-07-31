@@ -1,5 +1,5 @@
 import { api } from "./api.js?v=20260713-pending-main";
-import { cardLabel, escapeHtml, formatPesos, formatUsd, setButtonBusy, toYearMonth, typeLabel } from "./utils.js";
+import { cardLabel, escapeHtml, formatMoneyPair, formatPesos, formatUsd, setButtonBusy, toYearMonth, typeLabel } from "./utils.js";
 
 const MAX_PDF_SIZE_BYTES = 1_048_576;
 const MAX_REQUEST_SIZE_BYTES = 5_242_880;
@@ -155,7 +155,7 @@ function renderUploadResults(results) {
                 <div><dt>Mensaje</dt><dd>${escapeHtml(uploadResultMessage(result, uploadedFile))}</dd></div>
             </dl>
             ${renderWarnings(result.warnings)}
-            ${draft ? `<p class="muted">Borrador #${draft.id}: ${escapeHtml(toYearMonth(draft.paymentMonth) || "sin mes de pago")} · ${formatPesos(draft.totalPesos)} / ${formatUsd(draft.totalUsd)} · ${draft.transactions?.length || 0} filas</p><button type="button" class="secondary-button" data-open-upload-draft="${draft.id}">Revisar borrador #${draft.id}</button>` : '<p class="muted">No se creó ningún borrador para este archivo.</p>'}
+            ${draft ? `<p class="muted">Borrador #${draft.id}: ${escapeHtml(toYearMonth(draft.paymentMonth) || "sin mes de pago")} · ${formatMoneyPair({ pesos: draft.totalPesos, usd: draft.totalUsd })} · ${draft.transactions?.length || 0} filas</p><button type="button" class="secondary-button" data-open-upload-draft="${draft.id}">Revisar borrador #${draft.id}</button>` : '<p class="muted">No se creó ningún borrador para este archivo.</p>'}
         `;
         article.querySelector("[data-open-upload-draft]")?.addEventListener("click", () => openDraft(draft.id));
         container.append(article);

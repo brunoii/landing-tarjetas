@@ -37,7 +37,12 @@ export function formatUsd(value) {
 }
 
 export function formatMoneyPair(totals) {
-    return `${formatPesos(totals.pesos)} / ${formatUsd(totals.usd)}`;
+    const amounts = [
+        [totals?.pesos, formatPesos],
+        [totals?.usd, formatUsd]
+    ].filter(([value]) => Number.isFinite(Number(value)) && Number(value) !== 0);
+
+    return amounts.length > 0 ? amounts.map(([value, format]) => format(value)).join(" / ") : "Sin importe";
 }
 
 export function emptyTotals() {

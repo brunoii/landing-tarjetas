@@ -277,7 +277,9 @@ class StaticUiContractTests {
 
         assertThat(index).contains(
                 "id=\"logout-form\" method=\"post\" action=\"/logout\"",
-                "Cerrar sesión"
+                "aria-label=\"Cerrar sesión\"",
+                "class=\"logout-label-full\">Cerrar sesión</span>",
+                "class=\"logout-label-compact\" aria-hidden=\"true\">Salir</span>"
         );
         assertThat(login).contains(
                 "id=\"login-form\" method=\"post\" action=\"/login\"",
@@ -1600,6 +1602,24 @@ class StaticUiContractTests {
         ));
     }
 
+    @Test
+    void currencyPairsRenderOnlyPresentCurrencies() throws IOException {
+        String utils = readStatic("js/utils.js");
+        String statements = readStatic("js/statements.js");
+
+        assertThat(utils).contains(
+                "export function formatMoneyPair(totals)",
+                "totals?.pesos",
+                "totals?.usd",
+                "Number.isFinite(Number(value)) && Number(value) !== 0",
+                ".join(\" / \") : \"Sin importe\""
+        );
+        assertThat(statements).contains(
+                "formatMoneyPair, formatPesos, formatUsd",
+                "formatMoneyPair({ pesos: draft.totalPesos, usd: draft.totalUsd })"
+        ).doesNotContain("formatPesos(draft.totalPesos)} / ${formatUsd(draft.totalUsd)");
+    }
+
     private static void assertNoResponsiveCardCellDeclarationOutsideMedia(String css, String mediaHeader, String property, String value) {
         assertNoTargetedCssDeclarationOutsideMedia(css, mediaHeader, StaticUiContractTests::selectorTargetsResponsiveCardCell, property, value);
     }
@@ -1611,13 +1631,16 @@ class StaticUiContractTests {
         assertCssMediaRuleHasDeclarations(styles, mobileMedia, ".topbar-editorial", Map.of("display", "none"));
         assertCssMediaRuleHasDeclarations(styles, mobileMedia, ".topbar", Map.of("position", "sticky", "top", "calc(var(--tap-target-min) + env(safe-area-inset-top))"));
         assertCssMediaRuleHasDeclarations(styles, mobileMedia, ".mobile-navigation-bar", Map.of("position", "fixed", "top", "env(safe-area-inset-top)", "z-index", "10"));
-        assertCssMediaRuleHasDeclarations(styles, mobileMedia, ".topbar-actions", Map.of("grid-template-columns", "repeat(2, minmax(0, 1fr))"));
+        assertCssMediaRuleHasDeclarations(styles, mobileMedia, ".topbar-actions", Map.of("grid-template-columns", "minmax(0, 3fr) minmax(0, 1fr)"));
         assertCssMediaRuleHasDeclarations(styles, mobileMedia, ".topbar-actions > *", Map.of(
                 "width", "100%",
                 "max-width", "100%",
                 "min-width", "0",
                 "min-inline-size", "0"
         ));
+        assertCssMediaRuleHasDeclarations(styles, mobileMedia, ".logout-form .secondary-button", Map.of("white-space", "nowrap"));
+        assertCssMediaRuleHasDeclarations(styles, mobileMedia, ".logout-label-full", Map.of("display", "none"));
+        assertCssMediaRuleHasDeclarations(styles, mobileMedia, ".logout-label-compact", Map.of("display", "inline"));
         assertCssMediaRuleHasDeclarations(styles, desktopMedia, ".expenses-table-wrap", Map.of("max-height", "min(42rem, calc(100vh - 12rem))", "overflow", "auto"));
         assertCssMediaRuleHasDeclarations(styles, desktopMedia, ".expenses-table-wrap thead th", Map.of("position", "sticky", "top", "0"));
         assertCssMediaRuleHasDeclarations(styles, mobileMedia, ".expenses-table-wrap .mobile-amount", Map.of("display", "table-cell"));
