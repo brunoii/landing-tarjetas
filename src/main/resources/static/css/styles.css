@@ -1813,79 +1813,66 @@ td {
     }
 
     .responsive-card-table {
-        display: grid;
-        gap: 0.75rem;
-        overflow-x: visible;
-        border: 0;
-        background: transparent;
+        position: relative;
+        overflow-x: auto;
+        overscroll-behavior-inline: contain;
+        scrollbar-color: var(--accent-strong) rgba(148, 163, 184, 0.12);
     }
 
-    .responsive-card-table table,
-    .responsive-card-table tbody,
-    .responsive-card-table tr {
-        display: grid;
-        min-width: 0;
-        width: 100%;
+    .responsive-card-table::after {
+        content: "Deslizá para ver más";
+        position: absolute;
+        top: 0.45rem;
+        right: 0.45rem;
+        z-index: 3;
+        border: 1px solid rgba(125, 211, 252, 0.28);
+        border-radius: 999px;
+        padding: 0.2rem 0.45rem;
+        background: rgba(7, 12, 20, 0.88);
+        color: var(--accent);
+        font-size: 0.68rem;
+        font-weight: 800;
+        letter-spacing: 0.03em;
+        pointer-events: none;
+    }
+
+    .responsive-card-table:focus-visible {
+        outline: 3px solid rgba(130, 213, 245, 0.82);
+        outline-offset: 3px;
+    }
+
+    .responsive-card-table table {
+        display: table;
     }
 
     .responsive-card-table thead {
-        position: absolute;
-        width: 1px;
-        height: 1px;
-        padding: 0;
-        margin: -1px;
-        overflow: hidden;
-        clip: rect(0, 0, 0, 0);
-        white-space: nowrap;
-        border: 0;
+        display: table-header-group;
     }
 
     .responsive-card-table tbody {
-        gap: 0.75rem;
+        display: table-row-group;
     }
 
     .responsive-card-table tr {
-        gap: 0.35rem;
-        border: 1px solid var(--border);
-        border-radius: 18px;
-        padding: 0.85rem;
-        background: rgba(3, 7, 18, 0.34);
+        display: table-row;
     }
 
+    .responsive-card-table th,
     .responsive-card-table td {
-        display: grid;
-        grid-template-columns: minmax(6.5rem, var(--responsive-card-label-width)) minmax(0, 1fr);
-        gap: 0.35rem 0.75rem;
-        border-bottom: 0;
-        padding: 0.35rem 0;
-        text-align: left;
-        white-space: normal;
-        overflow-wrap: anywhere;
+        display: table-cell;
     }
 
-    .responsive-card-table td::before {
-        content: attr(data-label);
-        color: var(--muted);
-        font-size: 0.72rem;
-        font-weight: 800;
-        letter-spacing: 0.06em;
-        text-transform: uppercase;
+    .responsive-card-table thead th:first-child,
+    .responsive-card-table tbody td:first-child {
+        position: sticky;
+        left: 0;
+        z-index: 1;
+        background: var(--surface-strong);
+        box-shadow: 8px 0 12px -12px rgba(0, 0, 0, 0.95);
     }
 
-    .responsive-card-table td.amount {
-        text-align: left;
-        white-space: normal;
-    }
-
-    .responsive-card-table .super-category-group-row {
-        gap: 0;
-        padding: 0;
-        overflow: hidden;
-    }
-
-    .responsive-card-table .super-category-group-row th {
-        border-bottom: 0;
-        padding: 0.75rem 0.85rem;
+    .responsive-card-table thead th:first-child {
+        z-index: 2;
     }
 
     .super-generated-list {
@@ -1894,12 +1881,6 @@ td {
 
     .super-suggested-item {
         grid-template-columns: 1fr;
-    }
-
-    .responsive-card-table .simulator-results-table th,
-    .responsive-card-table .simulator-results-table td {
-        overflow: visible;
-        text-overflow: clip;
     }
 
     .responsive-edit-table td {
@@ -2350,9 +2331,21 @@ tbody tr:hover {
 }
 
 @media (min-width: 961px) {
+    .app-shell {
+        grid-template-columns: 15.5rem minmax(0, 1fr);
+        align-items: start;
+    }
+
     .app-shell-nav {
+        grid-column: 1;
+        grid-row: 1 / span 100;
         position: sticky;
         top: 1rem;
+        align-self: start;
+    }
+
+    .app-shell > :not(.app-shell-nav) {
+        grid-column: 2;
     }
 
     .app-shell-menu-button,
@@ -2363,37 +2356,34 @@ tbody tr:hover {
     .app-shell-drawer,
     .app-shell-drawer[hidden] {
         display: grid;
-        grid-template-columns: 1.3fr 1fr;
-        gap: 1.5rem;
-        padding: 0.8rem 1rem;
+        grid-template-columns: 1fr;
+        gap: 1.15rem;
+        padding: 1rem;
     }
 
     .app-shell-drawer-group {
-        grid-template-columns: auto repeat(7, minmax(0, 1fr));
-        align-items: center;
-    }
-
-    .app-shell-drawer-group + .app-shell-drawer-group {
-        grid-template-columns: auto repeat(4, minmax(0, 1fr));
+        grid-template-columns: 1fr;
+        gap: 0.25rem;
+        align-items: stretch;
     }
 
     .app-shell-drawer-label {
-        margin: 0;
-        padding-right: 0.35rem;
-        white-space: nowrap;
+        margin: 0 0 0.35rem;
+        padding: 0 0.65rem;
+        white-space: normal;
     }
 
     .app-shell-drawer a {
-        justify-content: center;
-        min-height: 34px;
-        padding: 0.35rem 0.5rem;
-        text-align: center;
-        font-size: 0.78rem;
+        justify-content: flex-start;
+        min-height: 38px;
+        padding: 0.45rem 0.65rem;
+        text-align: left;
+        font-size: 0.88rem;
     }
 
     .app-shell-drawer a[aria-current="page"] {
-        border-left: 0;
-        border-bottom: 2px solid var(--accent-strong);
+        border-left: 2px solid var(--accent-strong);
+        border-bottom: 0;
     }
 }
 
@@ -2430,14 +2420,6 @@ tbody tr:hover {
         padding: 1rem;
     }
 
-    .responsive-card-table tr {
-        border-radius: 14px;
-        background: rgba(20, 28, 42, 0.85);
-    }
-
-    .responsive-card-table td::before {
-        color: #9cacc0;
-    }
 }
 
 @media (prefers-reduced-motion: reduce) {

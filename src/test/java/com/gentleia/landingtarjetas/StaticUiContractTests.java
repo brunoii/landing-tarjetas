@@ -165,6 +165,7 @@ class StaticUiContractTests {
                 "DEFAULT_PRIMARY_TAB_ID = \"summary\"",
                 "DEFAULT_SUPERMARKET_TAB_ID = \"list\""
         );
+        assertDesktopSidebarCssContract(readStatic("css/styles.css"));
     }
 
     @Test
@@ -243,7 +244,6 @@ class StaticUiContractTests {
                 "class=\"amount simulation-amount-cell\""
         );
         assertCssRuleHasDeclarations(styles, ".simulator-table-wrap.responsive-card-table", Map.of("--responsive-card-label-width", "7.75rem"));
-        assertSimulatorResultsCellMobileOverflowContract(styles);
         assertDataLabels(simulator, List.of("Mes", "Ingresos del mes", "Deuda/gastos actuales del mes", "Nueva cuota simulada", "Saldo actual sin simulación", "Saldo final con simulación"));
     }
 
@@ -1307,10 +1307,6 @@ class StaticUiContractTests {
         assertCssRuleHasDeclarations(styles, ".simulator-table-wrap.responsive-card-table", Map.of("--responsive-card-label-width", "7.75rem"));
         assertCssRuleHasDeclarations(styles, ".super-items-table-wrap.responsive-card-table", Map.of("--responsive-card-label-width", "7.75rem"));
         assertCssRuleHasDeclarations(styles, ".super-category-table-wrap.responsive-card-table", Map.of("--responsive-card-label-width", "7.75rem"));
-        assertCssRuleHasDeclarations(styles, ".responsive-card-table td.amount", Map.of(
-                "text-align", "left",
-                "white-space", "normal"
-        ));
         assertResponsiveCardTableAdopterContract(index);
         assertThat(index).contains(
                 "class=\"table-wrap expenses-table-wrap responsive-card-table\"",
@@ -1563,35 +1559,44 @@ class StaticUiContractTests {
 
     private static void assertResponsiveCardTableMobileCssContract(String css) {
         String mediaHeader = "@media (max-width: 680px)";
-        String cardCellColumns = "minmax(6.5rem, var(--responsive-card-label-width)) minmax(0, 1fr)";
-        assertCssMediaRuleHasDeclarations(css, mediaHeader, ".responsive-card-table td", Map.of(
-                "grid-template-columns", cardCellColumns,
-                "white-space", "normal",
-                "overflow-wrap", "anywhere"
+        String mediaCss = String.join("\n", cssAtRuleBlocks(css, mediaHeader));
+        assertCssMediaRuleHasDeclarations(css, mediaHeader, ".responsive-card-table", Map.of(
+                "position", "relative",
+                "overflow-x", "auto",
+                "overscroll-behavior-inline", "contain"
         ));
-        assertCssMediaRuleHasDeclarations(css, mediaHeader, ".responsive-card-table td::before", Map.of("content", "attr(data-label)"));
-        assertCssMediaRuleHasDeclarations(css, mediaHeader, ".responsive-card-table .super-category-group-row", Map.of(
-                "padding", "0",
-                "overflow", "hidden"
+        assertCssMediaRuleHasDeclarations(css, mediaHeader, ".responsive-card-table table", Map.of("display", "table"));
+        assertCssMediaRuleHasDeclarations(css, mediaHeader, ".responsive-card-table thead", Map.of("display", "table-header-group"));
+        assertCssMediaRuleHasDeclarations(css, mediaHeader, ".responsive-card-table tbody", Map.of("display", "table-row-group"));
+        assertCssMediaRuleHasDeclarations(css, mediaHeader, ".responsive-card-table tr", Map.of("display", "table-row"));
+        assertCssMediaRuleHasDeclarations(css, mediaHeader, ".responsive-card-table td", Map.of("display", "table-cell"));
+        assertCssMediaRuleHasDeclarations(css, mediaHeader, ".responsive-card-table tbody td:first-child", Map.of(
+                "position", "sticky",
+                "left", "0"
         ));
-        assertNoResponsiveCardCellDeclarationOutsideMedia(css, mediaHeader, "grid-template-columns", cardCellColumns);
-        assertNoResponsiveCardCellDeclarationOutsideMedia(css, mediaHeader, "white-space", "normal");
-        assertNoResponsiveCardCellDeclarationOutsideMedia(css, mediaHeader, "overflow-wrap", "anywhere");
-        assertNoResponsiveCardCellDeclarationOutsideMedia(css, mediaHeader, "content", "attr(data-label)");
-        assertNoSupermarketGroupRowDeclarationOutsideMedia(css, mediaHeader, "padding", "0");
-        assertNoSupermarketGroupRowDeclarationOutsideMedia(css, mediaHeader, "overflow", "hidden");
-        assertThatThrownBy(() -> assertNoResponsiveCardCellDeclarationOutsideMedia(css + "\n.responsive-card-table td { grid-template-columns: " + cardCellColumns + "; }", mediaHeader, "grid-template-columns", cardCellColumns))
-                .isInstanceOf(AssertionError.class)
-                .hasMessageContaining("Unexpected grid-template-columns: " + cardCellColumns + " in .responsive-card-table td");
-        assertThatThrownBy(() -> assertNoResponsiveCardCellDeclarationOutsideMedia(css + "\n.super-items-table-wrap.responsive-card-table [data-label] { overflow-wrap: anywhere; }", mediaHeader, "overflow-wrap", "anywhere"))
-                .isInstanceOf(AssertionError.class)
-                .hasMessageContaining("Unexpected overflow-wrap: anywhere in .super-items-table-wrap.responsive-card-table [data-label]");
-        assertThatThrownBy(() -> assertNoResponsiveCardCellDeclarationOutsideMedia(css + "\nbody .responsive-card-table td::before { content: attr(data-label); }", mediaHeader, "content", "attr(data-label)"))
-                .isInstanceOf(AssertionError.class)
-                .hasMessageContaining("Unexpected content: attr(data-label) in body .responsive-card-table td::before");
-        assertThatThrownBy(() -> assertNoSupermarketGroupRowDeclarationOutsideMedia(css + "\n.responsive-card-table .super-category-group-row { padding: 0; }", mediaHeader, "padding", "0"))
-                .isInstanceOf(AssertionError.class)
-                .hasMessageContaining("Unexpected padding: 0 in .responsive-card-table .super-category-group-row");
+        assertThat(mediaCss).contains("content: \"Deslizá para ver más\";")
+                .doesNotContain("content: attr(data-label);");
+    }
+
+    private static void assertDesktopSidebarCssContract(String css) {
+        String mediaHeader = "@media (min-width: 961px)";
+        assertCssMediaRuleHasDeclarations(css, mediaHeader, ".app-shell", Map.of(
+                "grid-template-columns", "15.5rem minmax(0, 1fr)",
+                "align-items", "start"
+        ));
+        assertCssMediaRuleHasDeclarations(css, mediaHeader, ".app-shell-nav", Map.of(
+                "grid-column", "1",
+                "grid-row", "1 / span 100",
+                "position", "sticky"
+        ));
+        assertCssMediaRuleHasDeclarations(css, mediaHeader, ".app-shell-drawer", Map.of(
+                "display", "grid",
+                "grid-template-columns", "1fr"
+        ));
+        assertCssMediaRuleHasDeclarations(css, mediaHeader, ".app-shell-drawer a[aria-current=\"page\"]", Map.of(
+                "border-left", "2px solid var(--accent-strong)",
+                "border-bottom", "0"
+        ));
     }
 
     private static void assertNoResponsiveCardCellDeclarationOutsideMedia(String css, String mediaHeader, String property, String value) {

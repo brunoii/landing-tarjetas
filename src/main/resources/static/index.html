@@ -137,7 +137,7 @@
             </form>
             <p class="form-feedback" id="manual-expense-feedback" role="status" aria-live="polite"></p>
             <p class="filter-summary" id="manual-expenses-summary" aria-live="polite">No hay gastos manuales para el mes seleccionado.</p>
-            <div class="table-wrap manual-expense-table-wrap responsive-card-table">
+            <div class="table-wrap manual-expense-table-wrap responsive-card-table" role="region" aria-label="Tabla desplazable horizontalmente" tabindex="0">
                 <table>
                     <thead>
                     <tr>
@@ -278,7 +278,7 @@
 
             <h3>Transacciones del borrador</h3>
             <p class="section-note">Puede editar, eliminar, asignar categorías y agregar filas faltantes antes de confirmar el borrador.</p>
-            <div class="table-wrap draft-table-wrap responsive-card-table responsive-edit-table">
+            <div class="table-wrap draft-table-wrap responsive-card-table responsive-edit-table" role="region" aria-label="Tabla desplazable horizontalmente" tabindex="0">
                 <table>
                     <thead>
                     <tr>
@@ -507,7 +507,7 @@
         </form>
         <p class="filter-summary" id="filters-summary" aria-live="polite">Se muestra el mes de pago seleccionado sin filtros adicionales.</p>
 
-        <div class="table-wrap expenses-table-wrap responsive-card-table">
+        <div class="table-wrap expenses-table-wrap responsive-card-table" role="region" aria-label="Tabla desplazable horizontalmente" tabindex="0">
             <table>
                 <thead>
                 <tr>
@@ -551,7 +551,7 @@
         </form>
         <p class="filter-summary" id="income-filters-summary" aria-live="polite">Se muestran todos los ingresos. Filtre por mes si necesita una proyección mensual.</p>
 
-        <div class="table-wrap income-table-wrap responsive-card-table">
+        <div class="table-wrap income-table-wrap responsive-card-table" role="region" aria-label="Tabla desplazable horizontalmente" tabindex="0">
             <table>
                 <thead>
                 <tr>
@@ -717,7 +717,7 @@
         </form>
         <p class="form-feedback" id="simulator-feedback" role="status" aria-live="polite"></p>
         <p class="filter-summary" id="simulator-summary" aria-live="polite">No hay una simulación activa.</p>
-        <div class="table-wrap simulator-table-wrap responsive-card-table">
+        <div class="table-wrap simulator-table-wrap responsive-card-table" role="region" aria-label="Tabla desplazable horizontalmente" tabindex="0">
                 <table class="simulator-results-table">
                     <colgroup>
                         <col class="simulation-month-column">
@@ -789,7 +789,7 @@
                 <button type="button" class="secondary-button" id="super-uncheck-all">Desmarcar todos</button>
             </div>
             <p class="filter-summary" id="super-items-summary" aria-live="polite">No hay productos cargados.</p>
-            <div class="table-wrap super-items-table-wrap responsive-card-table">
+            <div class="table-wrap super-items-table-wrap responsive-card-table" role="region" aria-label="Tabla desplazable horizontalmente" tabindex="0">
                 <table>
                     <thead>
                     <tr>
@@ -853,7 +853,7 @@
                     </div>
                     <p class="section-note">Compras, consumos y ajustes recientes del inventario.</p>
                 </div>
-                <div class="table-wrap super-movement-history-wrap responsive-card-table">
+                <div class="table-wrap super-movement-history-wrap responsive-card-table" role="region" aria-label="Tabla desplazable horizontalmente" tabindex="0">
                     <table>
                         <thead>
                         <tr>
@@ -919,7 +919,7 @@
                     <button type="submit" class="secondary-button">Crear fuente</button>
                 </form>
                 <p class="form-feedback" id="super-price-source-feedback" role="status" aria-live="polite"></p>
-                <div class="table-wrap super-price-observation-wrap responsive-card-table">
+                <div class="table-wrap super-price-observation-wrap responsive-card-table" role="region" aria-label="Tabla desplazable horizontalmente" tabindex="0">
                     <table>
                         <thead>
                         <tr>
@@ -1026,7 +1026,7 @@
             </div>
             <p class="filter-summary super-session-summary" id="super-session-summary" aria-live="polite">La sesión reúne borradores vinculados desde barcode para revisarlos antes de confirmar stock.</p>
             <p class="form-feedback" id="super-session-status" role="status" aria-live="polite">No hay una sesión activa vinculada desde barcode local.</p>
-            <div class="table-wrap super-session-table-wrap responsive-card-table">
+            <div class="table-wrap super-session-table-wrap responsive-card-table" role="region" aria-label="Tabla desplazable horizontalmente" tabindex="0">
                 <table>
                     <thead>
                     <tr>
@@ -1100,7 +1100,7 @@
             <p class="section-note">Usá JPG locales autorizados solo para verificación manual. No los copies, persistas ni los compartas.</p>
             <p class="section-note">Los candidatos se descartan al refrescar o descartar esta revisión.</p>
             <div class="super-ticket-ocr-review-grid" id="super-ticket-ocr-review-panel" hidden>
-                <div class="table-wrap super-ticket-ocr-table-wrap responsive-card-table">
+                <div class="table-wrap super-ticket-ocr-table-wrap responsive-card-table" role="region" aria-label="Tabla desplazable horizontalmente" tabindex="0">
                     <table>
                         <thead>
                         <tr>
@@ -1254,7 +1254,7 @@
                 <button type="submit">Crear categoría</button>
             </form>
             <p class="form-feedback" id="super-category-feedback" role="status" aria-live="polite"></p>
-            <div class="table-wrap super-category-table-wrap responsive-card-table" id="super-category-table-wrap" hidden>
+            <div class="table-wrap super-category-table-wrap responsive-card-table" id="super-category-table-wrap" hidden role="region" aria-label="Tabla desplazable horizontalmente" tabindex="0">
                 <table class="super-category-table">
                     <thead>
                     <tr>

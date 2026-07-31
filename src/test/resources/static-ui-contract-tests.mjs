@@ -396,6 +396,7 @@ try {
     assert.match(appSource, /addEventListener\?\.\("hashchange"/);
     assertCssRuleHasDeclarations(stylesCss, ":root", { "--tap-target-min": "44px" });
     assertCssRuleHasDeclarations(stylesCss, ".app-shell-drawer[hidden]", { display: "none" });
+    assertDesktopSidebarCssContract(stylesCss);
     assert.doesNotMatch(stylesCss, /\.primary-tabs/);
     assertCssRuleHasDeclarations(stylesCss, ".month-tabs", { "max-width": "100%", "min-width": "0" });
     assertCssRuleHasDeclarations(stylesCss, ".month-tabs", { "width": "100%", "margin-inline": "0", "padding-inline": "0" });
@@ -417,12 +418,10 @@ try {
     assertCssRuleHasDeclarations(stylesCss, ".super-category-table-wrap.responsive-card-table", { "--responsive-card-label-width": "7.75rem" });
     assertCssRuleHasDeclarations(stylesCss, ".super-generated-list", { "white-space": "pre-wrap", "overflow-wrap": "anywhere" });
     assertCssRuleHasDeclarations(stylesCss, ".super-configuration-badge", { display: "inline-flex", "white-space": "normal" });
-    assertSimulatorResultsCellMobileOverflowContract(stylesCss);
     assertDraftEditTableMobileCssContract(stylesCss);
-    assertCssMediaRuleHasDeclarations(stylesCss, "@media (max-width: 420px)", ".responsive-card-table td", { "grid-template-columns": "1fr" });
-    assertNoCssDeclarationOutsideMedia(stylesCss, "@media (max-width: 420px)", [".responsive-card-table td"], "grid-template-columns", "1fr");
     assertResponsiveCardTableAdopterContract(indexHtml);
     assertResponsiveCardTableMarkup(indexHtml);
+    assertResponsiveTableScrollContainers(indexHtml);
     assertResponsiveCardLabels(statementsSource, ["Fecha", "Descripción", "Tipo", "Categoría", "Cuota", "Total de cuotas", "Pesos", "USD", "Notas", "Acciones"]);
     assert.match(statementsSource, /aria-label="Fecha"/);
     assert.match(statementsSource, /aria-label="Descripción"/);
@@ -5046,39 +5045,44 @@ function assertCssMediaRuleHasDeclarations(css, mediaHeader, selector, expectedD
 
 function assertResponsiveCardTableMobileCssContract(css) {
     const mediaHeader = "@media (max-width: 680px)";
-    const cardCellColumns = "minmax(6.5rem, var(--responsive-card-label-width)) minmax(0, 1fr)";
-    assertCssMediaRuleHasDeclarations(css, mediaHeader, ".responsive-card-table td", {
-        "grid-template-columns": cardCellColumns,
-        "white-space": "normal",
-        "overflow-wrap": "anywhere"
+    const mediaCss = cssAtRuleBlocks(css, mediaHeader).join("\n");
+    assertCssMediaRuleHasDeclarations(css, mediaHeader, ".responsive-card-table", {
+        position: "relative",
+        "overflow-x": "auto",
+        "overscroll-behavior-inline": "contain"
     });
-    assertCssMediaRuleHasDeclarations(css, mediaHeader, ".responsive-card-table td::before", { content: "attr(data-label)" });
-    assertCssMediaRuleHasDeclarations(css, mediaHeader, ".responsive-card-table .super-category-group-row", {
-        padding: "0",
-        overflow: "hidden"
+    assertCssMediaRuleHasDeclarations(css, mediaHeader, ".responsive-card-table table", { display: "table" });
+    assertCssMediaRuleHasDeclarations(css, mediaHeader, ".responsive-card-table thead", { display: "table-header-group" });
+    assertCssMediaRuleHasDeclarations(css, mediaHeader, ".responsive-card-table tbody", { display: "table-row-group" });
+    assertCssMediaRuleHasDeclarations(css, mediaHeader, ".responsive-card-table tr", { display: "table-row" });
+    assertCssMediaRuleHasDeclarations(css, mediaHeader, ".responsive-card-table td", { display: "table-cell" });
+    assertCssMediaRuleHasDeclarations(css, mediaHeader, ".responsive-card-table tbody td:first-child", {
+        position: "sticky",
+        left: "0"
     });
-    assertNoResponsiveCardCellDeclarationOutsideMedia(css, mediaHeader, "grid-template-columns", cardCellColumns);
-    assertNoResponsiveCardCellDeclarationOutsideMedia(css, mediaHeader, "white-space", "normal");
-    assertNoResponsiveCardCellDeclarationOutsideMedia(css, mediaHeader, "overflow-wrap", "anywhere");
-    assertNoResponsiveCardCellDeclarationOutsideMedia(css, mediaHeader, "content", "attr(data-label)");
-    assertNoSupermarketGroupRowDeclarationOutsideMedia(css, mediaHeader, "padding", "0");
-    assertNoSupermarketGroupRowDeclarationOutsideMedia(css, mediaHeader, "overflow", "hidden");
-    assert.throws(
-        () => assertNoResponsiveCardCellDeclarationOutsideMedia(`${css}\n.responsive-card-table td { grid-template-columns: ${cardCellColumns}; }`, mediaHeader, "grid-template-columns", cardCellColumns),
-        /Unexpected grid-template-columns: minmax\(6\.5rem, var\(--responsive-card-label-width\)\) minmax\(0, 1fr\) in \.responsive-card-table td/
-    );
-    assert.throws(
-        () => assertNoResponsiveCardCellDeclarationOutsideMedia(`${css}\n.super-items-table-wrap.responsive-card-table [data-label] { overflow-wrap: anywhere; }`, mediaHeader, "overflow-wrap", "anywhere"),
-        /Unexpected overflow-wrap: anywhere in \.super-items-table-wrap\.responsive-card-table \[data-label\]/
-    );
-    assert.throws(
-        () => assertNoResponsiveCardCellDeclarationOutsideMedia(`${css}\nbody .responsive-card-table td::before { content: attr(data-label); }`, mediaHeader, "content", "attr(data-label)"),
-        /Unexpected content: attr\(data-label\) in body \.responsive-card-table td::before/
-    );
-    assert.throws(
-        () => assertNoSupermarketGroupRowDeclarationOutsideMedia(`${css}\n.responsive-card-table .super-category-group-row { padding: 0; }`, mediaHeader, "padding", "0"),
-        /Unexpected padding: 0 in \.responsive-card-table \.super-category-group-row/
-    );
+    assert.match(mediaCss, /\.responsive-card-table::after\s*\{[^}]*content:\s*"Deslizá para ver más"/s);
+    assert.doesNotMatch(mediaCss, /\.responsive-card-table td::before\s*\{[^}]*content:\s*attr\(data-label\)/s);
+}
+
+function assertDesktopSidebarCssContract(css) {
+    const mediaHeader = "@media (min-width: 961px)";
+    assertCssMediaRuleHasDeclarations(css, mediaHeader, ".app-shell", {
+        "grid-template-columns": "15.5rem minmax(0, 1fr)",
+        "align-items": "start"
+    });
+    assertCssMediaRuleHasDeclarations(css, mediaHeader, ".app-shell-nav", {
+        "grid-column": "1",
+        "grid-row": "1 / span 100",
+        position: "sticky"
+    });
+    assertCssMediaRuleHasDeclarations(css, mediaHeader, ".app-shell-drawer", {
+        display: "grid",
+        "grid-template-columns": "1fr"
+    });
+    assertCssMediaRuleHasDeclarations(css, mediaHeader, ".app-shell-drawer a[aria-current=\"page\"]", {
+        "border-left": "2px solid var(--accent-strong)",
+        "border-bottom": "0"
+    });
 }
 
 function assertNoResponsiveCardCellDeclarationOutsideMedia(css, mediaHeader, property, value) {
@@ -5247,6 +5251,16 @@ function assertResponsiveCardTableMarkup(html) {
     assert.match(html, /class="table-wrap simulator-table-wrap responsive-card-table"/);
     assert.match(html, /class="table-wrap super-items-table-wrap responsive-card-table"/);
     assert.match(html, /class="table-wrap super-category-table-wrap responsive-card-table"/);
+}
+
+function assertResponsiveTableScrollContainers(html) {
+    const containers = Array.from(html.matchAll(/<div\b(?=[^>]*class="[^"]*\bresponsive-card-table\b[^"]*")[^>]*>/g)).map((match) => match[0]);
+    assert.ok(containers.length >= 11, "Expected every dense table wrapper to remain a responsive-card-table container");
+    for (const container of containers) {
+        assert.match(container, /role="region"/);
+        assert.match(container, /aria-label="Tabla desplazable horizontalmente"/);
+        assert.match(container, /tabindex="0"/);
+    }
 }
 
 function assertResponsiveCardLabels(rowHtml, labels) {
