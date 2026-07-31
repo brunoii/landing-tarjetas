@@ -1,4 +1,4 @@
-const SHELL_CACHE_NAME = "privacy-safe-shell-v2";
+const SHELL_CACHE_NAME = "privacy-safe-shell-v3";
 const OFFLINE_DOCUMENT_URL = "/offline.html";
 const CACHEABLE_SHELL_URLS = new Set([
     "/",
@@ -7,7 +7,7 @@ const CACHEABLE_SHELL_URLS = new Set([
     "/manifest.webmanifest",
     "/icons/icon-192.svg",
     "/icons/icon-512.svg",
-    "/css/styles.css?v=20260730-app-shell-domain-navigation-ui",
+    "/css/styles.css?v=20260731-mobile-control-width",
     "/js/app.js?v=20260730-app-shell-domain-navigation-ui",
     "/js/api.js?v=20260727-mobile-scanner-ocr-pwa-foundation-api",
     "/js/api.js?v=20260713-pending-main",

@@ -22,6 +22,7 @@ const stage15UiToken = "20260725-super-inventory-stage15-ticket-ocr-ui";
 const foundationApiToken = "20260727-mobile-scanner-ocr-pwa-foundation-api";
 const foundationUiToken = "20260727-mobile-scanner-ocr-pwa-foundation-ui";
 const appShellUiToken = "20260730-app-shell-domain-navigation-ui";
+const mobileControlCssToken = "20260731-mobile-control-width";
 const staleApiToken = "20260712-security-hardening";
 
 await rm(moduleRoot, { force: true, recursive: true });
@@ -281,7 +282,7 @@ try {
         }
     });
     assert.match(await fallbackResponse.text(), /Sin conexión/);
-    assert.ok(indexHtml.includes(`/css/styles.css?v=${appShellUiToken}`));
+    assert.ok(indexHtml.includes(`/css/styles.css?v=${mobileControlCssToken}`));
     assert.ok(indexHtml.includes(`/js/app.js?v=${appShellUiToken}`));
     assert.ok(loginHtml.includes(`/css/styles.css?v=${freshStaticToken}`));
     assert.ok(loginHtml.includes(`/js/login.js?v=${freshStaticToken}`));
@@ -321,8 +322,8 @@ try {
     }
     assert.ok(appSource.includes(`./navigation.js?v=${appShellUiToken}`));
     assert.ok(appSource.includes(`./supermarket.js?v=${appShellUiToken}`));
-    assert.match(serviceWorkerSource, /privacy-safe-shell-v2/);
-    assert.match(serviceWorkerSource, new RegExp(`/css/styles\\.css\\?v=${appShellUiToken}`));
+    assert.match(serviceWorkerSource, /privacy-safe-shell-v3/);
+    assert.match(serviceWorkerSource, new RegExp(`/css/styles\\.css\\?v=${mobileControlCssToken}`));
     assert.match(serviceWorkerSource, new RegExp(`/js/app\\.js\\?v=${appShellUiToken}`));
     assert.match(serviceWorkerSource, new RegExp(`/js/navigation\\.js\\?v=${appShellUiToken}`));
     assert.match(serviceWorkerSource, new RegExp(`/js/supermarket\\.js\\?v=${appShellUiToken}`));
@@ -5080,9 +5081,22 @@ function assertResponsiveExpensesTableUsabilityContract(html, css, transactions)
     assert.match(html, /class="topbar mobile-control-bar"/);
     assert.match(html, /class="app-shell-nav mobile-navigation-bar"/);
     assert.match(html, /<th class="mobile-amount-column">Monto<\/th>\s*<th>Acciones<\/th>/);
-    assertCssMediaRuleHasDeclarations(css, mobileMedia, ".topbar-editorial", { display: "none" });
-    assertCssMediaRuleHasDeclarations(css, mobileMedia, ".topbar", {
+    assertCssMediaRuleHasDeclarations(css, mobileMedia, "body", {
         width: "100%",
+        "min-width": "0",
+        margin: "0",
+        "box-sizing": "border-box"
+    });
+    assertCssMediaRuleHasDeclarations(css, mobileMedia, ".mobile-control-bar", {
+        width: "100%",
+        "max-width": "none",
+        "min-width": "0",
+        "margin-inline": "0",
+        "box-sizing": "border-box",
+        "grid-template-columns": "minmax(0, 1fr)"
+    });
+    assertCssMediaRuleHasDeclarations(css, mobileMedia, ".topbar-editorial", { display: "none" });
+    assertCssMediaRuleHasDeclarations(css, mobileMedia, ".mobile-control-bar", {
         position: "sticky",
         top: "calc(var(--tap-target-min) + 0.5rem + env(safe-area-inset-top))",
         "margin-top": "calc(var(--tap-target-min) + 0.5rem + env(safe-area-inset-top))",
@@ -5092,8 +5106,14 @@ function assertResponsiveExpensesTableUsabilityContract(html, css, transactions)
     assert.match(html, /aria-label="Cerrar sesión"/);
     assert.match(html, /class="logout-label-full">Cerrar sesión<\/span>/);
     assert.match(html, /class="logout-label-compact" aria-hidden="true">Salir<\/span>/);
-    assertCssMediaRuleHasDeclarations(css, mobileMedia, ".topbar-actions", { "grid-template-columns": "minmax(0, 3fr) minmax(0, 1fr)" });
-    assertCssMediaRuleHasDeclarations(css, mobileMedia, ".topbar-actions > *", {
+    assertCssMediaRuleHasDeclarations(css, mobileMedia, ".mobile-control-bar .topbar-actions", {
+        width: "100%",
+        "max-width": "none",
+        "min-width": "0",
+        "box-sizing": "border-box",
+        "grid-template-columns": "minmax(0, 3fr) minmax(0, 1fr)"
+    });
+    assertCssMediaRuleHasDeclarations(css, mobileMedia, ".mobile-control-bar .topbar-actions > *", {
         width: "100%",
         "max-width": "100%",
         "min-width": "0",

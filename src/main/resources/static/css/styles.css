@@ -2423,13 +2423,25 @@ tbody tr:hover {
 }
 
 @media (max-width: 680px) {
+    body {
+        width: 100%;
+        min-width: 0;
+        margin: 0;
+        box-sizing: border-box;
+    }
+
     .topbar,
     .app-shell {
         width: min(100% - 1rem, 1440px);
     }
 
-    .topbar {
+    .mobile-control-bar {
         width: 100%;
+        max-width: none;
+        min-width: 0;
+        margin-inline: 0;
+        box-sizing: border-box;
+        grid-template-columns: minmax(0, 1fr);
         position: sticky;
         top: calc(var(--tap-target-min) + 0.5rem + env(safe-area-inset-top));
         z-index: 9;
@@ -2445,13 +2457,17 @@ tbody tr:hover {
         display: none;
     }
 
-    .topbar-actions {
+    .mobile-control-bar .topbar-actions {
+        width: 100%;
+        max-width: none;
+        min-width: 0;
+        box-sizing: border-box;
         grid-template-columns: minmax(0, 3fr) minmax(0, 1fr);
         align-items: stretch;
         gap: 0.5rem;
     }
 
-    .topbar-actions > * {
+    .mobile-control-bar .topbar-actions > * {
         width: 100%;
         max-width: 100%;
         min-width: 0;

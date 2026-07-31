@@ -35,6 +35,7 @@ class StaticUiContractTests {
     private static final String FOUNDATION_API_TOKEN = "20260727-mobile-scanner-ocr-pwa-foundation-api";
     private static final String FOUNDATION_UI_TOKEN = "20260727-mobile-scanner-ocr-pwa-foundation-ui";
     private static final String APP_SHELL_UI_TOKEN = "20260730-app-shell-domain-navigation-ui";
+    private static final String MOBILE_CONTROL_CSS_TOKEN = "20260731-mobile-control-width";
     private static final String STALE_API_TOKEN = "20260712-security-hardening";
 
     @Test
@@ -43,7 +44,7 @@ class StaticUiContractTests {
         String login = readStatic("login.html");
         String app = readStatic("js/app.js");
 
-        assertThat(index).contains("<link rel=\"stylesheet\" href=\"/css/styles.css?v=" + APP_SHELL_UI_TOKEN + "\">");
+        assertThat(index).contains("<link rel=\"stylesheet\" href=\"/css/styles.css?v=" + MOBILE_CONTROL_CSS_TOKEN + "\">");
         assertThat(index).doesNotContain("<link rel=\"stylesheet\" href=\"/css/styles.css\">");
         assertThat(index).contains("<script type=\"module\" src=\"/js/app.js?v=" + APP_SHELL_UI_TOKEN + "\"></script>");
         assertThat(index).doesNotContain("/css/styles.css?v=20260711-security-login", "/js/app.js?v=20260711-security-login");
@@ -1137,7 +1138,7 @@ class StaticUiContractTests {
         assertThat(manifest).doesNotContain("ticket", "ocr", "api", "auth", "archivosJPG");
 
         assertThat(worker).contains(
-                "const SHELL_CACHE_NAME = \"privacy-safe-shell-v2\";",
+                "const SHELL_CACHE_NAME = \"privacy-safe-shell-v3\";",
                 "const OFFLINE_DOCUMENT_URL = \"/offline.html\";",
                 "const CACHEABLE_SHELL_URLS = new Set([",
                 "const NETWORK_ONLY_PATTERNS = [",
@@ -1149,7 +1150,7 @@ class StaticUiContractTests {
                 "pathname.includes(\"upload\")",
                 "pathname.includes(\"private\")",
                 "pathname.endsWith(\".pdf\")",
-                "/css/styles.css?v=" + APP_SHELL_UI_TOKEN,
+                "/css/styles.css?v=" + MOBILE_CONTROL_CSS_TOKEN,
                 "/js/app.js?v=" + APP_SHELL_UI_TOKEN,
                 "/js/navigation.js?v=" + APP_SHELL_UI_TOKEN,
                 "/js/supermarket.js?v=" + APP_SHELL_UI_TOKEN,
@@ -1628,17 +1629,36 @@ class StaticUiContractTests {
         String mobileMedia = "@media (max-width: 680px)";
         String desktopMedia = "@media (min-width: 681px)";
         assertThat(index).contains("class=\"topbar mobile-control-bar\"", "class=\"app-shell-nav mobile-navigation-bar\"", "<th class=\"mobile-amount-column\">Monto</th>\n                    <th>Acciones</th>");
-        assertCssMediaRuleHasDeclarations(styles, mobileMedia, ".topbar-editorial", Map.of("display", "none"));
-        assertCssMediaRuleHasDeclarations(styles, mobileMedia, ".topbar", Map.of(
+        assertCssMediaRuleHasDeclarations(styles, mobileMedia, "body", Map.of(
                 "width", "100%",
+                "min-width", "0",
+                "margin", "0",
+                "box-sizing", "border-box"
+        ));
+        assertCssMediaRuleHasDeclarations(styles, mobileMedia, ".mobile-control-bar", Map.of(
+                "width", "100%",
+                "max-width", "none",
+                "min-width", "0",
+                "margin-inline", "0",
+                "box-sizing", "border-box",
+                "grid-template-columns", "minmax(0, 1fr)"
+        ));
+        assertCssMediaRuleHasDeclarations(styles, mobileMedia, ".topbar-editorial", Map.of("display", "none"));
+        assertCssMediaRuleHasDeclarations(styles, mobileMedia, ".mobile-control-bar", Map.of(
                 "position", "sticky",
                 "top", "calc(var(--tap-target-min) + 0.5rem + env(safe-area-inset-top))",
                 "margin-top", "calc(var(--tap-target-min) + 0.5rem + env(safe-area-inset-top))",
                 "padding", "0.45rem max(0.45rem, env(safe-area-inset-right)) 0.45rem max(0.45rem, env(safe-area-inset-left))"
         ));
         assertCssMediaRuleHasDeclarations(styles, mobileMedia, ".mobile-navigation-bar", Map.of("position", "fixed", "top", "env(safe-area-inset-top)", "z-index", "10"));
-        assertCssMediaRuleHasDeclarations(styles, mobileMedia, ".topbar-actions", Map.of("grid-template-columns", "minmax(0, 3fr) minmax(0, 1fr)"));
-        assertCssMediaRuleHasDeclarations(styles, mobileMedia, ".topbar-actions > *", Map.of(
+        assertCssMediaRuleHasDeclarations(styles, mobileMedia, ".mobile-control-bar .topbar-actions", Map.of(
+                "width", "100%",
+                "max-width", "none",
+                "min-width", "0",
+                "box-sizing", "border-box",
+                "grid-template-columns", "minmax(0, 3fr) minmax(0, 1fr)"
+        ));
+        assertCssMediaRuleHasDeclarations(styles, mobileMedia, ".mobile-control-bar .topbar-actions > *", Map.of(
                 "width", "100%",
                 "max-width", "100%",
                 "min-width", "0",
