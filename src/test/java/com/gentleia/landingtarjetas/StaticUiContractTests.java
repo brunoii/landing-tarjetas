@@ -1319,7 +1319,7 @@ class StaticUiContractTests {
                 "class=\"table-wrap super-category-table-wrap responsive-card-table\""
         );
         assertDraftEditTableMobileCssContract(styles);
-        assertDataLabels(transactions, List.of("Mes", "Fecha", "Origen", "Tarjeta / Medio", "Descripción", "Tipo", "Categoría", "Cuota", "Pesos", "USD", "Finalización", "Resumen origen", "Notas", "Acciones", "Monto"));
+        assertDataLabels(transactions, List.of("Mes", "Fecha", "Origen", "Tarjeta / Medio", "Descripción", "Tipo", "Categoría", "Cuota", "Pesos", "USD", "Finalización", "Resumen origen", "Notas", "Monto", "Acciones"));
         assertDataLabels(incomes, List.of("Mes", "Descripción", "Tipo", "Monto", "Recurrente", "Aplica desde", "Aplica hasta", "Estado", "Notas", "Acciones"));
         assertDataLabels(manualExpenses, List.of("Mes", "Descripción", "Tipo", "Cuota", "Categoría", "Pesos", "USD", "Estado", "Notas", "Acciones"));
         assertDataLabels(statements, List.of("Fecha", "Descripción", "Tipo", "Categoría", "Cuota", "Total de cuotas", "Pesos", "USD", "Notas", "Acciones"));
@@ -1607,14 +1607,17 @@ class StaticUiContractTests {
     private static void assertResponsiveExpensesTableUsabilityContract(String index, String styles, String transactions) {
         String mobileMedia = "@media (max-width: 680px)";
         String desktopMedia = "@media (min-width: 681px)";
-        assertThat(index).contains("class=\"topbar-editorial\"", "<th class=\"mobile-amount-column\">Monto</th>");
+        assertThat(index).contains("class=\"topbar-editorial\"", "<th class=\"mobile-amount-column\">Monto</th>\n                    <th>Acciones</th>");
         assertCssMediaRuleHasDeclarations(styles, mobileMedia, ".topbar-editorial", Map.of("display", "none"));
         assertCssMediaRuleHasDeclarations(styles, mobileMedia, ".topbar-actions", Map.of("grid-template-columns", "repeat(2, minmax(0, 1fr))"));
+        assertCssMediaRuleHasDeclarations(styles, mobileMedia, ".topbar-actions > *", Map.of("min-width", "0"));
         assertCssMediaRuleHasDeclarations(styles, desktopMedia, ".expenses-table-wrap", Map.of("max-height", "min(42rem, calc(100vh - 12rem))", "overflow", "auto"));
         assertCssMediaRuleHasDeclarations(styles, desktopMedia, ".expenses-table-wrap thead th", Map.of("position", "sticky", "top", "0"));
         assertCssMediaRuleHasDeclarations(styles, mobileMedia, ".expenses-table-wrap .mobile-amount", Map.of("display", "table-cell"));
         assertCssMediaRuleHasDeclarations(styles, mobileMedia, ".expenses-table-wrap .transaction-action-menu", Map.of("display", "block"));
-        assertThat(transactions).contains("class=\"transaction-action-menu\"", "summary aria-label=\"Acciones para");
+        assertCssMediaRuleHasDeclarations(styles, mobileMedia, "#tab-expenses-table .expenses-table-wrap table", Map.of("min-width", "20.5rem", "table-layout", "fixed"));
+        assertCssMediaRuleHasDeclarations(styles, mobileMedia, ".expenses-table-wrap th", Map.of("padding", "0.4rem 0.3rem", "font-size", "0.75rem"));
+        assertThat(transactions).contains("class=\"mobile-amount amount\" data-label=\"Monto\"", "class=\"transaction-action-menu\"", "summary aria-label=\"Acciones para");
     }
 
     private static void assertNoSupermarketGroupRowDeclarationOutsideMedia(String css, String mediaHeader, String property, String value) {

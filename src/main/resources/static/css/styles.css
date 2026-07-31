@@ -2434,6 +2434,11 @@ tbody tr:hover {
     .topbar-actions {
         grid-template-columns: repeat(2, minmax(0, 1fr));
         align-items: stretch;
+        gap: 0.5rem;
+    }
+
+    .topbar-actions > * {
+        min-width: 0;
     }
 
     .month-picker,
@@ -2449,6 +2454,48 @@ tbody tr:hover {
 
     .logout-form .secondary-button {
         height: 100%;
+    }
+
+    #tab-expenses-table .expenses-table-wrap table {
+        width: 100%;
+        min-width: 20.5rem;
+        table-layout: fixed;
+    }
+
+    .expenses-table-wrap th,
+    .expenses-table-wrap td {
+        padding: 0.4rem 0.3rem;
+        font-size: 0.75rem;
+    }
+
+    .expenses-table-wrap th:nth-child(2),
+    .expenses-table-wrap td:nth-child(2) {
+        width: 3.25rem;
+        white-space: nowrap;
+    }
+
+    .expenses-table-wrap th:nth-child(5),
+    .expenses-table-wrap td:nth-child(5) {
+        width: min(38vw, 8rem);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .expenses-table-wrap th:nth-child(8),
+    .expenses-table-wrap td:nth-child(8) {
+        width: 2.25rem;
+        white-space: nowrap;
+    }
+
+    .expenses-table-wrap th:nth-child(14),
+    .expenses-table-wrap td:nth-child(14) {
+        width: 4.25rem;
+    }
+
+    .expenses-table-wrap th:nth-child(15),
+    .expenses-table-wrap td:nth-child(15) {
+        width: 2.75rem;
     }
 
     .expenses-table-wrap th:nth-child(1),

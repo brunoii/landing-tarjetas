@@ -66,8 +66,8 @@ export function renderTransactions(monthDetailOrRows, month = lastMonth) {
             <td data-label="Finalización">${formatMonth(expense.estimatedFinishMonth)}</td>
             <td data-label="Resumen origen">${sourceText(expense)}</td>
             <td data-label="Notas">${escapeHtml(expense.notes || "—")}</td>
-            <td data-label="Acciones">${actionCell(expense)}</td>
             <td class="mobile-amount amount" data-label="Monto">${formatMoneyPair({ pesos: expense.amountPesos, usd: expense.amountUsd })}</td>
+            <td data-label="Acciones">${actionCell(expense)}</td>
         `;
         table.append(row);
     });

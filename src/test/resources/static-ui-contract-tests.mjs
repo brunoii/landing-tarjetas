@@ -2600,7 +2600,7 @@ try {
         assert.deepEqual(result, { rowCount: 3, visibleCount: 3, month: "2026-08" });
         assert.equal(transactionDom.elements.get("#transactions-table").children.length, 3);
         assert.match(transactionDom.elements.get("#transactions-table").children[0].innerHTML, /Real/);
-        assertResponsiveCardLabels(transactionDom.elements.get("#transactions-table").children[0].innerHTML, ["Mes", "Fecha", "Origen", "Tarjeta / Medio", "Descripción", "Tipo", "Categoría", "Cuota", "Pesos", "USD", "Finalización", "Resumen origen", "Notas", "Acciones", "Monto"]);
+        assertResponsiveCardLabels(transactionDom.elements.get("#transactions-table").children[0].innerHTML, ["Mes", "Fecha", "Origen", "Tarjeta / Medio", "Descripción", "Tipo", "Categoría", "Cuota", "Pesos", "USD", "Finalización", "Resumen origen", "Notas", "Monto", "Acciones"]);
         assert.match(transactionDom.elements.get("#transactions-table").children[0].innerHTML, /transaction-action-menu/);
         assert.match(transactionDom.elements.get("#transactions-table").children[1].innerHTML, /Proyección/);
         assert.match(transactionDom.elements.get("#transactions-table").children[2].innerHTML, /Manual/);
@@ -5071,13 +5071,16 @@ function assertResponsiveExpensesTableUsabilityContract(html, css, transactions)
     const mobileMedia = "@media (max-width: 680px)";
     const desktopMedia = "@media (min-width: 681px)";
     assert.match(html, /class="topbar-editorial"/);
-    assert.match(html, /<th class="mobile-amount-column">Monto<\/th>/);
+    assert.match(html, /<th class="mobile-amount-column">Monto<\/th>\s*<th>Acciones<\/th>/);
     assertCssMediaRuleHasDeclarations(css, mobileMedia, ".topbar-editorial", { display: "none" });
     assertCssMediaRuleHasDeclarations(css, mobileMedia, ".topbar-actions", { "grid-template-columns": "repeat(2, minmax(0, 1fr))" });
+    assertCssMediaRuleHasDeclarations(css, mobileMedia, ".topbar-actions > *", { "min-width": "0" });
     assertCssMediaRuleHasDeclarations(css, desktopMedia, ".expenses-table-wrap", { "max-height": "min(42rem, calc(100vh - 12rem))", overflow: "auto" });
     assertCssMediaRuleHasDeclarations(css, desktopMedia, ".expenses-table-wrap thead th", { position: "sticky", top: "0" });
     assertCssMediaRuleHasDeclarations(css, mobileMedia, ".expenses-table-wrap .mobile-amount", { display: "table-cell" });
     assertCssMediaRuleHasDeclarations(css, mobileMedia, ".expenses-table-wrap .transaction-action-menu", { display: "block" });
+    assertCssMediaRuleHasDeclarations(css, mobileMedia, "#tab-expenses-table .expenses-table-wrap table", { "min-width": "20.5rem", "table-layout": "fixed" });
+    assertCssMediaRuleHasDeclarations(css, mobileMedia, ".expenses-table-wrap th", { padding: "0.4rem 0.3rem", "font-size": "0.75rem" });
     assert.match(transactions, /class="transaction-action-menu"/);
     assert.match(transactions, /summary aria-label="Acciones para/);
 }
